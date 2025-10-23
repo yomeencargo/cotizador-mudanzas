@@ -23,10 +23,10 @@ export const generateQuotePDF = async () => {
   const pageHeight = pdf.internal.pageSize.getHeight()
   
   // Colores
-  const primaryColor = [37, 99, 235] // #2563eb
-  const secondaryColor = [22, 163, 74] // #16a34a
-  const textColor = [55, 65, 81] // #374151
-  const lightGray = [243, 244, 246] // #f3f4f6
+  const primaryColor: [number, number, number] = [37, 99, 235] // #2563eb
+  const secondaryColor: [number, number, number] = [22, 163, 74] // #16a34a
+  const textColor: [number, number, number] = [55, 65, 81] // #374151
+  const lightGray: [number, number, number] = [243, 244, 246] // #f3f4f6
 
   let yPosition = 20
 
