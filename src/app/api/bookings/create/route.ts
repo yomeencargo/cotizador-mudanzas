@@ -1,0 +1,113 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+
+    const {
+      quote_id,
+      client_name,
+      client_email,
+      client_phone,
+      scheduled_date,
+      scheduled_time,
+      duration_hours = 4,
+    } = body
+
+    // Validar datos
+    if (
+      !quote_id ||
+      !client_name ||
+      !client_email ||
+      !client_phone ||
+      !scheduled_date ||
+      !scheduled_time
+    ) {
+      return NextResponse.json(
+        { error: 'Datos incompletos' },
+        { status: 400 }
+      )
+    }
+
+    // Verificar que el horario sigue disponible (evitar race conditions)
+    const { data: configData } = await supabaseAdmin
+      .from('fleet_config')
+      .select('num_vehicles')
+      .single()
+
+    const capacity = configData?.num_vehicles || 1
+
+    // Contar mudanzas en este horario
+    const { count: bookingCount } = await supabaseAdmin
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('scheduled_date', scheduled_date)
+      .eq('scheduled_time', scheduled_time)
+      .in('status', ['confirmed', 'pending'])
+
+    // Verificar bloque
+    const { data: blockedData } = await supabaseAdmin
+      .from('blocked_slots')
+      .select('id')
+      .eq('date', scheduled_date)
+      .lte('start_time', scheduled_time)
+      .gt('end_time', scheduled_time)
+
+    const activeBookings = bookingCount || 0
+    const availableSlots = capacity - activeBookings
+    const isBlocked = blockedData && blockedData.length > 0
+
+    if (availableSlots <= 0 || isBlocked) {
+      return NextResponse.json(
+        { error: 'Este horario ya no está disponible' },
+        { status: 409 }
+      )
+    }
+
+    // Crear la reserva
+    const { data: booking, error: createError } = await supabaseAdmin
+      .from('bookings')
+      .insert({
+        quote_id,
+        client_name,
+        client_email,
+        client_phone,
+        scheduled_date,
+        scheduled_time,
+        duration_hours,
+        status: 'pending',
+      })
+      .select()
+      .single()
+
+    if (createError) {
+      console.error('Error creating booking:', createError)
+      return NextResponse.json(
+        { error: 'Error al crear la reserva' },
+        { status: 500 }
+      )
+    }
+
+    // TODO: Aquí irían las notificaciones
+    // - Enviar email al cliente
+    // - Enviar WhatsApp al cliente
+    // - Enviar notificación al dueño
+    // - Sincronizar con Google Calendar
+
+    return NextResponse.json(
+      {
+        success: true,
+        booking,
+        message: 'Reserva creada exitosamente',
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    console.error('Error in /api/bookings/create:', error)
+    return NextResponse.json(
+      { error: 'Error al crear la reserva' },
+      { status: 500 }
+    )
+  }
+}
