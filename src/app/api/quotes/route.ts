@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Aquí se consultarían las cotizaciones de la base de datos
-    const quotes = []
+    const quotes: any[] = []
 
     return NextResponse.json({
       success: true,
