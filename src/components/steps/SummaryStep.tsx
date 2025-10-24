@@ -18,8 +18,8 @@ import {
 } from 'lucide-react'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
 import { generateQuotePDF } from '@/lib/pdfGenerator'
+import { getPricingConfig } from '@/lib/pricingService'
 import toast from 'react-hot-toast'
-import { PRICING } from '@/config/pricing'
 import { format } from 'date-fns'
 
 interface SummaryStepProps {
@@ -46,6 +46,22 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     calculateTotals,
     setConfirmed,
   } = useQuoteStore()
+
+  const [freeKilometers, setFreeKilometers] = useState(50) // Valor por defecto
+
+  // Cargar kilómetros gratis dinámicamente
+  useEffect(() => {
+    const loadFreeKilometers = async () => {
+      try {
+        const pricing = await getPricingConfig()
+        setFreeKilometers(pricing.freeKilometers)
+      } catch (error) {
+        console.error('Error loading free kilometers:', error)
+        // Mantener el valor por defecto si falla
+      }
+    }
+    loadFreeKilometers()
+  }, [])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -252,15 +268,15 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                   <span className="text-sm text-gray-600">📏 Distancia estimada:</span>
                   <span className="font-semibold text-primary-600">{totalDistance} km</span>
                 </div>
-                {totalDistance > PRICING.freeKilometers && (
+                {totalDistance > freeKilometers && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Primeros {PRICING.freeKilometers} km incluidos. 
-                    Se cobran {totalDistance - PRICING.freeKilometers} km adicionales.
+                    Primeros {freeKilometers} km incluidos. 
+                    Se cobran {totalDistance - freeKilometers} km adicionales.
                   </p>
                 )}
-                {totalDistance <= PRICING.freeKilometers && (
+                {totalDistance <= freeKilometers && (
                   <p className="text-xs text-green-600 mt-1">
-                    ✅ Distancia incluida en el precio base (hasta {PRICING.freeKilometers} km gratis)
+                    ✅ Distancia incluida en el precio base (hasta {freeKilometers} km gratis)
                   </p>
                 )}
               </div>

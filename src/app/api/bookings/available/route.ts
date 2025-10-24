@@ -21,12 +21,19 @@ export async function GET(request: NextRequest) {
     if (configError) {
       console.error('Error fetching fleet config:', configError)
       return NextResponse.json(
-        { error: 'Error obteniendo configuración' },
+        { error: 'Error obteniendo configuración de flota' },
         { status: 500 }
       )
     }
 
-    const capacity = configData?.num_vehicles || 1
+    if (!configData) {
+      return NextResponse.json(
+        { error: 'Configuración de flota no encontrada' },
+        { status: 404 }
+      )
+    }
+
+    const capacity = configData.num_vehicles
 
     // 2. Horarios disponibles
     const timeSlots = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00']

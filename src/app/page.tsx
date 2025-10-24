@@ -74,6 +74,23 @@ export default function Home() {
       </div>
 
       <ChatBot />
+
+      {/* Footer */}
+      <footer className="bg-gray-50 border-t border-gray-200 py-6 mt-12">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-xs text-gray-500">
+            ©2025 - Desarrollado por{' '}
+            <a 
+              href="https://iaenblanco.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              IAenBlanco.com
+            </a>
+          </p>
+        </div>
+      </footer>
     </main>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useQuoteStore } from '@/store/quoteStore'
 import { itemsCatalog, categories } from '@/data/itemsCatalog'
+import { getPackagingOptions, PackagingOption } from '@/lib/packagingService'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
 import Modal from '../ui/Modal'
@@ -10,46 +11,6 @@ import Input from '../ui/Input'
 import { Search, Plus, Minus, Trash2, Package, AlertCircle, Box, Info, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateId } from '@/lib/utils'
-import { PRICING } from '@/config/pricing'
-
-// Tipos de embalaje disponibles
-const packagingTypes = [
-  { 
-    id: 'none', 
-    name: 'Sin embalaje', 
-    price: PRICING.packaging.none, 
-    description: 'El item se transporta sin protección adicional',
-    icon: '⚪'
-  },
-  { 
-    id: 'film', 
-    name: 'Film plástico', 
-    price: PRICING.packaging.film, 
-    description: 'Protección básica contra polvo y rayaduras ligeras',
-    icon: '📦'
-  },
-  { 
-    id: 'cardboard', 
-    name: 'Cartón corrugado', 
-    price: PRICING.packaging.cardboard, 
-    description: 'Protección media contra golpes y movimientos',
-    icon: '📄'
-  },
-  { 
-    id: 'box', 
-    name: 'Caja de cartón', 
-    price: PRICING.packaging.box, 
-    description: 'Protección completa, ideal para objetos frágiles',
-    icon: '📦'
-  },
-  { 
-    id: 'box_premium', 
-    name: 'Caja + embalaje interior', 
-    price: PRICING.packaging.boxPremium, 
-    description: 'Máxima protección con burbujas y relleno especializado',
-    icon: '🎁'
-  },
-]
 
 interface ItemsSelectionStepProps {
   onNext: () => void
@@ -67,6 +28,8 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   const [showPackagingBanner, setShowPackagingBanner] = useState(true)
   const [selectedItemForPackaging, setSelectedItemForPackaging] = useState<string | null>(null)
   const [selectedPackaging, setSelectedPackaging] = useState<string>('none')
+  const [packagingTypes, setPackagingTypes] = useState<PackagingOption[]>([])
+  const [loadingPackaging, setLoadingPackaging] = useState(true)
   const [customItem, setCustomItem] = useState({
     name: '',
     volume: 0,
@@ -76,6 +39,24 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   useEffect(() => {
     calculateTotals()
   }, [items, calculateTotals])
+
+  // Cargar opciones de embalaje dinámicamente
+  useEffect(() => {
+    const loadPackagingOptions = async () => {
+      try {
+        setLoadingPackaging(true)
+        const options = await getPackagingOptions()
+        setPackagingTypes(options)
+      } catch (error) {
+        console.error('Error loading packaging options:', error)
+        toast.error('Error al cargar opciones de embalaje')
+      } finally {
+        setLoadingPackaging(false)
+      }
+    }
+
+    loadPackagingOptions()
+  }, [])
 
   // Cargar preferencia del banner desde localStorage
   useEffect(() => {

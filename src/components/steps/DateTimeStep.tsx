@@ -137,12 +137,12 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
 
   // Horarios disponibles
   const timeSlots = [
-    { time: '08:00', label: '8:00 AM' },
-    { time: '09:00', label: '9:00 AM' },
-    { time: '10:00', label: '10:00 AM' },
-    { time: '11:00', label: '11:00 AM' },
-    { time: '14:00', label: '2:00 PM' },
-    { time: '15:00', label: '3:00 PM' },
+    { time: '08:00', label: '08:00 hrs' },
+    { time: '09:00', label: '09:00 hrs' },
+    { time: '10:00', label: '10:00 hrs' },
+    { time: '11:00', label: '11:00 hrs' },
+    { time: '14:00', label: '14:00 hrs' },
+    { time: '15:00', label: '15:00 hrs' },
   ]
 
   const handleSubmit = () => {
@@ -272,7 +272,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
               </div>
               {selectedDate && availableSlots.length > 0 && (
                 <div className="text-sm font-semibold text-gray-700 bg-blue-50 px-3 py-1 rounded flex items-center gap-1">
-                  🚚 {availableSlots[0]?.capacity || 1} camión{(availableSlots[0]?.capacity || 1) > 1 ? 'es' : ''}
+                  🚚 {availableSlots[0]?.capacity} camión{availableSlots[0]?.capacity > 1 ? 'es' : ''}
                 </div>
               )}
             </div>
@@ -315,7 +315,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
-                          <span className="font-semibold w-16">{format(new Date(`2024-01-01T${slotData.time}`), 'h:mm a')}</span>
+                          <span className="font-semibold w-16">{slotData.time} hrs</span>
                           
                           {/* Mostrar ocupación con iconos de camiones */}
                           <div className="flex items-center gap-1">
@@ -362,7 +362,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
                   📅 {format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}
                 </p>
                 <p className="text-gray-700">
-                  🕐 {format(new Date(`2024-01-01T${selectedTime}`), 'h:mm a')}
+                  🕐 {selectedTime} hrs
                 </p>
                 {flexible && (
                   <p className="text-green-600 mt-2 text-sm font-semibold">

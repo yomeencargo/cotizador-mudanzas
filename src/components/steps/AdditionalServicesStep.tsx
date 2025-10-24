@@ -1,53 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuoteStore } from '@/store/quoteStore'
+import { getAdditionalServices, AdditionalService } from '@/lib/additionalServicesService'
 import Button from '../ui/Button'
 import Checkbox from '../ui/Checkbox'
 import Card from '../ui/Card'
 import { Wrench, Package, Camera, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { PRICING } from '@/config/pricing'
 
 interface AdditionalServicesStepProps {
   onNext: () => void
   onPrevious: () => void
 }
 
-const services = [
-  {
-    id: 'disassembly',
-    name: 'Desarme de Muebles',
-    description: 'Desmontaje profesional de camas, roperos, estantes, etc.',
-    icon: Wrench,
-    price: PRICING.services.disassembly,
-  },
-  {
-    id: 'assembly',
-    name: 'Armado de Muebles',
-    description: 'Montaje de todos tus muebles en el destino',
-    icon: Wrench,
-    price: PRICING.services.assembly,
-  },
-  {
-    id: 'packing',
-    name: 'Embalaje Profesional',
-    description: 'Empaque seguro de objetos frágiles y delicados',
-    icon: Package,
-    price: PRICING.services.packing,
-  },
-  {
-    id: 'unpacking',
-    name: 'Desembalaje',
-    description: 'Desempaque y ubicación de items en destino',
-    icon: Package,
-    price: PRICING.services.unpacking,
-  },
-]
-
 export default function AdditionalServicesStep({ onNext, onPrevious }: AdditionalServicesStepProps) {
   const { additionalServices, setAdditionalServices, calculateTotals } = useQuoteStore()
   
+  const [services, setServices] = useState<AdditionalService[]>([])
+  const [loadingServices, setLoadingServices] = useState(true)
   const [formData, setFormData] = useState({
     disassembly: additionalServices.disassembly,
     assembly: additionalServices.assembly,
@@ -56,6 +27,23 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
     observations: additionalServices.observations,
     photos: additionalServices.photos,
   })
+
+  // Cargar servicios adicionales dinámicamente
+  useEffect(() => {
+    const loadAdditionalServices = async () => {
+      try {
+        setLoadingServices(true)
+        const servicesData = await getAdditionalServices()
+        setServices(servicesData)
+      } catch (error) {
+        console.error('Error loading additional services:', error)
+        toast.error('Error al cargar servicios adicionales')
+      } finally {
+        setLoadingServices(false)
+      }
+    }
+    loadAdditionalServices()
+  }, [])
 
   const handleServiceToggle = (serviceId: string) => {
     setFormData({
@@ -105,8 +93,14 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
 
       <Card variant="elevated">
         {/* Servicios */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          {services.map((service) => {
+        {loadingServices ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando servicios...</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
+            {services.map((service) => {
             const Icon = service.icon
             const isSelected = formData[service.id as keyof typeof formData]
             
@@ -139,7 +133,8 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
               </div>
             )
           })}
-        </div>
+          </div>
+        )}
 
         {/* Total servicios */}
         {totalServicesPrice > 0 && (

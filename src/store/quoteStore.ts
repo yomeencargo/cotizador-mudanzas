@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { PRICING } from '@/config/pricing'
+import { getPricingConfig } from '@/lib/pricingService'
 import { calculateDistanceByAddresses } from '@/lib/mapsService'
 
 export interface PersonalInfo {
@@ -184,6 +184,9 @@ export const useQuoteStore = create<QuoteState>()(
       calculateTotals: async () => {
         const state = get()
         
+        // Obtener configuración de precios dinámicamente
+        const pricing = await getPricingConfig()
+        
         const totalVolume = state.items.reduce(
           (sum, item) => sum + item.volume * item.quantity,
           0
@@ -220,38 +223,38 @@ export const useQuoteStore = create<QuoteState>()(
           }
         }
 
-        // Cálculo de precio base
-        let basePrice = PRICING.basePrice
+        // Cálculo de precio base usando configuración dinámica
+        let basePrice = pricing.basePrice
 
         // Precio por volumen
-        basePrice += totalVolume * PRICING.pricePerCubicMeter
+        basePrice += totalVolume * pricing.pricePerCubicMeter
 
-        // Ajuste por distancia
-        // Solo cobrar por km que excedan el umbral de km gratis
-        const chargeableKm = Math.max(0, distance - PRICING.freeKilometers)
-        basePrice += chargeableKm * PRICING.pricePerKilometer
+        // Ajuste por distancia (solo cobrar km adicionales después de los km gratis)
+        const freeKilometers = pricing.freeKilometers || 50
+        const chargeableKm = Math.max(0, distance - freeKilometers)
+        basePrice += chargeableKm * pricing.pricePerKilometer
 
         // Ajuste por piso sin ascensor
         if (state.origin.details && !state.origin.details.hasElevator) {
-          basePrice += state.origin.details.floor * PRICING.pricePerFloorNoElevator
+          basePrice += state.origin.details.floor * pricing.floorSurcharge
         }
         if (state.destination.details && !state.destination.details.hasElevator) {
-          basePrice += state.destination.details.floor * PRICING.pricePerFloorNoElevator
+          basePrice += state.destination.details.floor * pricing.floorSurcharge
         }
 
-        // Cargo por sábado
+        // Cargo por sábado (usando porcentaje)
         if (state.dateTime) {
           const dayOfWeek = new Date(state.dateTime).getDay()
           if (dayOfWeek === 6) { // 6 = Sábado
-            basePrice += PRICING.saturdaySurcharge
+            basePrice += (basePrice * pricing.timeSurcharges.saturday) / 100
           }
         }
 
         // Servicios adicionales
-        if (state.additionalServices.disassembly) basePrice += PRICING.services.disassembly
-        if (state.additionalServices.assembly) basePrice += PRICING.services.assembly
-        if (state.additionalServices.packing) basePrice += PRICING.services.packing
-        if (state.additionalServices.unpacking) basePrice += PRICING.services.unpacking
+        if (state.additionalServices.disassembly) basePrice += pricing.additionalServices.disassembly
+        if (state.additionalServices.assembly) basePrice += pricing.additionalServices.assembly
+        if (state.additionalServices.packing) basePrice += pricing.additionalServices.packing
+        if (state.additionalServices.unpacking) basePrice += pricing.additionalServices.unpacking
 
         // Costo de embalaje por item
         const packagingCost = state.items.reduce((sum, item) => {
@@ -264,11 +267,11 @@ export const useQuoteStore = create<QuoteState>()(
 
         // Items frágiles o de vidrio
         const fragileCount = state.items.filter((item) => item.isFragile || item.isGlass).length
-        basePrice += fragileCount * PRICING.fragileItemSurcharge
+        basePrice += fragileCount * pricing.specialPackaging.fragile
 
         // Descuento por flexibilidad
         if (state.isFlexible) {
-          basePrice *= (1 - PRICING.flexibilityDiscount)
+          basePrice -= (basePrice * pricing.discounts.flexibility) / 100
         }
 
         set({

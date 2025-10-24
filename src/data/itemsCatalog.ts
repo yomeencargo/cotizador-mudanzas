@@ -54,7 +54,6 @@ export const itemsCatalog: CatalogItem[] = [
   { id: 'caja-mediana', name: 'Caja Mediana', category: 'Otros', volume: 0.1, weight: 10, isFragile: false, isHeavy: false, isGlass: false, image: '📦' },
   { id: 'caja-ropa', name: 'Caja de Ropa', category: 'Otros', volume: 0.2, weight: 15, isFragile: false, isHeavy: false, isGlass: false, image: '📦' },
   { id: 'bicicleta', name: 'Bicicleta', category: 'Otros', volume: 0.5, weight: 15, isFragile: false, isHeavy: false, isGlass: false, image: '🚲' },
-  { id: 'plantas', name: 'Plantas Grandes', category: 'Otros', volume: 0.3, weight: 10, isFragile: true, isHeavy: false, isGlass: false, image: '🌱' },
 ]
 
 export const categories = [

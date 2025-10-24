@@ -31,12 +31,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el horario sigue disponible (evitar race conditions)
-    const { data: configData } = await supabaseAdmin
+    const { data: configData, error: configError } = await supabaseAdmin
       .from('fleet_config')
       .select('num_vehicles')
       .single()
 
-    const capacity = configData?.num_vehicles || 1
+    if (configError || !configData) {
+      return NextResponse.json(
+        { error: 'Error obteniendo configuración de flota' },
+        { status: 500 }
+      )
+    }
+
+    const capacity = configData.num_vehicles
 
     // Contar mudanzas en este horario
     const { count: bookingCount } = await supabaseAdmin

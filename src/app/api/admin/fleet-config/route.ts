@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-// GET - Obtener configuración actual
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { data, error } = await supabaseAdmin
+    // Obtener configuración de flota
+    const { data: config, error } = await supabaseAdmin
       .from('fleet_config')
       .select('*')
       .single()
@@ -12,59 +12,74 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching fleet config:', error)
       return NextResponse.json(
-        { error: 'Error obteniendo configuración' },
+        { error: 'Error obteniendo configuración de flota' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(config)
   } catch (error) {
-    console.error('Error in GET /api/admin/fleet-config:', error)
+    console.error('Error in /api/admin/fleet-config:', error)
     return NextResponse.json(
-      { error: 'Error obteniendo configuración' },
+      { error: 'Error obteniendo configuración de flota' },
       { status: 500 }
     )
   }
 }
 
-// POST - Actualizar configuración
-export async function POST(request: NextRequest) {
+export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
     const { num_vehicles } = body
 
     if (!num_vehicles || num_vehicles < 1) {
       return NextResponse.json(
-        { error: 'Número de vehículos inválido' },
+        { error: 'Número de vehículos debe ser mayor a 0' },
         { status: 400 }
       )
     }
 
-    const { data, error } = await supabaseAdmin
+    // Primero obtener el ID del registro existente
+    const { data: existingConfig } = await supabaseAdmin
       .from('fleet_config')
-      .update({
+      .select('id')
+      .single()
+
+    if (!existingConfig) {
+      return NextResponse.json(
+        { error: 'No se encontró configuración de flota' },
+        { status: 404 }
+      )
+    }
+
+    // Actualizar configuración de flota
+    const { data: config, error } = await supabaseAdmin
+      .from('fleet_config')
+      .update({ 
         num_vehicles,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
+      .eq('id', existingConfig.id)
       .select()
       .single()
 
     if (error) {
       console.error('Error updating fleet config:', error)
       return NextResponse.json(
-        { error: 'Error actualizando configuración' },
+        { error: 'Error al actualizar la configuración de flota' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data,
+      config,
+      message: 'Configuración de flota actualizada correctamente'
     })
   } catch (error) {
-    console.error('Error in POST /api/admin/fleet-config:', error)
+    console.error('Error in /api/admin/fleet-config PATCH:', error)
     return NextResponse.json(
-      { error: 'Error actualizando configuración' },
+      { error: 'Error al actualizar la configuración de flota' },
       { status: 500 }
     )
   }
