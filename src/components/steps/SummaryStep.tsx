@@ -22,6 +22,16 @@ import { getPricingConfig } from '@/lib/pricingService'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
+// Configuración de precios por defecto para evitar errores
+const DEFAULT_PRICING = {
+  services: {
+    disassembly: 15000,
+    assembly: 15000,
+    packing: 25000,
+    unpacking: 20000
+  }
+}
+
 interface SummaryStepProps {
   onPrevious: () => void
   onReset: () => void
@@ -48,19 +58,30 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   } = useQuoteStore()
 
   const [freeKilometers, setFreeKilometers] = useState(50) // Valor por defecto
+  const [pricingConfig, setPricingConfig] = useState(DEFAULT_PRICING) // Configuración dinámica
 
-  // Cargar kilómetros gratis dinámicamente
+  // Cargar configuración de precios dinámicamente desde el panel de admin
   useEffect(() => {
-    const loadFreeKilometers = async () => {
+    const loadPricingConfig = async () => {
       try {
         const pricing = await getPricingConfig()
         setFreeKilometers(pricing.freeKilometers)
+        
+        // Actualizar la configuración de precios con los valores del admin
+        setPricingConfig({
+          services: {
+            disassembly: pricing.additionalServices.disassembly,
+            assembly: pricing.additionalServices.assembly,
+            packing: pricing.additionalServices.packing,
+            unpacking: pricing.additionalServices.unpacking
+          }
+        })
       } catch (error) {
-        console.error('Error loading free kilometers:', error)
-        // Mantener el valor por defecto si falla
+        console.error('Error loading pricing config:', error)
+        // Mantener los valores por defecto si falla
       }
     }
-    loadFreeKilometers()
+    loadPricingConfig()
   }, [])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -383,25 +404,25 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 {additionalServices.disassembly && (
                   <div className="flex justify-between text-sm">
                     <span>✓ Desarme de muebles</span>
-                    <span className="font-semibold">${PRICING.services.disassembly.toLocaleString()}</span>
+                    <span className="font-semibold">${pricingConfig.services.disassembly.toLocaleString()}</span>
                   </div>
                 )}
                 {additionalServices.assembly && (
                   <div className="flex justify-between text-sm">
                     <span>✓ Armado de muebles</span>
-                    <span className="font-semibold">${PRICING.services.assembly.toLocaleString()}</span>
+                    <span className="font-semibold">${pricingConfig.services.assembly.toLocaleString()}</span>
                   </div>
                 )}
                 {additionalServices.packing && (
                   <div className="flex justify-between text-sm">
                     <span>✓ Embalaje profesional</span>
-                    <span className="font-semibold">${PRICING.services.packing.toLocaleString()}</span>
+                    <span className="font-semibold">${pricingConfig.services.packing.toLocaleString()}</span>
                   </div>
                 )}
                 {additionalServices.unpacking && (
                   <div className="flex justify-between text-sm">
                     <span>✓ Desembalaje</span>
-                    <span className="font-semibold">${PRICING.services.unpacking.toLocaleString()}</span>
+                    <span className="font-semibold">${pricingConfig.services.unpacking.toLocaleString()}</span>
                   </div>
                 )}
               </div>

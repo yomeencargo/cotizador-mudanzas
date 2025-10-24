@@ -3,6 +3,12 @@ import { useQuoteStore } from '@/store/quoteStore'
 import { formatDate, formatTime, formatCurrency } from './utils'
 
 export const generateQuotePDF = async () => {
+  // Verificar que estamos en el cliente
+  if (typeof window === 'undefined') {
+    console.error('generateQuotePDF debe ejecutarse solo en el cliente')
+    return
+  }
+
   const {
     personalInfo,
     dateTime,
