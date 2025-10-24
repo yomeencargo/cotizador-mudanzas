@@ -59,7 +59,7 @@ export default function BookingsManagement() {
 
   useEffect(() => {
     filterBookings()
-  }, [bookings, searchTerm, statusFilter, dateFilter])
+  }, [filterBookings])
 
   const fetchBookings = async () => {
     try {
