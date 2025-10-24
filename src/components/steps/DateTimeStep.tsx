@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuoteStore } from '@/store/quoteStore'
 import Button from '../ui/Button'
 import Checkbox from '../ui/Checkbox'
@@ -102,14 +102,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
   // Fechas del mes seleccionado
   const datesInSelectedMonth = datesByMonth[selectedMonth] || []
 
-  // NUEVO: Traer disponibilidad cuando cambia la fecha
-  useEffect(() => {
-    if (selectedDate) {
-      fetchAvailableSlots()
-    }
-  }, [selectedDate])
-
-  const fetchAvailableSlots = async () => {
+  const fetchAvailableSlots = useCallback(async () => {
     try {
       setLoadingSlots(true)
       const dateStr = format(selectedDate!, 'yyyy-MM-dd')
@@ -133,7 +126,14 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
     } finally {
       setLoadingSlots(false)
     }
-  }
+  }, [selectedDate])
+
+  // NUEVO: Traer disponibilidad cuando cambia la fecha
+  useEffect(() => {
+    if (selectedDate) {
+      fetchAvailableSlots()
+    }
+  }, [selectedDate, fetchAvailableSlots])
 
   // Horarios disponibles
   const timeSlots = [

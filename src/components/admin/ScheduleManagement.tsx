@@ -237,6 +237,44 @@ export default function ScheduleManagement() {
     }
   }
 
+  const editBlockedSlot = async () => {
+    if (!selectedSlot) return
+
+    if (!selectedSlot.date || !selectedSlot.start_time || !selectedSlot.end_time || !selectedSlot.reason) {
+      toast.error('Todos los campos son requeridos')
+      return
+    }
+
+    if (selectedSlot.start_time >= selectedSlot.end_time) {
+      toast.error('La hora de fin debe ser mayor a la hora de inicio')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/blocked-slots/${selectedSlot.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: selectedSlot.date,
+          start_time: selectedSlot.start_time,
+          end_time: selectedSlot.end_time,
+          reason: selectedSlot.reason
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el bloqueo')
+      }
+
+      toast.success('Bloqueo actualizado correctamente')
+      setShowEditModal(false)
+      fetchBlockedSlots()
+    } catch (error) {
+      console.error('Error updating blocked slot:', error)
+      toast.error('Error al actualizar el bloqueo')
+    }
+  }
+
   const deleteBlockedSlot = async (id: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este bloqueo?')) {
       return

@@ -53,14 +53,6 @@ export default function BookingsManagement() {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
 
-  useEffect(() => {
-    fetchBookings()
-  }, [])
-
-  useEffect(() => {
-    filterBookings()
-  }, [filterBookings])
-
   const fetchBookings = async () => {
     try {
       setLoading(true)
@@ -122,6 +114,14 @@ export default function BookingsManagement() {
 
     setFilteredBookings(filtered)
   }, [bookings, searchTerm, statusFilter, dateFilter])
+
+  useEffect(() => {
+    fetchBookings()
+  }, [])
+
+  useEffect(() => {
+    filterBookings()
+  }, [filterBookings])
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
