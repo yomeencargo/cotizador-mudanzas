@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -75,7 +75,7 @@ export default function BookingsManagement() {
     }
   }
 
-  const filterBookings = () => {
+  const filterBookings = useCallback(() => {
     let filtered = [...bookings]
 
     // Filtrar por búsqueda
@@ -121,7 +121,7 @@ export default function BookingsManagement() {
     }
 
     setFilteredBookings(filtered)
-  }
+  }, [bookings, searchTerm, statusFilter, dateFilter])
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {

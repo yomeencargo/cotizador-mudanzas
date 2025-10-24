@@ -97,7 +97,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
     if (availableMonths.length > 0 && !selectedMonth) {
       setSelectedMonth(availableMonths[0].key)
     }
-  }, [availableMonths.length, selectedMonth])
+  }, [availableMonths, selectedMonth])
 
   // Fechas del mes seleccionado
   const datesInSelectedMonth = datesByMonth[selectedMonth] || []
