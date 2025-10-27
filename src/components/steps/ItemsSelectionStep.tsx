@@ -32,7 +32,9 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   const [loadingPackaging, setLoadingPackaging] = useState(true)
   const [customItem, setCustomItem] = useState({
     name: '',
-    volume: 0,
+    height: 0,
+    width: 0,
+    depth: 0,
     weight: 0,
   })
 
@@ -102,7 +104,10 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   }
 
   const handleAddCustomItem = () => {
-    if (!customItem.name || customItem.volume <= 0 || customItem.weight <= 0) {
+    // Calcular volumen a partir de dimensiones (convertir cm a metros, luego a m³)
+    const volumeInM3 = ((customItem.height * customItem.width * customItem.depth) / 1000000).toFixed(4)
+    
+    if (!customItem.name || customItem.height <= 0 || customItem.width <= 0 || customItem.depth <= 0 || customItem.weight <= 0) {
       toast.error('Completa todos los campos del item personalizado')
       return
     }
@@ -111,7 +116,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
       id: `custom-${generateId()}`,
       name: customItem.name,
       category: 'Personalizado',
-      volume: customItem.volume,
+      volume: parseFloat(volumeInM3),
       weight: customItem.weight,
       quantity: 1,
       isFragile: false,
@@ -119,9 +124,9 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
       isGlass: false,
     })
 
-    setCustomItem({ name: '', volume: 0, weight: 0 })
+    setCustomItem({ name: '', height: 0, width: 0, depth: 0, weight: 0 })
     setShowCustomModal(false)
-    toast.success('Item personalizado agregado')
+    toast.success(`Item agregado - Volumen: ${volumeInM3} m³`)
   }
 
   const handleOpenPackagingModal = (itemId: string) => {
@@ -448,16 +453,55 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
             value={customItem.name}
             onChange={(e) => setCustomItem({ ...customItem, name: e.target.value })}
           />
-          <Input
-            label="Volumen estimado (m³)"
-            type="number"
-            step="0.1"
-            placeholder="1.5"
-            value={customItem.volume || ''}
-            onChange={(e) =>
-              setCustomItem({ ...customItem, volume: parseFloat(e.target.value) || 0 })
-            }
-          />
+          
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label="Altura (cm)"
+              type="number"
+              step="0.1"
+              placeholder="150"
+              value={customItem.height || ''}
+              onChange={(e) =>
+                setCustomItem({ ...customItem, height: parseFloat(e.target.value) || 0 })
+              }
+            />
+            <Input
+              label="Ancho (cm)"
+              type="number"
+              step="0.1"
+              placeholder="100"
+              value={customItem.width || ''}
+              onChange={(e) =>
+                setCustomItem({ ...customItem, width: parseFloat(e.target.value) || 0 })
+              }
+            />
+            <Input
+              label="Profundidad (cm)"
+              type="number"
+              step="0.1"
+              placeholder="80"
+              value={customItem.depth || ''}
+              onChange={(e) =>
+                setCustomItem({ ...customItem, depth: parseFloat(e.target.value) || 0 })
+              }
+            />
+          </div>
+          
+          {/* Mostrar volumen calculado */}
+          {(customItem.height > 0 && customItem.width > 0 && customItem.depth > 0) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-800 font-semibold">📐 Volumen calculado:</span>
+                <span className="text-blue-900 font-bold">
+                  {((customItem.height * customItem.width * customItem.depth) / 1000000).toFixed(4)} m³
+                </span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                {customItem.height} cm × {customItem.width} cm × {customItem.depth} cm
+              </p>
+            </div>
+          )}
+          
           <Input
             label="Peso estimado (kg)"
             type="number"
@@ -467,6 +511,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               setCustomItem({ ...customItem, weight: parseFloat(e.target.value) || 0 })
             }
           />
+          
           <div className="flex gap-3 pt-4">
             <Button variant="outline" onClick={() => setShowCustomModal(false)} className="flex-1">
               Cancelar
