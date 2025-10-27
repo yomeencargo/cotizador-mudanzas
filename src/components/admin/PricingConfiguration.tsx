@@ -299,9 +299,14 @@ export default function PricingConfiguration() {
             <h3 className="text-lg font-semibold">Embalaje Especial</h3>
           </div>
           <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-800">
+                <strong>💡 Nota:</strong> Estos precios se multiplican por la cantidad total de m³ de la mudanza.
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embalaje Básico (CLP)
+                Embalaje Básico (CLP por m³)
               </label>
               <Input
                 type="number"
@@ -309,10 +314,11 @@ export default function PricingConfiguration() {
                 onChange={(e) => handleInputChange('specialPackaging.fragile', Number(e.target.value))}
                 placeholder="10000"
               />
+              <p className="text-xs text-gray-500 mt-1">Se multiplica por m³ totales</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embalaje Estándar (CLP)
+                Embalaje Estándar (CLP por m³)
               </label>
               <Input
                 type="number"
@@ -320,10 +326,11 @@ export default function PricingConfiguration() {
                 onChange={(e) => handleInputChange('specialPackaging.electronics', Number(e.target.value))}
                 placeholder="15000"
               />
+              <p className="text-xs text-gray-500 mt-1">Se multiplica por m³ totales</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embalaje Premium (CLP)
+                Embalaje Premium (CLP por m³)
               </label>
               <Input
                 type="number"
@@ -331,10 +338,11 @@ export default function PricingConfiguration() {
                 onChange={(e) => handleInputChange('specialPackaging.artwork', Number(e.target.value))}
                 placeholder="25000"
               />
+              <p className="text-xs text-gray-500 mt-1">Se multiplica por m³ totales</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embalaje Especial (CLP)
+                Embalaje Especial (CLP por m³)
               </label>
               <Input
                 type="number"
@@ -342,6 +350,7 @@ export default function PricingConfiguration() {
                 onChange={(e) => handleInputChange('specialPackaging.piano', Number(e.target.value))}
                 placeholder="50000"
               />
+              <p className="text-xs text-gray-500 mt-1">Se multiplica por m³ totales</p>
             </div>
           </div>
         </Card>

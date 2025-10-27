@@ -383,7 +383,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                           </div>
                           {hasPackaging && packagingInfo && (
                             <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
-                              {packagingInfo.icon} {packagingInfo.name} - ${packagingInfo.price.toLocaleString()} c/u
+                              {packagingInfo.icon} {packagingInfo.name} - ${packagingInfo.price.toLocaleString()} por m³
                             </div>
                           )}
                         </div>
