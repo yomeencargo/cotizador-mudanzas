@@ -498,6 +498,9 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                 <div className="text-sm text-gray-600 mt-1">
                   Cantidad: {items.find(i => i.id === selectedItemForPackaging)?.quantity} unidad(es)
                 </div>
+                <div className="text-xs text-blue-700 mt-2 bg-blue-50 px-2 py-1 rounded">
+                  💡 El embalaje especial se aplica a todos los m³ de tu mudanza
+                </div>
               </div>
 
               <div>
@@ -507,7 +510,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                 <div className="space-y-2">
                   {packagingTypes.map((type) => {
                     const item = items.find(i => i.id === selectedItemForPackaging)
-                    const totalPrice = type.price * (item?.quantity || 1)
+                    const totalPrice = type.price * totalVolume // Precio por m³ × m³ totales
                     
                     return (
                       <button
@@ -526,14 +529,14 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                               <span className="font-semibold">{type.name}</span>
                               {type.price > 0 && (
                                 <span className="text-primary-600 font-bold">
-                                  ${type.price.toLocaleString()} c/u
+                                  ${type.price.toLocaleString()} por m³
                                 </span>
                               )}
                             </div>
                             <p className="text-sm text-gray-600">{type.description}</p>
-                            {type.price > 0 && item && item.quantity > 1 && (
+                            {type.price > 0 && totalVolume > 0 && (
                               <p className="text-xs text-gray-500 mt-1">
-                                Total: ${totalPrice.toLocaleString()} ({item.quantity} unidades)
+                                Total: ${totalPrice.toLocaleString()} ({totalVolume.toFixed(1)} m³)
                               </p>
                             )}
                           </div>
