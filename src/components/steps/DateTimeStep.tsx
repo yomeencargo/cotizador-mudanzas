@@ -135,16 +135,6 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
     }
   }, [selectedDate, fetchAvailableSlots])
 
-  // Horarios disponibles
-  const timeSlots = [
-    { time: '08:00', label: '08:00 hrs' },
-    { time: '09:00', label: '09:00 hrs' },
-    { time: '10:00', label: '10:00 hrs' },
-    { time: '11:00', label: '11:00 hrs' },
-    { time: '14:00', label: '14:00 hrs' },
-    { time: '15:00', label: '15:00 hrs' },
-  ]
-
   const handleSubmit = () => {
     if (!selectedDate) {
       toast.error('Por favor selecciona una fecha')
@@ -297,60 +287,59 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
 
             {!loadingSlots && availableSlots.length > 0 && (
               <div className="space-y-2">
-                {availableSlots.map((slotData) => {
-                  const isSelected = selectedTime === slotData.time
-                  const isMorning = parseInt(slotData.time) < 12
+              {availableSlots.map((slotData) => {
+                const isSelected = selectedTime === slotData.time
 
-                  return (
-                    <button
-                      key={slotData.time}
-                      onClick={() => setSelectedTime(slotData.time)}
-                      className={`
-                        w-full p-4 rounded-lg border-2 text-left transition-all
-                        ${isSelected 
-                          ? 'border-primary-600 bg-primary-50 shadow-md' 
-                          : 'border-gray-200 hover:border-primary-300'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <span className="font-semibold w-16">{slotData.time} hrs</span>
-                          
-                          {/* Mostrar ocupación con iconos de camiones */}
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: slotData.capacity }).map((_, i) => (
-                              <div
-                                key={i}
-                                className={`
-                                  w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold
-                                  ${i < slotData.booked
-                                    ? 'bg-red-200 text-red-700'
-                                    : 'bg-green-200 text-green-700'
-                                  }
-                                `}
-                                title={i < slotData.booked ? 'Ocupado' : 'Disponible'}
-                              >
-                                🚚
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="font-semibold text-gray-700 text-sm">
-                            {slotData.availableSlots} disponible{slotData.availableSlots !== 1 ? 's' : ''}
-                          </p>
-                          {isMorning && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                              ⭐ Recomendado
-                            </span>
-                          )}
+                return (
+                  <button
+                    key={slotData.time}
+                    onClick={() => setSelectedTime(slotData.time)}
+                    className={`
+                      w-full p-4 rounded-lg border-2 text-left transition-all
+                      ${isSelected 
+                        ? 'border-primary-600 bg-primary-50 shadow-md' 
+                        : 'border-gray-200 hover:border-primary-300'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="font-semibold w-16">{slotData.time} hrs</span>
+                        
+                        {/* Mostrar ocupación con iconos de camiones */}
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: slotData.capacity }).map((_, i) => (
+                            <div
+                              key={i}
+                              className={`
+                                w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold
+                                ${i < slotData.booked
+                                  ? 'bg-red-200 text-red-700'
+                                  : 'bg-green-200 text-green-700'
+                                }
+                              `}
+                              title={i < slotData.booked ? 'Ocupado' : 'Disponible'}
+                            >
+                              🚚
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </button>
-                  )
-                })}
+
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-700 text-sm">
+                          {slotData.availableSlots} disponible{slotData.availableSlots !== 1 ? 's' : ''}
+                        </p>
+                        {slotData.recommended && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                            ⭐ Recomendado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
               </div>
             )}
 

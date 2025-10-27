@@ -42,16 +42,28 @@ export async function GET(request: NextRequest) {
       .single()
 
     // Si no existe configuración, usar horarios por defecto
-    let timeSlots = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00']
+    const defaultSlots = [
+      { time: '08:00', label: '08:00 hrs', recommended: true },
+      { time: '09:00', label: '09:00 hrs', recommended: true },
+      { time: '10:00', label: '10:00 hrs', recommended: true },
+      { time: '11:00', label: '11:00 hrs', recommended: false },
+      { time: '14:00', label: '14:00 hrs', recommended: true },
+      { time: '15:00', label: '15:00 hrs', recommended: false }
+    ]
+    
+    let timeSlotsWithMetadata = defaultSlots
     
     if (scheduleConfig && scheduleConfig.time_slots && Array.isArray(scheduleConfig.time_slots)) {
-      // Extraer solo los horarios (time) del array de objetos time_slots
-      timeSlots = scheduleConfig.time_slots.map((slot: any) => slot.time)
+      timeSlotsWithMetadata = scheduleConfig.time_slots
     }
 
     // 3. Para cada horario, contar reservas y bloques
     const availability = await Promise.all(
-      timeSlots.map(async (time) => {
+      timeSlotsWithMetadata.map(async (slot) => {
+        const time = slot.time
+        const label = slot.label
+        const recommended = slot.recommended || false
+        
         // Contar mudanzas confirmadas y pendientes
         const { count: bookingCount, error: bookingError } = await supabaseAdmin
           .from('bookings')
@@ -75,6 +87,8 @@ export async function GET(request: NextRequest) {
 
         return {
           time,
+          label,
+          recommended,
           availableSlots: Math.max(0, availableSlots),
           capacity,
           booked: activeBookings,
