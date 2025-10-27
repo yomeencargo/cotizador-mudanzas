@@ -14,19 +14,24 @@ export async function POST(request: NextRequest) {
       })
 
       // Establecer cookie de autenticación (expira en 24 horas)
+      // Usar secure: true solo si estamos en HTTPS
+      const isSecure = request.url.startsWith('https://')
+      
       response.cookies.set('admin_authenticated', 'true', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isSecure,
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 // 24 horas
+        maxAge: 24 * 60 * 60, // 24 horas
+        path: '/'
       })
 
       // Cookie adicional con timestamp para control de sesión
       response.cookies.set('admin_login_time', Date.now().toString(), {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isSecure,
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 // 24 horas
+        maxAge: 24 * 60 * 60, // 24 horas
+        path: '/'
       })
 
       return response
