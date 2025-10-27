@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
+import { clearScheduleCache } from '@/lib/scheduleService'
 import { 
   Clock, 
   Save, 
@@ -80,6 +81,9 @@ export default function ScheduleConfiguration() {
       toast.success('Configuración de horarios guardada exitosamente')
       setShowConfirmModal(false)
       setHasChanges(false)
+      
+      // Limpiar cache para que los cambios se apliquen inmediatamente
+      clearScheduleCache()
     } catch (error) {
       console.error('Error saving schedule config:', error)
       toast.error('Error al guardar configuración')

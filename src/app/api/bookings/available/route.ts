@@ -35,8 +35,19 @@ export async function GET(request: NextRequest) {
 
     const capacity = configData.num_vehicles
 
-    // 2. Horarios disponibles
-    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00']
+    // 2. Obtener horarios configurados desde schedule_config
+    const { data: scheduleConfig, error: scheduleError } = await supabaseAdmin
+      .from('schedule_config')
+      .select('time_slots')
+      .single()
+
+    // Si no existe configuración, usar horarios por defecto
+    let timeSlots = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00']
+    
+    if (scheduleConfig && scheduleConfig.time_slots && Array.isArray(scheduleConfig.time_slots)) {
+      // Extraer solo los horarios (time) del array de objetos time_slots
+      timeSlots = scheduleConfig.time_slots.map((slot: any) => slot.time)
+    }
 
     // 3. Para cada horario, contar reservas y bloques
     const availability = await Promise.all(
