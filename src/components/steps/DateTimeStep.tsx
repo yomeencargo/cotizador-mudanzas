@@ -19,6 +19,8 @@ interface DateTimeStepProps {
 
 interface SlotData {
   time: string
+  label?: string
+  recommended?: boolean
   availableSlots: number
   capacity: number
   booked: number
