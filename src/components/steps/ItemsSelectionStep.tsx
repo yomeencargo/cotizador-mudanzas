@@ -157,12 +157,15 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     setSelectedItemForPackaging(null)
   }
 
-  // Calcular total de embalaje
-  const packagingTotal = items.reduce((sum, item) => {
-    if (item.packaging) {
-      return sum + (item.packaging.pricePerUnit * item.quantity)
-    }
-    return sum
+  // Calcular total de embalaje (tipos únicos × m³ totales)
+  const packagingTypes = new Set(
+    items
+      .filter(item => item.packaging && item.packaging.type !== 'none')
+      .map(item => item.packaging?.pricePerUnit || 0)
+  )
+  
+  const packagingTotal = Array.from(packagingTypes).reduce((sum, pricePerUnit) => {
+    return sum + (pricePerUnit * totalVolume)
   }, 0)
 
   // Contar items con embalaje
@@ -543,8 +546,8 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-800">
-                  <strong>💡 Tip:</strong> El embalaje se cobra por unidad. Si tienes múltiples 
-                  unidades del mismo item, el costo se multiplica automáticamente.
+                  <strong>💡 Tip:</strong> El embalaje especial se cobra multiplicando el precio por los m³ totales de tu mudanza. 
+                  Si seleccionas varios tipos de embalaje, cada uno se suma al costo final.
                 </p>
               </div>
 
