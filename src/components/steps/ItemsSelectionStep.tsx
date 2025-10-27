@@ -158,13 +158,13 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   }
 
   // Calcular total de embalaje (tipos únicos × m³ totales)
-  const packagingTypes = new Set(
+  const uniquePackagingTypes = new Set(
     items
       .filter(item => item.packaging && item.packaging.type !== 'none')
       .map(item => item.packaging?.pricePerUnit || 0)
   )
   
-  const packagingTotal = Array.from(packagingTypes).reduce((sum, pricePerUnit) => {
+  const packagingTotal = Array.from(uniquePackagingTypes).reduce((sum, pricePerUnit) => {
     return sum + (pricePerUnit * totalVolume)
   }, 0)
 
