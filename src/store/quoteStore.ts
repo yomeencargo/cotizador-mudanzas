@@ -256,17 +256,15 @@ export const useQuoteStore = create<QuoteState>()(
         if (state.additionalServices.packing) basePrice += pricing.additionalServices.packing
         if (state.additionalServices.unpacking) basePrice += pricing.additionalServices.unpacking
 
-        // Costo de embalaje especial - se multiplica por m³ totales
-        // Solo contar cada tipo de embalaje una vez (no por cada item)
-        const packagingTypes = new Set(
-          state.items
-            .filter(item => item.packaging && item.packaging.type !== 'none')
-            .map(item => item.packaging?.pricePerUnit || 0)
-        )
-        
-        const packagingCost = Array.from(packagingTypes).reduce((sum, pricePerUnit) => {
-          return sum + (pricePerUnit * totalVolume)
-        }, 0)
+        // Costo de embalaje especial - CORREGIDO: se calcula por volumen de items con embalaje
+        // Agrupar items por tipo de embalaje y calcular el volumen específico de cada tipo
+        const packagingCost = state.items
+          .filter(item => item.packaging && item.packaging.type !== 'none')
+          .reduce((acc, item) => {
+            const itemVolume = item.volume * item.quantity
+            const itemPackagingCost = item.packaging?.pricePerUnit || 0
+            return acc + (itemPackagingCost * itemVolume)
+          }, 0)
         
         basePrice += packagingCost
 

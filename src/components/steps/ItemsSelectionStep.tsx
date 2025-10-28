@@ -230,16 +230,14 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     setSelectedItemForPackaging(null)
   }
 
-  // Calcular total de embalaje (tipos únicos × m³ totales)
-  const uniquePackagingTypes = new Set(
-    items
-      .filter(item => item.packaging && item.packaging.type !== 'none')
-      .map(item => item.packaging?.pricePerUnit || 0)
-  )
-  
-  const packagingTotal = Array.from(uniquePackagingTypes).reduce((sum, pricePerUnit) => {
-    return sum + (pricePerUnit * totalVolume)
-  }, 0)
+  // Calcular total de embalaje (volumen de items con embalaje × precio por m³)
+  const packagingTotal = items
+    .filter(item => item.packaging && item.packaging.type !== 'none')
+    .reduce((sum, item) => {
+      const itemVolume = item.volume * item.quantity
+      const itemPackagingCost = item.packaging?.pricePerUnit || 0
+      return sum + (itemPackagingCost * itemVolume)
+    }, 0)
 
   // Contar items con embalaje
   const itemsWithPackaging = items.filter(item => item.packaging && item.packaging.type !== 'none').length
