@@ -408,7 +408,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Volumen Total:</span>
-                      <span className="font-bold">{totalVolume.toFixed(2)} m³</span>
+                      <span className="font-bold">{parseFloat(totalVolume.toFixed(2))} m³</span>
                     </div>
                     {itemsWithPackaging > 0 && (
                       <>
@@ -581,7 +581,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                             <p className="text-sm text-gray-600">{type.description}</p>
                             {type.price > 0 && totalVolume > 0 && (
                               <p className="text-xs text-gray-500 mt-1">
-                                Total: ${totalPrice.toLocaleString()} ({totalVolume.toFixed(1)} m³)
+                                Total: ${totalPrice.toLocaleString()} ({parseFloat(totalVolume.toFixed(1))} m³)
                               </p>
                             )}
                           </div>

@@ -324,7 +324,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                         {item.name} <span className="text-gray-500">x{item.quantity}</span>
                       </span>
                       <span className="text-xs text-gray-500">
-                        {(item.volume * item.quantity).toFixed(2)} m³
+                        {parseFloat((item.volume * item.quantity).toFixed(2))} m³
                       </span>
                     </div>
                     {hasPackaging && (
@@ -339,7 +339,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-sm text-gray-500">Volumen Total</p>
-                <p className="font-bold text-lg">{totalVolume.toFixed(2)} m³</p>
+                <p className="font-bold text-lg">{parseFloat(totalVolume.toFixed(2))} m³</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Peso Total</p>
@@ -374,7 +374,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 {/* Info importante */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                   <p className="text-xs text-blue-800">
-                    <strong>💡 Nota:</strong> El embalaje especial se cobra multiplicando el precio por los {totalVolume.toFixed(1)} m³ totales de tu mudanza.
+                    <strong>💡 Nota:</strong> El embalaje especial se cobra multiplicando el precio por los {parseFloat(totalVolume.toFixed(1))} m³ totales de tu mudanza.
                   </p>
                 </div>
                 
@@ -408,7 +408,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 
                 {/* Total */}
                 <div className="mt-4 pt-4 border-t flex justify-between font-bold text-green-700">
-                  <span>Total Embalaje Especial ({totalVolume.toFixed(1)} m³ × precio por m³):</span>
+                  <span>Total Embalaje Especial ({parseFloat(totalVolume.toFixed(1))} m³ × precio por m³):</span>
                   <span>${packagingCost.toLocaleString()}</span>
                 </div>
               </Card>
