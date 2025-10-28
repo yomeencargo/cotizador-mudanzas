@@ -76,9 +76,9 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               category: item.category,
               volume: item.volume,
               weight: item.weight,
-              isFragile: item.is_fragile,
-              isHeavy: item.is_heavy,
-              isGlass: item.is_glass,
+              is_fragile: item.is_fragile,
+              is_heavy: item.is_heavy,
+              is_glass: item.is_glass,
               image: item.image
             }))
           setItemsCatalog(catalogItems)
@@ -318,9 +318,9 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
 
                     {/* Indicadores */}
                     <div className="flex justify-center gap-1 mb-3 min-h-[20px]">
-                      {item.isFragile && <span className="text-xs">🔴</span>}
-                      {item.isHeavy && <span className="text-xs">💪</span>}
-                      {item.isGlass && <span className="text-xs">🪟</span>}
+                      {item.is_fragile && <span className="text-xs">🔴</span>}
+                      {item.is_heavy && <span className="text-xs">💪</span>}
+                      {item.is_glass && <span className="text-xs">🪟</span>}
                     </div>
 
                     {/* Controles */}
