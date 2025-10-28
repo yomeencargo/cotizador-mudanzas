@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import WelcomeScreen from '@/components/steps/WelcomeScreen'
 import PersonalInfoStep from '@/components/steps/PersonalInfoStep'
 import DateTimeStep from '@/components/steps/DateTimeStep'
@@ -27,25 +27,34 @@ const steps = [
 export default function Home() {
   const [currentStep, setCurrentStep] = useState(0)
   const { resetQuote, isConfirmed } = useQuoteStore()
+  const mainContentRef = useRef<HTMLDivElement>(null)
+
+  // Hacer scroll automático cuando cambia el paso
+  useEffect(() => {
+    // Pequeño delay para asegurar que el DOM se ha actualizado
+    const timeoutId = setTimeout(() => {
+      // Scroll al inicio de la página
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [currentStep])
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
   const handleReset = () => {
     resetQuote()
     setCurrentStep(0)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const CurrentStepComponent = steps[currentStep].component
@@ -59,12 +68,11 @@ export default function Home() {
           isCompleted={isConfirmed}
           onStepClick={(step) => {
             setCurrentStep(step + 1)
-            window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
         />
       )}
       
-      <div className="container mx-auto px-4 py-8">
+      <div ref={mainContentRef} className="container mx-auto px-4 py-8">
         <CurrentStepComponent
           onNext={handleNext}
           onPrevious={handlePrevious}
