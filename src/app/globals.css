@@ -53,3 +53,12 @@
   background: #555;
 }
 
+/* Ocultar scrollbar para el contenedor de la barra de progreso */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
