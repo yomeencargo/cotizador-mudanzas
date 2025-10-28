@@ -241,8 +241,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                         : 'border-gray-200 hover:border-primary-300'
                     }`}
                   >
-                    <div className="text-4xl text-center mb-2">{item.image}</div>
-                    <h4 className="text-sm font-semibold text-center mb-1 min-h-[40px]">
+                    <h4 className="text-lg font-semibold text-center mb-1 min-h-[52px] flex items-center justify-center">
                       {item.name}
                     </h4>
                     <div className="text-xs text-gray-500 text-center mb-3">
@@ -250,7 +249,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                     </div>
 
                     {/* Indicadores */}
-                    <div className="flex justify-center gap-1 mb-3">
+                    <div className="flex justify-center gap-1 mb-3 min-h-[20px]">
                       {item.isFragile && <span className="text-xs">🔴</span>}
                       {item.isHeavy && <span className="text-xs">💪</span>}
                       {item.isGlass && <span className="text-xs">🪟</span>}
