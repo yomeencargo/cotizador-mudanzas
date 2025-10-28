@@ -9,6 +9,7 @@ import FleetManagement from '@/components/admin/FleetManagement'
 import ScheduleManagement from '@/components/admin/ScheduleManagement'
 import PricingConfiguration from '@/components/admin/PricingConfiguration'
 import ScheduleConfiguration from '@/components/admin/ScheduleConfiguration'
+import ItemsManagement from '@/components/admin/ItemsManagement'
 import { 
   Calendar, 
   Truck, 
@@ -22,7 +23,8 @@ import {
   XCircle,
   TrendingUp,
   TrendingDown,
-  LogOut
+  LogOut,
+  Package
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -109,6 +111,7 @@ export default function AdminDashboard() {
   const settingsTabs = [
     { id: 'pricing', name: 'Precios', icon: DollarSign },
     { id: 'schedule-config', name: 'Horarios', icon: Clock },
+    { id: 'inventory', name: 'Inventario', icon: Package },
   ]
 
   const getStatusColor = (status: string) => {
@@ -426,6 +429,7 @@ export default function AdminDashboard() {
             {/* Settings Content */}
             {activeSettingsTab === 'pricing' && <PricingConfiguration />}
             {activeSettingsTab === 'schedule-config' && <ScheduleConfiguration />}
+            {activeSettingsTab === 'inventory' && <ItemsManagement />}
           </div>
         )}
       </div>

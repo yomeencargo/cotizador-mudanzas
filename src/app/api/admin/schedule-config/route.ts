@@ -3,10 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
-    // Obtener configuración de horarios desde la base de datos
+    // Obtener configuración de horarios desde la base de datos (el más reciente)
     const { data: config, error } = await supabaseAdmin
       .from('schedule_config')
       .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single()
 
     if (error) {
@@ -108,15 +110,19 @@ export async function PUT(request: NextRequest) {
       updated_at: new Date().toISOString()
     }
 
-    // Verificar si ya existe configuración
+    // UPSERT: Insertar o actualizar según exista configuración
+    // Primero intentamos obtener la configuración existente
     const { data: existingConfig } = await supabaseAdmin
       .from('schedule_config')
       .select('id')
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     let result
-    if (existingConfig) {
-      // Actualizar configuración existente
+    
+    if (existingConfig?.id) {
+      // Actualizar la configuración existente
       result = await supabaseAdmin
         .from('schedule_config')
         .update(dbData)
@@ -124,7 +130,12 @@ export async function PUT(request: NextRequest) {
         .select()
         .single()
     } else {
-      // Crear nueva configuración
+      // No hay configuración, eliminar duplicados antiguos y crear una nueva
+      await supabaseAdmin
+        .from('schedule_config')
+        .delete()
+        .lt('created_at', new Date().toISOString()) // Eliminar todos los anteriores
+      
       result = await supabaseAdmin
         .from('schedule_config')
         .insert({

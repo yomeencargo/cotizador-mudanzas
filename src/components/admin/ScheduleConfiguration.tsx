@@ -54,10 +54,41 @@ export default function ScheduleConfiguration() {
       setLoading(true)
       const response = await fetch('/api/admin/schedule-config')
       const data = await response.json()
+      
+      // Validar que los datos estén completos
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      // Validar estructura de datos
+      if (!data.daysOfWeek || !data.timeSlots) {
+        throw new Error('Estructura de datos inválida')
+      }
+      
       setConfig(data)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching schedule config:', error)
-      toast.error('Error al cargar configuración de horarios')
+      toast.error(error.message || 'Error al cargar configuración de horarios')
+      // Establecer valores por defecto
+      setConfig({
+        daysOfWeek: {
+          monday: true,
+          tuesday: true,
+          wednesday: true,
+          thursday: true,
+          friday: true,
+          saturday: true,
+          sunday: false
+        },
+        timeSlots: [
+          { time: '08:00', label: '08:00 hrs', recommended: true },
+          { time: '09:00', label: '09:00 hrs', recommended: true },
+          { time: '10:00', label: '10:00 hrs', recommended: true },
+          { time: '11:00', label: '11:00 hrs', recommended: false },
+          { time: '14:00', label: '14:00 hrs', recommended: true },
+          { time: '15:00', label: '15:00 hrs', recommended: false }
+        ]
+      })
     } finally {
       setLoading(false)
     }
@@ -186,7 +217,7 @@ export default function ScheduleConfiguration() {
     )
   }
 
-  if (!config) {
+  if (!config || !config.daysOfWeek || !config.timeSlots) {
     return (
       <div className="text-center py-12">
         <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />

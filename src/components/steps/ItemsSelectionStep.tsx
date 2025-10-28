@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useQuoteStore } from '@/store/quoteStore'
-import { itemsCatalog, categories } from '@/data/itemsCatalog'
 import { getPackagingOptions, PackagingOption } from '@/lib/packagingService'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
@@ -11,6 +10,20 @@ import Input from '../ui/Input'
 import { Search, Plus, Minus, Trash2, Package, AlertCircle, Box, Info, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateId } from '@/lib/utils'
+
+interface CatalogItem {
+  id: string
+  name: string
+  category: string
+  volume: number
+  weight: number
+  is_fragile: boolean
+  is_heavy: boolean
+  is_glass: boolean
+  image: string
+}
+
+const CATEGORIES = ['Todos', 'Sala', 'Comedor', 'Dormitorio', 'Electrodomésticos', 'Oficina', 'Otros']
 
 interface ItemsSelectionStepProps {
   onNext: () => void
@@ -21,6 +34,8 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   const { items, addItem, updateItem, removeItem, calculateTotals, totalVolume } =
     useQuoteStore()
 
+  const [itemsCatalog, setItemsCatalog] = useState<CatalogItem[]>([])
+  const [loadingCatalog, setLoadingCatalog] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('Todos')
   const [searchTerm, setSearchTerm] = useState('')
   const [showCustomModal, setShowCustomModal] = useState(false)
@@ -41,6 +56,46 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   useEffect(() => {
     calculateTotals()
   }, [items, calculateTotals])
+
+  // Cargar catálogo desde Supabase
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        setLoadingCatalog(true)
+        const response = await fetch('/api/admin/catalog-items')
+        const data = await response.json()
+        
+        if (response.ok && Array.isArray(data)) {
+          // Transformar datos de Supabase al formato esperado
+          // FILTRAR: Solo mostrar items activos en el cotizador
+          const catalogItems = data
+            .filter((item: any) => item.is_active) // Solo items activos
+            .map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              category: item.category,
+              volume: item.volume,
+              weight: item.weight,
+              isFragile: item.is_fragile,
+              isHeavy: item.is_heavy,
+              isGlass: item.is_glass,
+              image: item.image
+            }))
+          setItemsCatalog(catalogItems)
+        } else {
+          console.error('Error loading catalog:', data)
+          toast.error('Error al cargar catálogo de items')
+        }
+      } catch (error) {
+        console.error('Error fetching catalog:', error)
+        toast.error('Error al cargar catálogo de items')
+      } finally {
+        setLoadingCatalog(false)
+      }
+    }
+
+    loadCatalog()
+  }, [])
 
   // Cargar opciones de embalaje dinámicamente
   useEffect(() => {
@@ -73,6 +128,19 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesCategory && matchesSearch
   })
+
+  if (loadingCatalog) {
+    return (
+      <div className="max-w-7xl mx-auto animate-slide-up">
+        <div className="flex items-center justify-center py-24">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando catálogo de items...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const getItemQuantity = (itemId: string) => {
     const item = items.find((i) => i.id === itemId)
@@ -212,7 +280,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
+                {CATEGORIES.map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
@@ -241,7 +309,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                         : 'border-gray-200 hover:border-primary-300'
                     }`}
                   >
-                    <h4 className="text-lg font-semibold text-center mb-1 min-h-[52px] flex items-center justify-center">
+                    <h4 className="text-lg font-semibold text-center mb-2 min-h-[52px] flex items-center justify-center">
                       {item.name}
                     </h4>
                     <div className="text-xs text-gray-500 text-center mb-3">
