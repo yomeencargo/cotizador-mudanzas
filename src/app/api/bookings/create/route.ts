@@ -13,6 +13,10 @@ export async function POST(request: NextRequest) {
       scheduled_date,
       scheduled_time,
       duration_hours = 4,
+      payment_type,
+      total_price,
+      origin_address,
+      destination_address,
     } = body
 
     // Validar datos
@@ -84,6 +88,10 @@ export async function POST(request: NextRequest) {
         scheduled_time,
         duration_hours,
         status: 'pending',
+        payment_type,
+        total_price,
+        origin_address,
+        destination_address,
       })
       .select()
       .single()

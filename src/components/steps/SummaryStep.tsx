@@ -111,10 +111,39 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     }
   }
 
-  const handleConfirmReservation = async () => {
+  // Función helper para construir dirección completa
+  const buildAddress = (addr: any) => {
+    if (!addr.address) return ''
+    
+    const parts = [
+      addr.address.street,
+      addr.address.number,
+      addr.address.commune,
+      addr.address.region
+    ].filter(Boolean)
+    
+    if (addr.address.additionalInfo) {
+      parts.push(addr.address.additionalInfo)
+    }
+    
+    return parts.join(', ')
+  }
+
+  const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
     setIsSubmitting(true)
     
     try {
+      // Construir direcciones completas
+      const originFull = buildAddress(origin)
+      const destinationFull = buildAddress(destination)
+      
+      // Determinar precio según tipo de pago
+      // 'completo' = pagar el 100% con descuento del 5% = 95% del precio
+      // 'mitad' = pagar el 50%
+      const finalPrice = paymentType === 'completo' 
+        ? Math.round(estimatedPrice * 0.95) 
+        : Math.round(estimatedPrice * 0.5)
+      
       // Crear reserva en la BD
       const response = await fetch('/api/bookings/create', {
         method: 'POST',
@@ -127,6 +156,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           scheduled_date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
           scheduled_time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
           duration_hours: 4,
+          payment_type: paymentType,
+          total_price: finalPrice,
+          origin_address: originFull,
+          destination_address: destinationFull,
         }),
       })
 
@@ -549,7 +582,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                     </p>
                   </div>
                   <Button
-                    onClick={handleConfirmReservation}
+                    onClick={() => handleConfirmReservation('completo')}
                     isLoading={isSubmitting}
                     className="w-full bg-green-600 hover:bg-green-700"
                     size="lg"
@@ -572,7 +605,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                     </p>
                   </div>
                   <Button
-                    onClick={handleConfirmReservation}
+                    onClick={() => handleConfirmReservation('mitad')}
                     isLoading={isSubmitting}
                     className="w-full"
                     size="lg"
