@@ -36,6 +36,11 @@ interface Booking {
   duration_hours: number
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   notes?: string
+  payment_type?: string
+  total_price?: number
+  original_price?: number
+  origin_address?: string
+  destination_address?: string
   created_at: string
   confirmed_at?: string
   completed_at?: string
@@ -140,6 +145,26 @@ export default function BookingsManagement() {
     } catch (error) {
       console.error('Error updating booking status:', error)
       toast.error('Error al actualizar el estado')
+    }
+  }
+
+  const updatePaymentType = async (bookingId: string, newPaymentType: string) => {
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_type: newPaymentType })
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el tipo de pago')
+      }
+
+      toast.success('Tipo de pago actualizado correctamente')
+      fetchBookings()
+    } catch (error) {
+      console.error('Error updating payment type:', error)
+      toast.error('Error al actualizar el tipo de pago')
     }
   }
 
@@ -281,6 +306,9 @@ export default function BookingsManagement() {
                     Estado
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Precio
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contacto
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -316,6 +344,22 @@ export default function BookingsManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      {(booking.original_price || booking.total_price) ? (
+                        <div>
+                          <div className="text-sm font-semibold text-green-700">
+                            ${(booking.original_price || booking.total_price)?.toLocaleString()}
+                          </div>
+                          {booking.payment_type === 'mitad' && booking.original_price && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
+                              Pagado: ${(booking.total_price || 0).toLocaleString()} (mitad)
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {booking.client_phone}
                       </div>
@@ -324,27 +368,43 @@ export default function BookingsManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          onClick={() => {
-                            setSelectedBooking(booking)
-                            setShowDetailsModal(true)
-                          }}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setSelectedBooking(booking)
-                            setShowEditModal(true)
-                          }}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowDetailsModal(true)
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedBooking(booking)
+                              setShowEditModal(true)
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        {booking.payment_type === 'mitad' && (
+                          <Button
+                            onClick={() => {
+                              if (confirm('¿Cambiar el estado de pago de "mitad" a "completo"?')) {
+                                updatePaymentType(booking.id, 'completo')
+                              }
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                          >
+                            ✓ Marcar completo
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -405,6 +465,47 @@ export default function BookingsManagement() {
                 {selectedBooking.status}
               </span>
             </div>
+
+            {selectedBooking.original_price && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Precio Total</label>
+                <p className="text-sm font-semibold text-green-700">
+                  ${selectedBooking.original_price.toLocaleString()}
+                </p>
+                {selectedBooking.payment_type === 'mitad' && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Pagado: ${selectedBooking.total_price?.toLocaleString()} (mitad)
+                  </p>
+                )}
+              </div>
+            )}
+
+            {selectedBooking.payment_type && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tipo de Pago</label>
+                <p className="text-sm text-gray-900 capitalize">{selectedBooking.payment_type}</p>
+              </div>
+            )}
+
+            {selectedBooking.origin_address && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  Dirección Origen
+                </label>
+                <p className="text-sm text-gray-900">{selectedBooking.origin_address}</p>
+              </div>
+            )}
+
+            {selectedBooking.destination_address && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-green-600" />
+                  Dirección Destino
+                </label>
+                <p className="text-sm text-gray-900">{selectedBooking.destination_address}</p>
+              </div>
+            )}
 
             {selectedBooking.notes && (
               <div>

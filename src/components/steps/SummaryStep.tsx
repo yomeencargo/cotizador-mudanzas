@@ -158,6 +158,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           duration_hours: 4,
           payment_type: paymentType,
           total_price: finalPrice,
+          original_price: estimatedPrice,
           origin_address: originFull,
           destination_address: destinationFull,
         }),

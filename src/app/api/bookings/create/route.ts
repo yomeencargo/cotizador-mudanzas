@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       duration_hours = 4,
       payment_type,
       total_price,
+      original_price,
       origin_address,
       destination_address,
     } = body
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         payment_type,
         total_price,
+        original_price,
         origin_address,
         destination_address,
       })

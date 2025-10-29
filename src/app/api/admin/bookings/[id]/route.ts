@@ -8,17 +8,19 @@ export async function PATCH(
   try {
     const { id } = params
     const body = await request.json()
-    const { status, notes } = body
+    const { status, notes, payment_type } = body
 
-    if (!status) {
+    if (!status && !payment_type) {
       return NextResponse.json(
-        { error: 'Estado requerido' },
+        { error: 'Estado o tipo de pago requerido' },
         { status: 400 }
       )
     }
 
     // Preparar datos de actualización
-    const updateData: any = { status }
+    const updateData: any = {}
+    if (status) updateData.status = status
+    if (payment_type) updateData.payment_type = payment_type
 
     // Agregar timestamp según el estado
     if (status === 'confirmed' && !body.confirmed_at) {
