@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function GET() {
   try {
     const today = new Date().toISOString().split('T')[0]
+    console.log('[API] Fetching today bookings for date:', today)
 
     // Obtener reservas de hoy ordenadas por hora
     const { data: bookings, error } = await supabaseAdmin
@@ -20,12 +21,19 @@ export async function GET() {
       .order('scheduled_time', { ascending: true })
 
     if (error) {
-      console.error('Error fetching today bookings:', error)
+      console.error('[API] Error fetching today bookings:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      })
       return NextResponse.json(
-        { error: 'Error obteniendo reservas de hoy' },
+        { error: 'Error obteniendo reservas de hoy', details: error.message },
         { status: 500 }
       )
     }
+
+    console.log(`[API] Successfully fetched ${bookings?.length || 0} today bookings`)
 
     // Simular precio estimado (en producción deberías tenerlo en la BD)
     const bookingsWithPrice = bookings?.map(booking => ({
@@ -35,9 +43,9 @@ export async function GET() {
 
     return NextResponse.json(bookingsWithPrice)
   } catch (error) {
-    console.error('Error in /api/admin/today-bookings:', error)
+    console.error('[API] Exception in /api/admin/today-bookings:', error)
     return NextResponse.json(
-      { error: 'Error obteniendo reservas de hoy' },
+      { error: 'Error obteniendo reservas de hoy', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

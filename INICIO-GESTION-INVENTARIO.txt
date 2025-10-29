@@ -1,0 +1,109 @@
+╔══════════════════════════════════════════════════════════════════╗
+║  ✅ GESTIÓN DE INVENTARIO - COMPLETADA                           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📦 FUNCIONALIDAD IMPLEMENTADA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Agregar items (nombre, categoría, volumen, peso, características)
+✅ Editar items existentes
+✅ Eliminar items del catálogo
+✅ Suspender/Activar items (mostrar/ocultar en cotizador)
+✅ Modificar m³ y peso de cualquier item
+✅ Agregar a categorías (Sala, Comedor, Dormitorio, etc.)
+
+🎯 PASOS PARA USAR:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ CREAR LA TABLA EN SUPABASE:
+   • Ve a tu proyecto en Supabase
+   • Abre "SQL Editor" → "New Query"
+   • Copia el archivo: CREAR-TABLA-CATALOG-ITEMS.sql
+   • Pega y ejecuta el script
+   • Verifica que la tabla "catalog_items" existe en "Table Editor"
+
+2️⃣ ACCEDER AL PANEL DE GESTIÓN:
+   • Inicia sesión en /admin
+   • Haz clic en "Configuración"
+   • Haz clic en "Inventario"
+   • ¡Ya puedes gestionar tu inventario!
+
+3️⃣ PROBAR LA FUNCIONALIDAD:
+   • Crea un item nuevo
+   • Edita un item existente
+   • Suspende/activa un item
+   • Verifica en el cotizador que los cambios se aplican
+
+📂 ARCHIVOS IMPORTANTES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• CREAR-TABLA-CATALOG-ITEMS.sql       → SQL para Supabase
+• INSTRUCCIONES-GESTION-INVENTARIO.md → Instrucciones completas
+• RESUMEN-GESTION-INVENTARIO.md      → Detalles técnicos
+
+🔧 ARCHIVOS CREADOS/MODIFICADOS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ src/app/api/admin/catalog-items/route.ts (API)
+✅ src/components/admin/ItemsManagement.tsx (Gestión)
+✅ src/app/admin/page.tsx (Integración)
+✅ src/components/steps/ItemsSelectionStep.tsx (Cotizador)
+
+📊 ESTRUCTURA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Supabase (catalog_items)
+    ↓ API REST
+Admin Panel (ItemsManagement)
+    ↓ Edición/Creación
+Cotizador (ItemsSelectionStep)
+    ↓ Usuario Final
+
+🎨 INTERFAZ:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Panel en: Admin → Configuración → Inventario
+• Estadísticas de items (total, activos, inactivos)
+• Filtros por categoría y búsqueda
+• Tarjetas visuales por item
+• Modal para crear/editar items
+
+🗃️ BASE DE DATOS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tabla: catalog_items
+Campos: id, name, category, volume, weight, is_fragile, 
+        is_heavy, is_glass, image, is_active, display_order
+
+📦 DATOS INICIALES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+30+ items precargados:
+• 7 items de Sala
+• 4 items de Comedor
+• 9 items de Dormitorio
+• 5 items de Electrodomésticos
+• 3 items de Oficina
+• 4 items de Otros
+
+🔐 SEGURIDAD:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• RLS (Row Level Security) activado
+• Lectura pública de items activos
+• Escritura solo para admins
+• Validación de campos requeridos
+
+📝 RECOMENDACIONES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Ejecuta el SQL en Supabase ANTES de usar el panel
+2. Revisa los items iniciales que se cargan automáticamente
+3. Prueba crear, editar y suspender items
+4. Verifica que los cambios se reflejan en el cotizador
+5. Haz backup de la BD antes de eliminar muchos items
+
+✨ RESULTADO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Los items del inventario ahora son:
+✅ Completamente administrables desde el admin
+✅ Sin necesidad de cambios de código
+✅ Gestión visual e intuitiva
+✅ Base de datos centralizada
+✅ Escalable y mantenible
+
+╔══════════════════════════════════════════════════════════════════╗
+║  🚀 SIGUIENTE PASO: Ejecutar CREAR-TABLA-CATALOG-ITEMS.sql     ║
+╚══════════════════════════════════════════════════════════════════╝
+

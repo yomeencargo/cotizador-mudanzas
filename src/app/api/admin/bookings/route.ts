@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
+    console.log('[API] Fetching bookings from database...')
+    
     // Obtener todas las reservas con paginación
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
@@ -26,18 +28,24 @@ export async function GET() {
       .order('scheduled_time', { ascending: true })
 
     if (error) {
-      console.error('Error fetching bookings:', error)
+      console.error('[API] Error fetching bookings:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      })
       return NextResponse.json(
-        { error: 'Error obteniendo reservas' },
+        { error: 'Error obteniendo reservas', details: error.message },
         { status: 500 }
       )
     }
 
+    console.log(`[API] Successfully fetched ${bookings?.length || 0} bookings`)
     return NextResponse.json(bookings || [])
   } catch (error) {
-    console.error('Error in /api/admin/bookings:', error)
+    console.error('[API] Exception in /api/admin/bookings:', error)
     return NextResponse.json(
-      { error: 'Error obteniendo reservas' },
+      { error: 'Error obteniendo reservas', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
