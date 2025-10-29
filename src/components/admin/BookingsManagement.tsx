@@ -19,7 +19,9 @@ import {
   Phone,
   Mail,
   MapPin,
-  DollarSign
+  DollarSign,
+  Plus,
+  Download
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -54,9 +56,30 @@ export default function BookingsManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [blockOnly, setBlockOnly] = useState(false)
+  const [newBooking, setNewBooking] = useState({
+    quote_id: '',
+    client_name: '',
+    client_email: '',
+    client_phone: '',
+    scheduled_date: '',
+    scheduled_time: '',
+    duration_hours: 4,
+    status: 'pending',
+    payment_type: '',
+    total_price: '',
+    original_price: '',
+    origin_address: '',
+    destination_address: '',
+    notes: ''
+  })
 
   const fetchBookings = async () => {
     try {
@@ -99,7 +122,9 @@ export default function BookingsManagement() {
       nextWeek.setDate(nextWeek.getDate() + 7)
 
       filtered = filtered.filter(booking => {
-        const bookingDate = new Date(booking.scheduled_date)
+        // Parsear fecha como local para evitar desfase por UTC
+        const [y, m, d] = booking.scheduled_date.split('-').map(Number)
+        const bookingDate = new Date(y, (m || 1) - 1, d || 1)
         
         switch (dateFilter) {
           case 'today':
@@ -111,6 +136,23 @@ export default function BookingsManagement() {
           case 'month':
             return bookingDate.getMonth() === today.getMonth() && 
                    bookingDate.getFullYear() === today.getFullYear()
+          case 'range': {
+            if (!customStartDate && !customEndDate) return true
+            let inRange = true
+            if (customStartDate) {
+              const [sy, sm, sd] = customStartDate.split('-').map(Number)
+              const start = new Date(sy, (sm || 1) - 1, sd || 1)
+              inRange = inRange && bookingDate >= start
+            }
+            if (customEndDate) {
+              const [ey, em, ed] = customEndDate.split('-').map(Number)
+              const end = new Date(ey, (em || 1) - 1, ed || 1)
+              // Incluir el día final completo
+              end.setHours(23, 59, 59, 999)
+              inRange = inRange && bookingDate <= end
+            }
+            return inRange
+          }
           default:
             return true
         }
@@ -188,6 +230,172 @@ export default function BookingsManagement() {
     }
   }
 
+  const addHoursToTime = (time: string, hoursToAdd: number) => {
+    if (!time) return ''
+    const [h, m] = time.split(':').map(Number)
+    const date = new Date()
+    date.setHours(h, m || 0, 0, 0)
+    date.setHours(date.getHours() + (Number(hoursToAdd) || 0))
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+    return `${hh}:${mm}`
+  }
+
+  const handleCreate = async () => {
+    try {
+      setCreating(true)
+      if (blockOnly) {
+        // Reservar un cupo (1 camión) sin cliente: crear una reserva mínima
+        const timestamp = Date.now()
+        const payload: any = {
+          quote_id: `ADMIN-BLOQUEO-${timestamp}`,
+          client_name: 'Bloqueo manual (admin)',
+          client_email: 'bloqueo+admin@example.com',
+          client_phone: '0000000000',
+          scheduled_date: newBooking.scheduled_date,
+          scheduled_time: newBooking.scheduled_time,
+          duration_hours: Number(newBooking.duration_hours) || 4,
+          status: 'confirmed',
+          payment_type: null,
+          total_price: null,
+          original_price: null,
+          origin_address: null,
+          destination_address: null,
+          notes: newBooking.notes || 'Reserva de cupo sin cliente (admin)'
+        }
+        const response = await fetch('/api/admin/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}))
+          throw new Error(err?.error || 'Error al reservar el cupo')
+        }
+        toast.success('Cupo reservado correctamente (1 camión)')
+        setShowAddModal(false)
+        setBlockOnly(false)
+        setNewBooking({
+          quote_id: '', client_name: '', client_email: '', client_phone: '',
+          scheduled_date: '', scheduled_time: '', duration_hours: 4, status: 'pending',
+          payment_type: '', total_price: '', original_price: '', origin_address: '',
+          destination_address: '', notes: ''
+        })
+        fetchBookings()
+        return
+      }
+
+      // Crear reserva normal
+      const timestamp = Date.now()
+      const payload: any = {
+        quote_id: newBooking.quote_id || `ADMIN-${timestamp}`,
+        client_name: newBooking.client_name,
+        client_email: newBooking.client_email,
+        client_phone: newBooking.client_phone,
+        scheduled_date: newBooking.scheduled_date,
+        scheduled_time: newBooking.scheduled_time,
+        duration_hours: Number(newBooking.duration_hours) || 4,
+        status: newBooking.status,
+        payment_type: newBooking.payment_type || null,
+        total_price: newBooking.total_price ? Number(newBooking.total_price) : null,
+        original_price: newBooking.original_price ? Number(newBooking.original_price) : null,
+        origin_address: newBooking.origin_address || null,
+        destination_address: newBooking.destination_address || null,
+        notes: newBooking.notes || null,
+      }
+
+      const response = await fetch('/api/admin/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err?.error || 'Error al crear la reserva')
+      }
+      toast.success('Reserva creada correctamente')
+      setShowAddModal(false)
+      setNewBooking({
+        quote_id: '', client_name: '', client_email: '', client_phone: '',
+        scheduled_date: '', scheduled_time: '', duration_hours: 4, status: 'pending',
+        payment_type: '', total_price: '', original_price: '', origin_address: '',
+        destination_address: '', notes: ''
+      })
+      fetchBookings()
+    } catch (error) {
+      console.error('Error creating booking:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al crear la reserva')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const escapeCsvValue = (value: any) => {
+    if (value === null || value === undefined) return ''
+    const str = String(value)
+    // Escapar comillas y envolver en comillas si contiene coma, comilla o salto de línea
+    const needsQuotes = /[",\n]/.test(str)
+    const escaped = str.replace(/"/g, '""')
+    return needsQuotes ? `"${escaped}"` : escaped
+  }
+
+  const handleExportCSV = () => {
+    const headers = [
+      'id',
+      'quote_id',
+      'client_name',
+      'client_email',
+      'client_phone',
+      'scheduled_date',
+      'scheduled_time',
+      'duration_hours',
+      'status',
+      'notes',
+      'payment_type',
+      'total_price',
+      'original_price',
+      'origin_address',
+      'destination_address',
+      'created_at',
+      'confirmed_at',
+      'completed_at',
+      'cancelled_at'
+    ]
+
+    const rows = filteredBookings.map((b) => headers.map((h) => escapeCsvValue((b as any)[h])).join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    link.href = url
+    link.download = `reservas_${y}-${m}-${d}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleDelete = async (bookingId: string) => {
+    try {
+      const ok = confirm('¿Eliminar esta reserva? Esta acción no se puede deshacer.')
+      if (!ok) return
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err?.error || 'Error al eliminar la reserva')
+      }
+      toast.success('Reserva eliminada')
+      fetchBookings()
+    } catch (error) {
+      console.error('Error deleting booking:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar la reserva')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -209,9 +417,17 @@ export default function BookingsManagement() {
             {filteredBookings.length} de {bookings.length} reservas
           </p>
         </div>
-        <Button onClick={fetchBookings} variant="outline" size="sm">
-          🔄 Actualizar
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={fetchBookings} variant="outline" size="sm">
+            🔄 Actualizar
+          </Button>
+          <Button onClick={handleExportCSV} variant="outline" size="sm">
+            <Download className="w-4 h-4 mr-2" /> Exportar CSV
+          </Button>
+          <Button onClick={() => setShowAddModal(true)} size="sm">
+            <Plus className="w-4 h-4 mr-2" /> Nueva Reserva
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -250,32 +466,64 @@ export default function BookingsManagement() {
             />
           </div>
 
-          <div>
+          <div className={dateFilter === 'range' ? 'md:col-span-2' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha
             </label>
             <Select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => {
+                setDateFilter(e.target.value)
+                if (e.target.value !== 'range') {
+                  setCustomStartDate('')
+                  setCustomEndDate('')
+                }
+              }}
               options={[
                 { value: 'all', label: 'Todas las fechas' },
                 { value: 'today', label: 'Hoy' },
                 { value: 'tomorrow', label: 'Mañana' },
                 { value: 'week', label: 'Esta semana' },
                 { value: 'month', label: 'Este mes' },
+                { value: 'range', label: 'Rango personalizado' },
               ]}
             />
+            {dateFilter === 'range' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Desde</label>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="text-sm min-w-[160px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="text-sm min-w-[160px]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-end">
+          <div className="flex items-end justify-end">
             <Button
               onClick={() => {
                 setSearchTerm('')
                 setStatusFilter('all')
                 setDateFilter('all')
+                setCustomStartDate('')
+                setCustomEndDate('')
               }}
               variant="outline"
-              className="w-full"
+              size="sm"
+              className="whitespace-nowrap px-3"
             >
               <Filter className="w-4 h-4 mr-2" />
               Limpiar Filtros
@@ -331,7 +579,11 @@ export default function BookingsManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {format(new Date(booking.scheduled_date), 'dd/MM/yyyy', { locale: es })}
+                        {(() => {
+                          const [y, m, d] = booking.scheduled_date.split('-').map(Number)
+                          const localDate = new Date(y, (m || 1) - 1, d || 1)
+                          return format(localDate, 'dd/MM/yyyy', { locale: es })
+                        })()}
                       </div>
                       <div className="text-sm text-gray-500">
                         {booking.scheduled_time}
@@ -390,6 +642,14 @@ export default function BookingsManagement() {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                          <Button
+                            onClick={() => handleDelete(booking.id)}
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                         {booking.payment_type === 'mitad' && (
                           <Button
@@ -414,6 +674,176 @@ export default function BookingsManagement() {
           </div>
         )}
       </Card>
+
+      {/* Add Modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title={blockOnly ? 'Bloquear Horario' : 'Nueva Reserva'}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <input
+              id="blockOnly"
+              type="checkbox"
+              checked={blockOnly}
+              onChange={(e) => setBlockOnly(e.target.checked)}
+            />
+            <label htmlFor="blockOnly" className="text-sm text-gray-700">Reservar cupo (1 camión) sin cliente</label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <Input
+                type="date"
+                value={newBooking.scheduled_date}
+                onChange={(e) => setNewBooking({ ...newBooking, scheduled_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+              <Input
+                type="time"
+                value={newBooking.scheduled_time}
+                onChange={(e) => setNewBooking({ ...newBooking, scheduled_time: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Duración (horas)</label>
+              <Input
+                type="number"
+                min="1"
+                max="12"
+                value={String(newBooking.duration_hours)}
+                onChange={(e) => setNewBooking({ ...newBooking, duration_hours: Number(e.target.value) as any })}
+              />
+            </div>
+            {!blockOnly && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <Select
+                  value={newBooking.status}
+                  onChange={(e) => setNewBooking({ ...newBooking, status: e.target.value })}
+                  options={[
+                    { value: 'pending', label: 'Pendiente' },
+                    { value: 'confirmed', label: 'Confirmado' },
+                    { value: 'completed', label: 'Completado' },
+                    { value: 'cancelled', label: 'Cancelado' },
+                  ]}
+                />
+              </div>
+            )}
+          </div>
+
+          {!blockOnly && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Cliente</label>
+                <Input
+                  type="text"
+                  value={newBooking.client_name}
+                  onChange={(e) => setNewBooking({ ...newBooking, client_name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <Input
+                  type="email"
+                  value={newBooking.client_email}
+                  onChange={(e) => setNewBooking({ ...newBooking, client_email: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <Input
+                  type="tel"
+                  value={newBooking.client_phone}
+                  onChange={(e) => setNewBooking({ ...newBooking, client_phone: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ID Cotización (opcional)</label>
+                <Input
+                  type="text"
+                  value={newBooking.quote_id}
+                  onChange={(e) => setNewBooking({ ...newBooking, quote_id: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          {!blockOnly && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección Origen</label>
+                <Input
+                  type="text"
+                  value={newBooking.origin_address}
+                  onChange={(e) => setNewBooking({ ...newBooking, origin_address: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección Destino</label>
+                <Input
+                  type="text"
+                  value={newBooking.destination_address}
+                  onChange={(e) => setNewBooking({ ...newBooking, destination_address: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          {!blockOnly && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pago</label>
+                <Select
+                  value={newBooking.payment_type}
+                  onChange={(e) => setNewBooking({ ...newBooking, payment_type: e.target.value })}
+                  options={[
+                    { value: '', label: 'Seleccionar' },
+                    { value: 'completo', label: 'Completo' },
+                    { value: 'mitad', label: 'Mitad' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Precio Original</label>
+                <Input
+                  type="number"
+                  value={newBooking.original_price}
+                  onChange={(e) => setNewBooking({ ...newBooking, original_price: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Pagado</label>
+                <Input
+                  type="number"
+                  value={newBooking.total_price}
+                  onChange={(e) => setNewBooking({ ...newBooking, total_price: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{blockOnly ? 'Motivo del bloqueo' : 'Notas'}</label>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              rows={3}
+              value={newBooking.notes}
+              onChange={(e) => setNewBooking({ ...newBooking, notes: e.target.value })}
+              placeholder={blockOnly ? 'Ej: Mantención, fuera de servicio, etc.' : 'Detalles de la reserva...'}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button onClick={() => setShowAddModal(false)} variant="outline">Cancelar</Button>
+            <Button onClick={handleCreate} disabled={creating}>{creating ? 'Guardando...' : (blockOnly ? 'Bloquear' : 'Crear Reserva')}</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Details Modal */}
       <Modal
@@ -449,7 +879,11 @@ export default function BookingsManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Fecha</label>
                 <p className="text-sm text-gray-900">
-                  {format(new Date(selectedBooking.scheduled_date), 'dd/MM/yyyy', { locale: es })}
+                  {(() => {
+                    const [y, m, d] = selectedBooking.scheduled_date.split('-').map(Number)
+                    const localDate = new Date(y, (m || 1) - 1, d || 1)
+                    return format(localDate, 'dd/MM/yyyy', { locale: es })
+                  })()}
                 </p>
               </div>
               <div>

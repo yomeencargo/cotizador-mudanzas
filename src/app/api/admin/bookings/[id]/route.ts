@@ -22,6 +22,19 @@ export async function PATCH(
     if (status) updateData.status = status
     if (payment_type) updateData.payment_type = payment_type
 
+    // Si se marca como pago completo, sincronizar total_price con original_price
+    if (payment_type === 'completo') {
+      const { data: existing, error: fetchError } = await supabaseAdmin
+        .from('bookings')
+        .select('original_price, total_price')
+        .eq('id', id)
+        .single()
+
+      if (!fetchError && existing && existing.original_price) {
+        updateData.total_price = existing.original_price
+      }
+    }
+
     // Agregar timestamp según el estado
     if (status === 'confirmed' && !body.confirmed_at) {
       updateData.confirmed_at = new Date().toISOString()
