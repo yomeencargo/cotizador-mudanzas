@@ -41,20 +41,23 @@ export async function GET() {
       console.error('[API] Error fetching fleet config:', fleetError)
     }
 
-    // 4. Ingresos del mes (simulado - necesitarías agregar campo de precio a bookings)
+    // 4. Ingresos del mes (usar precios reales de las reservas - TODAS excepto canceladas)
     const { data: monthlyBookings, error: monthlyError } = await supabaseAdmin
       .from('bookings')
-      .select('id')
+      .select('id, original_price, total_price')
       .gte('scheduled_date', startOfMonth)
       .lte('scheduled_date', endOfMonth)
-      .eq('status', 'confirmed')
+      .neq('status', 'cancelled')
 
     if (monthlyError) {
       console.error('[API] Error fetching monthly bookings:', monthlyError)
     }
 
-    // Simular ingresos (en producción deberías tener el precio real)
-    const monthlyRevenue = (monthlyBookings?.length || 0) * 45000 // Precio promedio estimado
+    // Calcular ingresos reales sumando los precios (priorizar total_price si existe, sino original_price)
+    const monthlyRevenue = monthlyBookings?.reduce((sum, booking) => {
+      const price = booking.total_price || booking.original_price || 0
+      return sum + (typeof price === 'number' ? price : 0)
+    }, 0) || 0
 
     // 5. Calcular ocupación promedio (simulado)
     const totalSlots = 6 * 30 // 6 horarios por día * 30 días
@@ -62,7 +65,7 @@ export async function GET() {
     const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0
 
     // 6. Ticket promedio
-    const averageTicket = monthlyBookings?.length ? Math.round(monthlyRevenue / monthlyBookings.length) : 0
+    const averageTicket = occupiedSlots > 0 ? Math.round(monthlyRevenue / occupiedSlots) : 0
 
     const stats = {
       todayBookings: todayBookings || 0,

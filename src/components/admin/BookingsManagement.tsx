@@ -256,9 +256,9 @@ export default function BookingsManagement() {
           scheduled_time: newBooking.scheduled_time,
           duration_hours: Number(newBooking.duration_hours) || 4,
           status: 'confirmed',
-          payment_type: null,
-          total_price: null,
-          original_price: null,
+          payment_type: newBooking.payment_type || null,
+          total_price: newBooking.total_price ? Number(newBooking.total_price) : null,
+          original_price: newBooking.original_price ? Number(newBooking.original_price) : null,
           origin_address: null,
           destination_address: null,
           notes: newBooking.notes || 'Reserva de cupo sin cliente (admin)'
@@ -794,38 +794,36 @@ export default function BookingsManagement() {
             </div>
           )}
 
-          {!blockOnly && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pago</label>
-                <Select
-                  value={newBooking.payment_type}
-                  onChange={(e) => setNewBooking({ ...newBooking, payment_type: e.target.value })}
-                  options={[
-                    { value: '', label: 'Seleccionar' },
-                    { value: 'completo', label: 'Completo' },
-                    { value: 'mitad', label: 'Mitad' },
-                  ]}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Precio Original</label>
-                <Input
-                  type="number"
-                  value={newBooking.original_price}
-                  onChange={(e) => setNewBooking({ ...newBooking, original_price: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Pagado</label>
-                <Input
-                  type="number"
-                  value={newBooking.total_price}
-                  onChange={(e) => setNewBooking({ ...newBooking, total_price: e.target.value })}
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pago</label>
+              <Select
+                value={newBooking.payment_type}
+                onChange={(e) => setNewBooking({ ...newBooking, payment_type: e.target.value })}
+                options={[
+                  { value: '', label: 'Seleccionar' },
+                  { value: 'completo', label: 'Completo' },
+                  { value: 'mitad', label: 'Mitad' },
+                ]}
+              />
             </div>
-          )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Original</label>
+              <Input
+                type="number"
+                value={newBooking.original_price}
+                onChange={(e) => setNewBooking({ ...newBooking, original_price: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Total Pagado</label>
+              <Input
+                type="number"
+                value={newBooking.total_price}
+                onChange={(e) => setNewBooking({ ...newBooking, total_price: e.target.value })}
+              />
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{blockOnly ? 'Motivo del bloqueo' : 'Notas'}</label>

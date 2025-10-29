@@ -104,7 +104,6 @@ export default function AdminDashboard() {
     { id: 'bookings', name: 'Reservas', icon: Calendar },
     { id: 'fleet', name: 'Flota', icon: Truck },
     { id: 'schedule', name: 'Horarios', icon: Clock },
-    { id: 'reports', name: 'Reportes', icon: TrendingUp },
     { id: 'settings', name: 'Configuración', icon: Settings },
   ]
 
@@ -225,11 +224,6 @@ export default function AdminDashboard() {
                   </div>
                   <Calendar className="w-8 h-8 text-primary-600" />
                 </div>
-                <div className="mt-2">
-                  <span className="text-xs text-green-600 font-semibold">
-                    +12% vs ayer
-                  </span>
-                </div>
               </Card>
 
               <Card className="p-6">
@@ -241,11 +235,6 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   <DollarSign className="w-8 h-8 text-green-600" />
-                </div>
-                <div className="mt-2">
-                  <span className="text-xs text-green-600 font-semibold">
-                    +8% vs mes anterior
-                  </span>
                 </div>
               </Card>
 
@@ -360,14 +349,6 @@ export default function AdminDashboard() {
                   <Truck className="w-6 h-6" />
                   Configurar Flota
                 </Button>
-                <Button
-                  onClick={() => setActiveTab('reports')}
-                  className="h-16 flex-col gap-2"
-                  variant="outline"
-                >
-                  <BarChart3 className="w-6 h-6" />
-                  Ver Reportes
-                </Button>
               </div>
             </Card>
           </div>
@@ -381,27 +362,6 @@ export default function AdminDashboard() {
 
         {/* Schedule Tab */}
         {activeTab === 'schedule' && <ScheduleManagement />}
-
-        {/* Reports Tab */}
-        {activeTab === 'reports' && (
-          <Card className="p-8 text-center">
-            <div className="text-gray-400 mb-4">
-              <BarChart3 className="w-16 h-16 mx-auto mb-4" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Reportes y Estadísticas
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Esta sección se implementará próximamente
-            </p>
-            <Button
-              onClick={() => setActiveTab('dashboard')}
-              variant="outline"
-            >
-              Volver al Dashboard
-            </Button>
-          </Card>
-        )}
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
