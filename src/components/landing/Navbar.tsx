@@ -37,15 +37,15 @@ export default function Navbar() {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-white shadow-lg py-3'
-          : 'bg-white/95 backdrop-blur-sm py-4'
+          ? 'bg-white shadow-lg py-0'
+          : 'bg-white/95 backdrop-blur-sm py-0.5'
       }`}
     >
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-center lg:justify-between relative">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="relative w-12 h-12 md:w-14 md:h-14">
+          <Link href="/" className="flex items-center">
+            <div className="relative w-16 h-16 md:w-20 md:h-20">
               <Image
                 src="/logo.png"
                 alt="Yo me Encargo - Transporte y Mudanzas"
@@ -54,9 +54,6 @@ export default function Navbar() {
                 priority
               />
             </div>
-            <span className="text-xl md:text-2xl font-bold text-brand-blue">
-              Yo me Encargo
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -102,7 +99,7 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 text-gray-700 hover:text-brand-blue transition-colors"
+            className="lg:hidden p-2 text-gray-700 hover:text-brand-blue transition-colors absolute right-0"
             aria-label="Menú"
           >
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}

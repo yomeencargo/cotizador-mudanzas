@@ -20,8 +20,8 @@ export default function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
           {/* Columna 1: Logo y Descripción */}
           <div className="lg:col-span-1">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="relative w-12 h-12">
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4">
                 <Image
                   src="/logo.png"
                   alt="Yo me Encargo"
@@ -29,13 +29,12 @@ export default function Footer() {
                   className="object-contain"
                 />
               </div>
-              <span className="text-xl font-bold text-white">Yo me Encargo</span>
+              <p className="text-gray-400 mb-6 leading-relaxed text-center">
+                Tu aliado en transporte y mudanzas en todo Chile. Servicio confiable, puntual y profesional.
+              </p>
             </div>
-            <p className="text-gray-400 mb-6 leading-relaxed">
-              Tu aliado en transporte y mudanzas en todo Chile. Servicio confiable, puntual y profesional.
-            </p>
             {/* Redes Sociales */}
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 justify-center">
               <a
                 href="https://www.instagram.com/yo.me.encargo_"
                 target="_blank"
