@@ -12,6 +12,14 @@
     @apply bg-gray-50;
     color: hsl(var(--foreground));
   }
+
+  /* Prevenir problemas de renderizado en secciones con efectos decorativos */
+  section {
+    position: relative;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
 }
 
 @layer utilities {
@@ -61,4 +69,16 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari, Opera */
+}
+
+/* Mejorar renderizado de patrones decorativos y prevenir sangrado visual */
+@layer utilities {
+  .contain-paint {
+    contain: paint;
+  }
+  
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+  }
 }

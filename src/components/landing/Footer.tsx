@@ -1,21 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Instagram, Mail, Phone, MapPin, Truck } from 'lucide-react'
+import { Instagram, Mail, Phone, MapPin, ChevronDown } from 'lucide-react'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
+  const [openSection, setOpenSection] = useState<string | null>(null)
 
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
+  const toggleSection = (section: string) => {
+    setOpenSection(openSection === section ? null : section)
   }
 
   return (
-    <footer className="bg-gray-900 text-gray-300">
+    <footer className="bg-gray-900 text-gray-300 relative isolate">
       {/* Main Footer */}
       <div className="container mx-auto px-4 py-12 md:py-16">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
@@ -67,78 +66,95 @@ export default function Footer() {
 
           {/* Columna 2: Enlaces Rápidos */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-4">Enlaces Rápidos</h3>
-            <ul className="space-y-3">
+            {/* Header clickeable en móvil */}
+            <button
+              onClick={() => toggleSection('enlaces')}
+              className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
+            >
+              <span>Enlaces Rápidos</span>
+              <ChevronDown 
+                size={20} 
+                className={`md:hidden transition-transform duration-300 ${
+                  openSection === 'enlaces' ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            
+            {/* Lista colapsable en móvil, siempre visible en desktop */}
+            <ul 
+              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${
+                openSection === 'enlaces' 
+                  ? 'max-h-96 opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
               <li>
-                <button
-                  onClick={() => scrollToSection('inicio')}
-                  className="hover:text-brand-blue transition-colors"
+                <Link
+                  href="/"
+                  className="hover:text-brand-blue transition-colors block"
                 >
                   Inicio
-                </button>
+                </Link>
               </li>
               <li>
-                <button
-                  onClick={() => scrollToSection('servicios')}
-                  className="hover:text-brand-blue transition-colors"
+                <Link
+                  href="/nuestros-servicios"
+                  className="hover:text-brand-blue transition-colors block"
                 >
-                  Servicios
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => scrollToSection('como-funciona')}
-                  className="hover:text-brand-blue transition-colors"
-                >
-                  Cómo Funciona
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => scrollToSection('cobertura')}
-                  className="hover:text-brand-blue transition-colors"
-                >
-                  Cobertura
-                </button>
+                  Nuestros Servicios
+                </Link>
               </li>
               <li>
                 <Link
                   href="/contactanos"
-                  className="hover:text-brand-blue transition-colors"
+                  className="hover:text-brand-blue transition-colors block"
                 >
                   Contáctanos
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/cotizador"
+                  className="hover:text-brand-blue transition-colors block"
+                >
+                  Cotizar Online
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Columna 3: Servicios */}
+          {/* Columna 3: Legal */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-4">Servicios</h3>
-            <ul className="space-y-3">
+            {/* Header clickeable en móvil */}
+            <button
+              onClick={() => toggleSection('legal')}
+              className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
+            >
+              <span>Legal</span>
+              <ChevronDown 
+                size={20} 
+                className={`md:hidden transition-transform duration-300 ${
+                  openSection === 'legal' ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            
+            {/* Lista colapsable en móvil, siempre visible en desktop */}
+            <ul 
+              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${
+                openSection === 'legal' 
+                  ? 'max-h-96 opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
               <li>
-                <Link href="/cotizador" className="hover:text-brand-blue transition-colors">
-                  Cotizador Online
+                <Link href="/terminos-y-condiciones" className="hover:text-brand-blue transition-colors block">
+                  Términos y Condiciones
                 </Link>
               </li>
               <li>
-                <Link href="/cotizador" className="hover:text-brand-blue transition-colors">
-                  Fletes en Santiago
-                </Link>
-              </li>
-              <li>
-                <Link href="/cotizador" className="hover:text-brand-blue transition-colors">
-                  Mudanzas de Hogar
-                </Link>
-              </li>
-              <li>
-                <Link href="/cotizador" className="hover:text-brand-blue transition-colors">
-                  Mudanzas de Oficina
-                </Link>
-              </li>
-              <li>
-                <Link href="/cotizador" className="hover:text-brand-blue transition-colors">
-                  Traslados a Regiones
+                <Link href="/politica-de-privacidad" className="hover:text-brand-blue transition-colors block">
+                  Política de Privacidad
                 </Link>
               </li>
             </ul>
@@ -146,8 +162,28 @@ export default function Footer() {
 
           {/* Columna 4: Contacto */}
           <div>
-            <h3 className="text-white font-bold text-lg mb-4">Contacto</h3>
-            <ul className="space-y-4">
+            {/* Header clickeable en móvil */}
+            <button
+              onClick={() => toggleSection('contacto')}
+              className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
+            >
+              <span>Contacto</span>
+              <ChevronDown 
+                size={20} 
+                className={`md:hidden transition-transform duration-300 ${
+                  openSection === 'contacto' ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            
+            {/* Lista colapsable en móvil, siempre visible en desktop */}
+            <ul 
+              className={`space-y-4 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${
+                openSection === 'contacto' 
+                  ? 'max-h-96 opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
               <li className="flex items-start space-x-3">
                 <Phone size={20} className="text-brand-blue flex-shrink-0 mt-0.5" />
                 <div>
@@ -181,14 +217,35 @@ export default function Footer() {
       {/* Bottom Bar */}
       <div className="border-t border-gray-800">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-sm text-gray-500 text-center md:text-left">
+          <div className="flex flex-col items-center space-y-3">
+            {/* Primera línea: Copyright */}
+            <p className="text-sm text-gray-500 text-center">
               © {currentYear} Yo me Encargo. Todos los derechos reservados.
             </p>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
-              <Truck size={16} className="text-brand-blue" />
-              <span>Transporte confiable en todo Chile</span>
+            
+            {/* Segunda línea: Enlaces legales */}
+            <div className="flex items-center space-x-4 text-sm">
+              <Link href="/terminos-y-condiciones" className="text-gray-500 hover:text-brand-blue transition-colors">
+                Términos y Condiciones
+              </Link>
+              <span className="text-gray-700">|</span>
+              <Link href="/politica-de-privacidad" className="text-gray-500 hover:text-brand-blue transition-colors">
+                Política de Privacidad
+              </Link>
             </div>
+
+            {/* Tercera línea: Créditos */}
+            <p className="text-sm text-gray-500 text-center">
+              Desarrollado por{' '}
+              <a 
+                href="https://iaenblanco.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-brand-blue hover:text-brand-cyan transition-colors font-semibold"
+              >
+                IAenBlanco
+              </a>
+            </p>
           </div>
         </div>
       </div>
