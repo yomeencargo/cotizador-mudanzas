@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Truck, Clock, MapPin, Shield, ArrowRight, MessageCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -101,26 +102,13 @@ export default function Hero() {
             className="relative hidden lg:block"
           >
             <div className="relative w-full h-[500px] rounded-2xl overflow-hidden shadow-2xl">
-              {/* Placeholder para la imagen del hero */}
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-blue to-brand-cyan flex items-center justify-center">
-                <div className="text-center text-white p-8">
-                  <Truck size={120} className="mx-auto mb-4 opacity-90" />
-                  <p className="text-lg font-semibold opacity-80">
-                    Sube tu imagen: /public/images/hero-truck.jpg
-                    <br />
-                    (1200x800px recomendado)
-                  </p>
-                </div>
-              </div>
-              
-              {/* Cuando subas la imagen real, descomenta esto y elimina el div de arriba: */}
-              {/* <Image
+              <Image
                 src="/images/hero-truck.jpg"
                 alt="Camión de Yo me Encargo realizando mudanza"
                 fill
                 className="object-cover"
                 priority
-              /> */}
+              />
             </div>
 
             {/* Elemento decorativo flotante */}

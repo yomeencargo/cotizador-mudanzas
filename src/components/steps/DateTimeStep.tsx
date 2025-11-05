@@ -43,16 +43,17 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
   const [availableSlots, setAvailableSlots] = useState<SlotData[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
 
-  // Generar fechas disponibles (mes actual + 2 meses siguientes completos, excluyendo domingos)
+  // Generar fechas disponibles (desde mañana hasta casi un año más, excluyendo domingos)
+  // Rango ajustado: permite reservar hasta 11 meses hacia adelante
   const availableDates = useMemo(() => {
     const today = new Date()
     const tomorrow = startOfDay(addDays(today, 1))
     
-    // Calcular el último día disponible: fin del segundo mes siguiente
-    // Si hoy es octubre, incluye: resto de octubre + noviembre completo + diciembre completo
-    const lastDay = startOfDay(endOfMonth(addMonths(today, 2)))
+    // Calcular el último día disponible: casi un año más (11 meses completos)
+    // Ejemplo: si hoy es 05 nov 2024 → hasta 31 oct 2025
+    const lastDay = startOfDay(endOfMonth(addMonths(today, 11)))
     
-    // Calcular cuántos días hay desde mañana hasta el final del segundo mes siguiente (inclusive)
+    // Calcular cuántos días hay desde mañana hasta el último día disponible (inclusive)
     const diffInMs = lastDay.getTime() - tomorrow.getTime()
     const totalDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24)) + 1
     
