@@ -9,6 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Colores corporativos "Yo me Encargo" - Edita aquí para cambiar en toda la web
+        brand: {
+          blue: '#2563eb',      // Azul principal
+          'blue-light': '#3b82f6', // Azul claro
+          cyan: '#06b6d4',      // Celeste
+          'cyan-light': '#22d3ee', // Celeste claro
+          green: '#10b981',     // Verde
+          'green-light': '#34d399', // Verde claro
+          gray: '#6b7280',      // Gris
+          'gray-light': '#9ca3af', // Gris claro
+          'gray-dark': '#374151', // Gris oscuro
+        },
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',

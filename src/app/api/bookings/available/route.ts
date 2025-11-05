@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+// Marcar esta ruta como dinámica porque usa searchParams
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const date = request.nextUrl.searchParams.get('date')

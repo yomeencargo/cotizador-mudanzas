@@ -160,7 +160,7 @@ export default function BookingsManagement() {
     }
 
     setFilteredBookings(filtered)
-  }, [bookings, searchTerm, statusFilter, dateFilter])
+  }, [bookings, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchBookings()
