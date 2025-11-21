@@ -7,7 +7,7 @@ import Button from '../ui/Button'
 import Card from '../ui/Card'
 import Modal from '../ui/Modal'
 import Input from '../ui/Input'
-import { Search, Plus, Minus, Trash2, Package, AlertCircle, Box, Info, CheckCircle2 } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, Package, AlertCircle, Box, Info, CheckCircle2, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateId } from '@/lib/utils'
 
@@ -40,7 +40,8 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   const [searchTerm, setSearchTerm] = useState('')
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [showPackagingModal, setShowPackagingModal] = useState(false)
-  const [showPackagingBanner, setShowPackagingBanner] = useState(true)
+  const [showBulkPackagingModal, setShowBulkPackagingModal] = useState(false)
+
   const [selectedItemForPackaging, setSelectedItemForPackaging] = useState<string | null>(null)
   const [selectedPackaging, setSelectedPackaging] = useState<string>('none')
   const [packagingTypes, setPackagingTypes] = useState<PackagingOption[]>([])
@@ -64,7 +65,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
         setLoadingCatalog(true)
         const response = await fetch('/api/admin/catalog-items')
         const data = await response.json()
-        
+
         if (response.ok && Array.isArray(data)) {
           // Transformar datos de Supabase al formato esperado
           // FILTRAR: Solo mostrar items activos en el cotizador
@@ -115,13 +116,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     loadPackagingOptions()
   }, [])
 
-  // Cargar preferencia del banner desde localStorage
-  useEffect(() => {
-    const hideBanner = localStorage.getItem('hidePackagingBanner')
-    if (hideBanner === 'true') {
-      setShowPackagingBanner(false)
-    }
-  }, [])
+
 
   const filteredItems = itemsCatalog.filter((item) => {
     const matchesCategory = selectedCategory === 'Todos' || item.category === selectedCategory
@@ -149,7 +144,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
 
   const handleAddItem = (catalogItem: typeof itemsCatalog[0]) => {
     const existingItem = items.find((i) => i.id === catalogItem.id)
-    
+
     if (existingItem) {
       updateItem(existingItem.id, { quantity: existingItem.quantity + 1 })
     } else {
@@ -174,7 +169,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   const handleAddCustomItem = () => {
     // Calcular volumen a partir de dimensiones (convertir cm a metros, luego a m³)
     const volumeInM3 = ((customItem.height * customItem.width * customItem.depth) / 1000000).toFixed(4)
-    
+
     if (!customItem.name || customItem.height <= 0 || customItem.width <= 0 || customItem.depth <= 0 || customItem.weight <= 0) {
       toast.error('Completa todos los campos del item personalizado')
       return
@@ -210,7 +205,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     if (!selectedItemForPackaging) return
 
     const packagingOption = packagingTypes.find(p => p.id === selectedPackaging)
-    
+
     if (selectedPackaging === 'none') {
       // Remover embalaje
       updateItem(selectedItemForPackaging, { packaging: undefined })
@@ -228,6 +223,33 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
 
     setShowPackagingModal(false)
     setSelectedItemForPackaging(null)
+  }
+
+  const handleBulkPackaging = (packagingId: string) => {
+    const packagingOption = packagingTypes.find(p => p.id === packagingId)
+
+    if (packagingId === 'none') {
+      // Remover embalaje de todos los items
+      items.forEach(item => {
+        if (item.packaging) {
+          updateItem(item.id, { packaging: undefined })
+        }
+      })
+      toast.success('Se quitó el embalaje de todos los items')
+    } else if (packagingOption) {
+      // Aplicar embalaje a todos los items
+      items.forEach(item => {
+        updateItem(item.id, {
+          packaging: {
+            type: packagingId,
+            pricePerUnit: packagingOption.price
+          }
+        })
+      })
+      toast.success(`Se aplicó ${packagingOption.name} a todos los items`)
+    }
+
+    setShowBulkPackagingModal(false)
   }
 
   // Calcular total de embalaje (volumen de items con embalaje × precio por m³)
@@ -282,11 +304,10 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      selectedCategory === category
-                        ? 'bg-primary-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === category
+                      ? 'bg-primary-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     {category}
                   </button>
@@ -301,11 +322,10 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                 return (
                   <div
                     key={item.id}
-                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-                      quantity > 0
-                        ? 'border-primary-600 bg-primary-50'
-                        : 'border-gray-200 hover:border-primary-300'
-                    }`}
+                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${quantity > 0
+                      ? 'border-primary-600 bg-primary-50'
+                      : 'border-gray-200 hover:border-primary-300'
+                      }`}
                   >
                     <h4 className="text-lg font-semibold text-center mb-2 min-h-[52px] flex items-center justify-center">
                       {item.name}
@@ -371,37 +391,62 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
         <div className="lg:col-span-1">
           <div className="sticky top-24">
             {/* Banner informativo */}
-            {showPackagingBanner && items.length > 0 && (
-              <Card className="mb-4 bg-blue-50 border-blue-200">
+            {/* Banner informativo */}
+            {items.length > 0 && (
+              <Card className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm text-blue-800 mb-2">
-                      <strong>💡 Nuevo:</strong> Ahora puedes configurar embalaje especial para cada item usando el botón 📦
+                  <div className="p-2 bg-amber-100 rounded-full flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-sm text-amber-900 mb-0 leading-relaxed">
+                      <span className="font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-xs mr-2 uppercase tracking-wide">Importante</span>
+                      Configura el embalaje especial para cada item usando el botón 📦
                     </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowPackagingBanner(false)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        Entendido
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowPackagingBanner(false)
-                          localStorage.setItem('hidePackagingBanner', 'true')
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-800"
-                      >
-                        No volver a mostrar
-                      </button>
-                    </div>
                   </div>
                 </div>
               </Card>
             )}
 
+            {/* Opciones Globales */}
+            {items.length > 0 && (
+              <Card variant="elevated" className="mb-4 border-l-4 border-l-primary-500">
+                <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+                  Acciones Rápidas
+                </h3>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowBulkPackagingModal(true)}
+                    className="w-full justify-start text-left h-auto py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary-50 rounded-lg text-primary-600">
+                        <Box className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">Embalar Todo</div>
+                        <div className="text-xs text-gray-500">Aplica el mismo embalaje a todos los items</div>
+                      </div>
+                    </div>
+                  </Button>
+
+                  {itemsWithPackaging > 0 && (
+                    <button
+                      onClick={() => handleBulkPackaging('none')}
+                      className="w-full flex items-center justify-center gap-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Quitar todo el embalaje
+                    </button>
+                  )}
+                </div>
+              </Card>
+            )}
+
             <Card variant="elevated" className="mb-4">
+              {/* ... existing summary ... */}
+
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <Package className="w-5 h-5" />
                 Resumen de Items
@@ -417,7 +462,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                   <div className="max-h-64 overflow-y-auto mb-4 space-y-2">
                     {items.map((item) => {
                       const hasPackaging = item.packaging && item.packaging.type !== 'none'
-                      const packagingInfo = hasPackaging 
+                      const packagingInfo = hasPackaging
                         ? packagingTypes.find(p => p.id === item.packaging?.type)
                         : null
 
@@ -434,11 +479,10 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => handleOpenPackagingModal(item.id)}
-                                className={`p-1.5 rounded-lg transition-all relative group ${
-                                  hasPackaging 
-                                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                }`}
+                                className={`p-1.5 rounded-lg transition-all relative group ${hasPackaging
+                                  ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                  }`}
                                 title="Configurar embalaje"
                               >
                                 <Box className="w-4 h-4" />
@@ -505,6 +549,86 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
         </div>
       </div>
 
+      {/* Modal Embalaje Masivo */}
+      <Modal
+        isOpen={showBulkPackagingModal}
+        onClose={() => {
+          setShowBulkPackagingModal(false)
+          setSelectedPackaging('none')
+        }}
+        title="Embalaje Masivo"
+      >
+        <div className="space-y-4">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="text-sm text-gray-600 mb-1">Aplicar a todos los items:</div>
+            <div className="font-semibold">
+              {items.length} items en total
+            </div>
+            <div className="text-xs text-blue-700 mt-2 bg-blue-50 px-2 py-1 rounded">
+              💡 Esto aplicará el embalaje seleccionado a TODOS los items de tu lista
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Selecciona el tipo de embalaje:
+            </label>
+            <div className="space-y-2">
+              {packagingTypes.map((type) => {
+                const totalCost = type.price * totalVolume
+
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => setSelectedPackaging(type.id)}
+                    className={`w-full p-4 rounded-lg border-2 text-left transition-all ${selectedPackaging === type.id
+                      ? 'border-primary-600 bg-primary-50'
+                      : 'border-gray-200 hover:border-primary-300'
+                      }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">{type.icon}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold">{type.name}</span>
+                          {type.price > 0 && (
+                            <span className="text-primary-600 font-bold">
+                              ${type.price.toLocaleString()} por m³
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">{type.description}</p>
+                        {type.price > 0 && totalVolume > 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Costo total estimado: ${totalCost.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBulkPackagingModal(false)
+                setSelectedPackaging('none')
+              }}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button onClick={() => handleBulkPackaging(selectedPackaging)} className="flex-1">
+              Aplicar a Todo
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Modal Item Personalizado */}
       <Modal
         isOpen={showCustomModal}
@@ -518,7 +642,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
             value={customItem.name}
             onChange={(e) => setCustomItem({ ...customItem, name: e.target.value })}
           />
-          
+
           <div className="grid grid-cols-3 gap-3">
             <Input
               label="Altura (cm)"
@@ -551,7 +675,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               }
             />
           </div>
-          
+
           {/* Mostrar volumen calculado */}
           {(customItem.height > 0 && customItem.width > 0 && customItem.depth > 0) && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -566,7 +690,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               </p>
             </div>
           )}
-          
+
           <Input
             label="Peso estimado (kg)"
             type="number"
@@ -576,7 +700,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               setCustomItem({ ...customItem, weight: parseFloat(e.target.value) || 0 })
             }
           />
-          
+
           <div className="flex gap-3 pt-4">
             <Button variant="outline" onClick={() => setShowCustomModal(false)} className="flex-1">
               Cancelar
@@ -621,16 +745,15 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                   {packagingTypes.map((type) => {
                     const item = items.find(i => i.id === selectedItemForPackaging)
                     const totalPrice = type.price * totalVolume // Precio por m³ × m³ totales
-                    
+
                     return (
                       <button
                         key={type.id}
                         onClick={() => setSelectedPackaging(type.id)}
-                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                          selectedPackaging === type.id
-                            ? 'border-primary-600 bg-primary-50'
-                            : 'border-gray-200 hover:border-primary-300'
-                        }`}
+                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${selectedPackaging === type.id
+                          ? 'border-primary-600 bg-primary-50'
+                          : 'border-gray-200 hover:border-primary-300'
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <div className="text-2xl">{type.icon}</div>
@@ -659,18 +782,18 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-800">
-                  <strong>💡 Tip:</strong> El embalaje especial se cobra multiplicando el precio por los m³ totales de tu mudanza. 
+                  <strong>💡 Tip:</strong> El embalaje especial se cobra multiplicando el precio por los m³ totales de tu mudanza.
                   Si seleccionas varios tipos de embalaje, cada uno se suma al costo final.
                 </p>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setShowPackagingModal(false)
                     setSelectedItemForPackaging(null)
-                  }} 
+                  }}
                   className="flex-1"
                 >
                   Cancelar

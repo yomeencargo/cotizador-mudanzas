@@ -5,9 +5,9 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
-import { 
-  DollarSign, 
-  Save, 
+import {
+  DollarSign,
+  Save,
   AlertTriangle,
   Edit3,
   RefreshCw,
@@ -160,8 +160,8 @@ export default function PricingConfiguration() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Restaurar
           </Button>
-          <Button 
-            onClick={() => setShowConfirmModal(true)} 
+          <Button
+            onClick={() => setShowConfirmModal(true)}
             size="sm"
             disabled={!hasChanges}
           >
@@ -226,7 +226,7 @@ export default function PricingConfiguration() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Recargo por Piso sin Ascensor (CLP)
+                Recargo por escalera (CLP)
               </label>
               <Input
                 type="number"
@@ -247,7 +247,7 @@ export default function PricingConfiguration() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embalaje Profesional (CLP)
+                Armado de Cajas (CLP)
               </label>
               <Input
                 type="number"
@@ -451,13 +451,13 @@ export default function PricingConfiguration() {
               </p>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-800">
-                  <strong>⚠️ Advertencia:</strong> Cambiar los precios puede afectar la competitividad 
+                  <strong>⚠️ Advertencia:</strong> Cambiar los precios puede afectar la competitividad
                   y rentabilidad del negocio. Asegúrate de que los nuevos valores sean correctos.
                 </p>
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 pt-4">
             <Button
               onClick={() => setShowConfirmModal(false)}

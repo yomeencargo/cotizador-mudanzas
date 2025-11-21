@@ -16,7 +16,7 @@ interface AdditionalServicesStepProps {
 
 export default function AdditionalServicesStep({ onNext, onPrevious }: AdditionalServicesStepProps) {
   const { additionalServices, setAdditionalServices, calculateTotals } = useQuoteStore()
-  
+
   const [services, setServices] = useState<AdditionalService[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
   const [formData, setFormData] = useState({
@@ -101,38 +101,36 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
         ) : (
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             {services.map((service) => {
-            const Icon = service.icon
-            const isSelected = formData[service.id as keyof typeof formData]
-            
-            return (
-              <div
-                key={service.id}
-                onClick={() => handleServiceToggle(service.id)}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
-                  isSelected
+              const Icon = service.icon
+              const isSelected = formData[service.id as keyof typeof formData]
+
+              return (
+                <div
+                  key={service.id}
+                  onClick={() => handleServiceToggle(service.id)}
+                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${isSelected
                     ? 'border-primary-600 bg-primary-50'
                     : 'border-gray-200 hover:border-primary-300'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    isSelected ? 'bg-primary-600' : 'bg-gray-200'
-                  }`}>
-                    <Icon className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-gray-600'}`} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-semibold">{service.name}</h4>
-                      <span className="text-sm font-bold text-primary-600">
-                        ${service.price.toLocaleString()}
-                      </span>
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSelected ? 'bg-primary-600' : 'bg-gray-200'
+                      }`}>
+                      <Icon className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-gray-600'}`} />
                     </div>
-                    <p className="text-sm text-gray-600">{service.description}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-semibold">{service.name}</h4>
+                        <span className="text-sm font-bold text-primary-600">
+                          ${service.price.toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">{service.description}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
           </div>
         )}
 
@@ -175,7 +173,7 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
           <p className="text-sm text-gray-600 mb-3">
             Sube fotos de items especiales, objetos de valor o situaciones particulares
           </p>
-          
+
           <label className="block w-full">
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary-400 hover:bg-primary-50 transition-colors cursor-pointer">
               <Camera className="w-12 h-12 mx-auto mb-2 text-gray-400" />
@@ -222,13 +220,13 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
         {/* Info */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
           <p className="text-sm text-blue-800">
-            <strong>💡 Tip:</strong> Los servicios de desarme y armado pueden ahorrarte mucho tiempo 
-            y garantizan que tus muebles lleguen en perfecto estado. El embalaje profesional es 
+            <strong>💡 Tip:</strong> Los servicios de desarme y armado pueden ahorrarte mucho tiempo
+            y garantizan que tus muebles lleguen en perfecto estado. El armado de cajas es
             altamente recomendado para objetos frágiles o de valor.
           </p>
           <p className="text-sm text-blue-800 mt-3">
-            <strong>📋 Nota:</strong> Los valores indicados corresponden a un servicio estándar. 
-            En casos de mayor volumen, complejidad o materiales especiales, podría aplicarse un 
+            <strong>📋 Nota:</strong> Los valores indicados corresponden a un servicio estándar.
+            En casos de mayor volumen, complejidad o materiales especiales, podría aplicarse un
             ajuste. Te contactaremos previamente si fuera necesario realizar alguna modificación al presupuesto.
           </p>
         </div>

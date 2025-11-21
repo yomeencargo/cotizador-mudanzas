@@ -66,7 +66,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
       try {
         const pricing = await getPricingConfig()
         setFreeKilometers(pricing.freeKilometers)
-        
+
         // Actualizar la configuración de precios con los valores del admin
         setPricingConfig({
           services: {
@@ -92,10 +92,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
   const handleSendQuote = async () => {
     setIsSubmitting(true)
-    
+
     // Simular envío de cotización
     await new Promise((resolve) => setTimeout(resolve, 2000))
-    
+
     toast.success('¡Cotización enviada a tu correo!')
     setIsSubmitting(false)
   }
@@ -114,36 +114,36 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   // Función helper para construir dirección completa
   const buildAddress = (addr: any) => {
     if (!addr.address) return ''
-    
+
     const parts = [
       addr.address.street,
       addr.address.number,
       addr.address.commune,
       addr.address.region
     ].filter(Boolean)
-    
+
     if (addr.address.additionalInfo) {
       parts.push(addr.address.additionalInfo)
     }
-    
+
     return parts.join(', ')
   }
 
   const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
     setIsSubmitting(true)
-    
+
     try {
       // Construir direcciones completas
       const originFull = buildAddress(origin)
       const destinationFull = buildAddress(destination)
-      
+
       // Determinar precio según tipo de pago
       // 'completo' = pagar el 100% con descuento del 5% = 95% del precio
       // 'mitad' = pagar el 50%
-      const finalPrice = paymentType === 'completo' 
-        ? Math.round(estimatedPrice * 0.95) 
+      const finalPrice = paymentType === 'completo'
+        ? Math.round(estimatedPrice * 0.95)
         : Math.round(estimatedPrice * 0.5)
-      
+
       // Crear reserva en la BD
       const response = await fetch('/api/bookings/create', {
         method: 'POST',
@@ -170,7 +170,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
       }
 
       const result = await response.json()
-      
+
       setConfirmed(true)
       toast.success('¡Reserva confirmada! Te contactaremos pronto.')
     } catch (error) {
@@ -192,7 +192,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           <p className="text-lg text-gray-600 mb-8">
             Tu solicitud de cotización ha sido enviada exitosamente.
           </p>
-          
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8 text-left">
             <h3 className="font-semibold mb-3">📧 ¿Qué sigue?</h3>
             <ul className="space-y-2 text-sm text-gray-700">
@@ -315,7 +315,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 </p>
               </div>
             </div>
-            
+
             {/* Distancia calculada */}
             {totalDistance > 0 && (
               <div className="mt-4 pt-4 border-t">
@@ -325,7 +325,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 </div>
                 {totalDistance > freeKilometers && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Primeros {freeKilometers} km incluidos. 
+                    Primeros {freeKilometers} km incluidos.
                     Se cobran {totalDistance - freeKilometers} km adicionales.
                   </p>
                 )}
@@ -347,7 +347,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             <div className="max-h-48 overflow-y-auto space-y-2">
               {items.map((item) => {
                 const hasPackaging = item.packaging && item.packaging.type !== 'none'
-                
+
                 return (
                   <div
                     key={item.id}
@@ -397,23 +397,23 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 const itemPackagingCost = item.packaging?.pricePerUnit || 0
                 return sum + (itemPackagingCost * itemVolume)
               }, 0)
-            
+
             // Calcular volumen total con embalaje
             const volumeWithPackaging = items
               .filter(item => item.packaging && item.packaging.type !== 'none')
               .reduce((sum, item) => sum + (item.volume * item.quantity), 0)
-            
+
             return (
               <Card>
                 <h3 className="font-bold text-lg mb-4">📦 Embalaje Especial</h3>
-                
+
                 {/* Info importante */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                   <p className="text-xs text-blue-800">
                     <strong>💡 Nota:</strong> El embalaje especial se cobra multiplicando el precio por el volumen de los items que tienen embalaje seleccionado ({parseFloat(volumeWithPackaging.toFixed(1))} m³).
                   </p>
                 </div>
-                
+
                 {/* Items con embalaje */}
                 <div className="space-y-3 mb-4">
                   {items
@@ -422,7 +422,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                       const itemVolume = item.volume * item.quantity
                       const itemPackagingCost = item.packaging?.pricePerUnit || 0
                       const itemTotal = itemPackagingCost * itemVolume
-                      
+
                       return (
                         <div key={`packaging-${item.id}`} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
                           <div>
@@ -439,7 +439,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                       )
                     })}
                 </div>
-                
+
                 {/* Total */}
                 <div className="mt-4 pt-4 border-t flex justify-between font-bold text-green-700">
                   <span>Total Embalaje Especial:</span>
@@ -455,49 +455,49 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             additionalServices.packing ||
             additionalServices.unpacking ||
             additionalServices.observations) && (
-            <Card>
-              <h3 className="font-bold text-lg mb-4">Servicios Adicionales</h3>
-              <div className="space-y-2">
-                {additionalServices.disassembly && (
-                  <div className="flex justify-between text-sm">
-                    <span>✓ Desarme de muebles</span>
-                    <span className="font-semibold">${pricingConfig.services.disassembly.toLocaleString()}</span>
-                  </div>
-                )}
-                {additionalServices.assembly && (
-                  <div className="flex justify-between text-sm">
-                    <span>✓ Armado de muebles</span>
-                    <span className="font-semibold">${pricingConfig.services.assembly.toLocaleString()}</span>
-                  </div>
-                )}
-                {additionalServices.packing && (
-                  <div className="flex justify-between text-sm">
-                    <span>✓ Embalaje profesional</span>
-                    <span className="font-semibold">${pricingConfig.services.packing.toLocaleString()}</span>
-                  </div>
-                )}
-                {additionalServices.unpacking && (
-                  <div className="flex justify-between text-sm">
-                    <span>✓ Desembalaje</span>
-                    <span className="font-semibold">${pricingConfig.services.unpacking.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-              {additionalServices.observations && (
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-sm text-gray-500 mb-1">Observaciones:</p>
-                  <p className="text-sm text-gray-700">{additionalServices.observations}</p>
+              <Card>
+                <h3 className="font-bold text-lg mb-4">Servicios Adicionales</h3>
+                <div className="space-y-2">
+                  {additionalServices.disassembly && (
+                    <div className="flex justify-between text-sm">
+                      <span>✓ Desarme de muebles</span>
+                      <span className="font-semibold">${pricingConfig.services.disassembly.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {additionalServices.assembly && (
+                    <div className="flex justify-between text-sm">
+                      <span>✓ Armado de muebles</span>
+                      <span className="font-semibold">${pricingConfig.services.assembly.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {additionalServices.packing && (
+                    <div className="flex justify-between text-sm">
+                      <span>✓ Embalaje profesional</span>
+                      <span className="font-semibold">${pricingConfig.services.packing.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {additionalServices.unpacking && (
+                    <div className="flex justify-between text-sm">
+                      <span>✓ Desembalaje</span>
+                      <span className="font-semibold">${pricingConfig.services.unpacking.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </Card>
-          )}
+                {additionalServices.observations && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm text-gray-500 mb-1">Observaciones:</p>
+                    <p className="text-sm text-gray-700">{additionalServices.observations}</p>
+                  </div>
+                )}
+              </Card>
+            )}
         </div>
 
         {/* Columna derecha - Precio y Acciones */}
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-4">
             {/* Precio */}
-            <Card variant="elevated" className="bg-gradient-to-br from-primary-50 to-secondary-50">
+            <Card variant="elevated" className="bg-gradient-to-br from-blue-50 via-cyan-50 to-green-50 border-2 border-blue-200">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-primary-600" />
                 Precio Estimado
@@ -528,7 +528,9 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                       </div>
                     </div>
                     <div className="text-center">
-                      <p className="text-xs text-gray-500">IVA incluido</p>
+                      {personalInfo?.isCompany && (
+                        <p className="text-xs text-gray-500">IVA incluido</p>
+                      )}
                       <p className="text-xs text-green-600 font-semibold mt-1">
                         ¡Ahorraste {formatCurrency(Math.round(estimatedPrice / 0.9) - estimatedPrice)}!
                       </p>
@@ -540,10 +542,12 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                     <p className="text-4xl font-bold text-primary-600 mb-2">
                       {formatCurrency(estimatedPrice)}
                     </p>
-                    <p className="text-xs text-gray-500">IVA incluido</p>
+                    {personalInfo?.isCompany && (
+                      <p className="text-xs text-gray-500">IVA incluido</p>
+                    )}
                   </div>
                 )}
-                
+
                 {/* Datos de Facturación */}
                 {personalInfo?.isCompany && (
                   <div className="mt-4 pt-4 border-t border-gray-300">
@@ -566,7 +570,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             {/* Opciones de Pago */}
             <Card>
               <h3 className="font-bold text-lg mb-4 text-center">Opciones de Pago</h3>
-              
+
               <div className="space-y-3">
                 {/* Opción 1: Pago 100% */}
                 <div className="border-2 border-green-500 rounded-lg p-4 bg-green-50 relative">

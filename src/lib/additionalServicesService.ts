@@ -19,7 +19,7 @@ export interface AdditionalService {
 export async function getAdditionalServices(): Promise<AdditionalService[]> {
   try {
     const pricing = await getPricingConfig()
-    
+
     return [
       {
         id: 'disassembly',
@@ -37,7 +37,7 @@ export async function getAdditionalServices(): Promise<AdditionalService[]> {
       },
       {
         id: 'packing',
-        name: 'Embalaje Profesional',
+        name: 'Armado de Cajas',
         description: 'Empaque seguro de objetos frágiles y delicados',
         icon: Package,
         price: pricing.additionalServices.packing
@@ -52,7 +52,7 @@ export async function getAdditionalServices(): Promise<AdditionalService[]> {
     ]
   } catch (error) {
     console.error('Error getting additional services:', error)
-    
+
     // Devolver servicios por defecto si falla
     return [
       {
@@ -71,7 +71,7 @@ export async function getAdditionalServices(): Promise<AdditionalService[]> {
       },
       {
         id: 'packing',
-        name: 'Embalaje Profesional',
+        name: 'Armado de Cajas',
         description: 'Empaque seguro de objetos frágiles y delicados',
         icon: Package,
         price: 25000

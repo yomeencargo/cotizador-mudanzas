@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuoteStore } from '@/store/quoteStore'
+import { getPricingConfig } from '@/lib/pricingService'
 import Button from '../ui/Button'
 import Select from '../ui/Select'
 import Checkbox from '../ui/Checkbox'
@@ -33,16 +34,30 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
   const [originDetails, setOriginDetailsState] = useState({
     propertyType: origin.details?.propertyType || '',
     floor: origin.details?.floor || 0,
-    hasElevator: origin.details?.hasElevator || false,
+    hasElevator: origin.details?.hasElevator ?? true,
     parkingDistance: origin.details?.parkingDistance || 0,
   })
 
   const [destinationDetails, setDestinationDetailsState] = useState({
     propertyType: destination.details?.propertyType || '',
     floor: destination.details?.floor || 0,
-    hasElevator: destination.details?.hasElevator || false,
+    hasElevator: destination.details?.hasElevator ?? true,
     parkingDistance: destination.details?.parkingDistance || 0,
   })
+
+  const [floorPrice, setFloorPrice] = useState(5000)
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      try {
+        const config = await getPricingConfig()
+        setFloorPrice(config.floorSurcharge)
+      } catch (error) {
+        console.error('Error loading pricing:', error)
+      }
+    }
+    loadPricing()
+  }, [])
 
   const handleSubmit = () => {
     if (!originDetails.propertyType) {
@@ -56,6 +71,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
 
     setOriginDetails(originDetails as any)
     setDestinationDetails(destinationDetails as any)
+
+    // Recalcular totales con los nuevos detalles
+    useQuoteStore.getState().calculateTotals()
+
     toast.success('Detalles guardados correctamente')
     onNext()
   }
@@ -95,11 +114,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
                     onClick={() =>
                       setOriginDetailsState({ ...originDetails, propertyType: type.value as any })
                     }
-                    className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
-                      isSelected
-                        ? 'border-primary-600 bg-primary-50 shadow-md'
-                        : 'border-gray-200 hover:border-primary-300'
-                    }`}
+                    className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${isSelected
+                      ? 'border-primary-600 bg-primary-50 shadow-md'
+                      : 'border-gray-200 hover:border-primary-300'
+                      }`}
                   >
                     <Icon className="w-8 h-8 mx-auto mb-2 text-gray-600" />
                     <div className="text-sm font-semibold">{type.label}</div>
@@ -123,10 +141,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
           {/* Ascensor */}
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <Checkbox
-              label="¿Tiene ascensor?"
-              checked={originDetails.hasElevator}
+              label="¿Debemos subir artículos por escalera?"
+              checked={!originDetails.hasElevator}
               onChange={(e) =>
-                setOriginDetailsState({ ...originDetails, hasElevator: e.target.checked })
+                setOriginDetailsState({ ...originDetails, hasElevator: !e.target.checked })
               }
             />
           </div>
@@ -149,11 +167,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
                   onClick={() =>
                     setOriginDetailsState({ ...originDetails, parkingDistance: option.value })
                   }
-                  className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-all ${
-                    originDetails.parkingDistance === option.value
-                      ? 'border-primary-600 bg-primary-50'
-                      : 'border-gray-200 hover:border-primary-300'
-                  }`}
+                  className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-all ${originDetails.parkingDistance === option.value
+                    ? 'border-primary-600 bg-primary-50'
+                    : 'border-gray-200 hover:border-primary-300'
+                    }`}
                 >
                   {option.label}
                 </button>
@@ -165,7 +182,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
           {originDetails.floor > 0 && !originDetails.hasElevator && (
             <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
               <p className="text-sm text-orange-800">
-                ⚠️ <strong>Cargo adicional:</strong> ${originDetails.floor * 5000} por piso sin ascensor
+                ⚠️ <strong>Recargo por escalera:</strong> ${originDetails.floor * floorPrice} (Total por {originDetails.floor} pisos)
+              </p>
+              <p className="text-xs text-orange-700 mt-1 ml-6">
+                * Valor sujeto a cambio
               </p>
             </div>
           )}
@@ -199,11 +219,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
                         propertyType: type.value as any,
                       })
                     }
-                    className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
-                      isSelected
-                        ? 'border-primary-600 bg-primary-50 shadow-md'
-                        : 'border-gray-200 hover:border-primary-300'
-                    }`}
+                    className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${isSelected
+                      ? 'border-primary-600 bg-primary-50 shadow-md'
+                      : 'border-gray-200 hover:border-primary-300'
+                      }`}
                   >
                     <Icon className="w-8 h-8 mx-auto mb-2 text-gray-600" />
                     <div className="text-sm font-semibold">{type.label}</div>
@@ -230,12 +249,12 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
           {/* Ascensor */}
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
             <Checkbox
-              label="¿Tiene ascensor?"
-              checked={destinationDetails.hasElevator}
+              label="¿Debemos subir artículos por escalera?"
+              checked={!destinationDetails.hasElevator}
               onChange={(e) =>
                 setDestinationDetailsState({
                   ...destinationDetails,
-                  hasElevator: e.target.checked,
+                  hasElevator: !e.target.checked,
                 })
               }
             />
@@ -262,11 +281,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
                       parkingDistance: option.value,
                     })
                   }
-                  className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-all ${
-                    destinationDetails.parkingDistance === option.value
-                      ? 'border-primary-600 bg-primary-50'
-                      : 'border-gray-200 hover:border-primary-300'
-                  }`}
+                  className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-all ${destinationDetails.parkingDistance === option.value
+                    ? 'border-primary-600 bg-primary-50'
+                    : 'border-gray-200 hover:border-primary-300'
+                    }`}
                 >
                   {option.label}
                 </button>
@@ -278,7 +296,10 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
           {destinationDetails.floor > 0 && !destinationDetails.hasElevator && (
             <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
               <p className="text-sm text-orange-800">
-                ⚠️ <strong>Cargo adicional:</strong> ${destinationDetails.floor * 5000} por piso sin ascensor
+                ⚠️ <strong>Recargo por escalera:</strong> ${destinationDetails.floor * floorPrice} (Total por {destinationDetails.floor} pisos)
+              </p>
+              <p className="text-xs text-orange-700 mt-1 ml-6">
+                * Valor sujeto a cambio
               </p>
             </div>
           )}

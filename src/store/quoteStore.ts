@@ -84,7 +84,7 @@ export interface QuoteState {
   estimatedPrice: number
   recommendedVehicle: string
   isConfirmed: boolean
-  
+
   // Actions
   setPersonalInfo: (info: PersonalInfo) => void
   setDateTime: (date: Date, isFlexible: boolean) => void
@@ -136,57 +136,57 @@ export const useQuoteStore = create<QuoteState>()(
       ...initialState,
 
       setPersonalInfo: (info) => set({ personalInfo: info }),
-      
+
       setDateTime: (date, isFlexible) => set({ dateTime: date, isFlexible }),
-      
+
       setOriginAddress: (address) =>
         set((state) => ({
           origin: { ...state.origin, address },
         })),
-      
+
       setDestinationAddress: (address) =>
         set((state) => ({
           destination: { ...state.destination, address },
         })),
-      
+
       setOriginDetails: (details) =>
         set((state) => ({
           origin: { ...state.origin, details },
         })),
-      
+
       setDestinationDetails: (details) =>
         set((state) => ({
           destination: { ...state.destination, details },
         })),
-      
+
       addItem: (item) =>
         set((state) => {
           const newItems = [...state.items, item]
           return { items: newItems }
         }),
-      
+
       updateItem: (id, updatedItem) =>
         set((state) => ({
           items: state.items.map((item) =>
             item.id === id ? { ...item, ...updatedItem } : item
           ),
         })),
-      
+
       removeItem: (id) =>
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
         })),
-      
+
       setAdditionalServices: (services) => set({ additionalServices: services }),
-      
+
       setConfirmed: (confirmed) => set({ isConfirmed: confirmed }),
-      
+
       calculateTotals: async () => {
         const state = get()
-        
+
         // Obtener configuración de precios dinámicamente
         const pricing = await getPricingConfig()
-        
+
         const totalVolume = state.items.reduce(
           (sum, item) => sum + item.volume * item.quantity,
           0
@@ -204,7 +204,7 @@ export const useQuoteStore = create<QuoteState>()(
 
         // Calcular distancia real
         let distance = 10 // km por defecto
-        
+
         if (state.origin.address && state.destination.address) {
           try {
             distance = await calculateDistanceByAddresses(
@@ -265,7 +265,7 @@ export const useQuoteStore = create<QuoteState>()(
             const itemPackagingCost = item.packaging?.pricePerUnit || 0
             return acc + (itemPackagingCost * itemVolume)
           }, 0)
-        
+
         basePrice += packagingCost
 
         // Items frágiles o de vidrio
@@ -277,6 +277,11 @@ export const useQuoteStore = create<QuoteState>()(
           basePrice -= (basePrice * pricing.discounts.flexibility) / 100
         }
 
+        // Agregar IVA si es empresa (factura)
+        if (state.personalInfo?.isCompany) {
+          basePrice = basePrice * 1.19
+        }
+
         set({
           totalVolume,
           totalWeight,
@@ -285,7 +290,7 @@ export const useQuoteStore = create<QuoteState>()(
           recommendedVehicle,
         })
       },
-      
+
       resetQuote: () => set(initialState),
     }),
     {
