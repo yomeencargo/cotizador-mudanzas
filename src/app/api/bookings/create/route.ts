@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       original_price,
       origin_address,
       destination_address,
+      payment_status = 'pending',
     } = body
 
     // Validar datos
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
         duration_hours,
         status: 'pending',
         payment_type,
+        payment_status,
         total_price,
         original_price,
         origin_address,

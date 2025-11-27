@@ -6,7 +6,6 @@ import { Toaster } from 'react-hot-toast'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://yomeencargo.cl'),
   title: 'Yo me Encargo - Transporte y Mudanzas en Santiago y Todo Chile',
   description: 'Servicio profesional de mudanzas, fletes y transporte en la Región Metropolitana y todo Chile. Cotización online instantánea, precios transparentes y atención personalizada. ¡Contáctanos!',
   keywords: 'mudanzas Santiago, fletes Chile, transporte región metropolitana, mudanzas oficina, mudanzas hogar, traslado regiones, cotizador mudanzas, fletes Santiago, transporte carga Chile, mudanzas profesionales',
@@ -21,23 +20,11 @@ export const metadata: Metadata = {
     title: 'Yo me Encargo - Transporte y Mudanzas Confiables en Chile',
     description: 'Mudanzas y fletes profesionales en Santiago y todo Chile. Cotiza online al instante. Servicio puntual, seguro y con los mejores precios.',
     siteName: 'Yo me Encargo',
-    images: [
-      {
-        url: '/logo.png',
-        width: 1200,
-        height: 630,
-        alt: 'Yo me Encargo - Transporte y Mudanzas en Chile',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Yo me Encargo - Transporte y Mudanzas en Chile',
     description: 'Mudanzas y fletes profesionales en Santiago y todo Chile. Cotiza online al instante.',
-    images: ['/logo.png'],
-  },
-  alternates: {
-    canonical: 'https://yomeencargo.cl',
   },
 }
 

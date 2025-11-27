@@ -6,6 +6,7 @@ export async function GET() {
     console.log('[API] Fetching bookings from database...')
     
     // Obtener todas las reservas con paginación
+    // EXCLUIR reservas canceladas (pagos rechazados)
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
       .select(`
@@ -20,6 +21,7 @@ export async function GET() {
         status,
         notes,
         payment_type,
+        payment_status,
         total_price,
         original_price,
         origin_address,
@@ -29,6 +31,7 @@ export async function GET() {
         completed_at,
         cancelled_at
       `)
+      .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
       .order('scheduled_date', { ascending: true })
       .order('scheduled_time', { ascending: true })
 

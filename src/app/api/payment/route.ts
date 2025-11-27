@@ -1,62 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { flowService } from '@/lib/flowService'
 
-// Este endpoint maneja la integración con Webpay
+// Este endpoint crea una orden de pago en Flow
 export async function POST(request: NextRequest) {
   try {
-    const { quoteId, amount } = await request.json()
+    const { bookingId, amount, email, subject, paymentType } = await request.json()
 
-    if (!quoteId || !amount) {
+    if (!bookingId || !amount || !email) {
       return NextResponse.json(
         { error: 'Datos incompletos' },
         { status: 400 }
       )
     }
 
-    // Aquí iría la integración real con Webpay/Transbank
-    // const WebpayPlus = require('transbank-sdk').WebpayPlus
-    // const response = await WebpayPlus.Transaction.create(...)
+    // Verificar que Flow está configurado
+    if (!flowService.isConfigured()) {
+      return NextResponse.json(
+        { error: 'Flow no está configurado. Por favor contacta al administrador.' },
+        { status: 500 }
+      )
+    }
 
-    // Por ahora, devolvemos una respuesta simulada
+    // Obtener URL base de la aplicación
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+    // Crear orden de pago en Flow
+    const paymentData = {
+      commerceOrder: bookingId, // ID único de la reserva
+      subject: subject || 'Servicio de Mudanza - Yo Me Encargo',
+      currency: 'CLP',
+      amount: amount,
+      email: email,
+      urlConfirmation: `${appUrl}/api/payment/confirm`, // Flow enviará notificación aquí
+      urlReturn: `${appUrl}/api/payment/result`, // Usuario será redirigido aquí
+      optional: JSON.stringify({ bookingId, paymentType }), // Datos adicionales mínimos
+    }
+
+    const flowResponse = await flowService.createPayment(paymentData)
+
     return NextResponse.json({
       success: true,
-      paymentUrl: 'https://webpay-simulator.com/payment',
-      token: 'simulated-token-123',
+      paymentUrl: flowResponse.url,
+      token: flowResponse.token,
+      flowOrder: flowResponse.flowOrder,
     })
   } catch (error) {
     console.error('Error processing payment:', error)
     return NextResponse.json(
-      { error: 'Error al procesar el pago' },
+      {
+        error: 'Error al procesar el pago',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
 }
-
-// Callback de Webpay
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams
-    const token = searchParams.get('token_ws')
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token no proporcionado' },
-        { status: 400 }
-      )
-    }
-
-    // Aquí se confirmaría la transacción con Webpay
-    // const result = await WebpayPlus.Transaction.commit(token)
-
-    return NextResponse.json({
-      success: true,
-      status: 'approved',
-    })
-  } catch (error) {
-    console.error('Error confirming payment:', error)
-    return NextResponse.json(
-      { error: 'Error al confirmar el pago' },
-      { status: 500 }
-    )
-  }
-}
-

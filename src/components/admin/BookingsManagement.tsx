@@ -39,6 +39,7 @@ interface Booking {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   notes?: string
   payment_type?: string
+  payment_status?: string
   total_price?: number
   original_price?: number
   origin_address?: string
@@ -601,9 +602,20 @@ export default function BookingsManagement() {
                           <div className="text-sm font-semibold text-green-700">
                             ${(booking.original_price || booking.total_price)?.toLocaleString()}
                           </div>
-                          {booking.payment_type === 'mitad' && booking.original_price && (
+                          {/* Mostrar estado del pago */}
+                          {booking.payment_status === 'approved' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                              ✓ Pagado {booking.payment_type === 'mitad' ? '(50%)' : '(100%)'}
+                            </span>
+                          )}
+                          {booking.payment_status === 'pending' && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
-                              Pagado: ${(booking.total_price || 0).toLocaleString()} (mitad)
+                              ⏳ Pago pendiente
+                            </span>
+                          )}
+                          {booking.payment_status === 'rejected' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                              ✗ Pago rechazado
                             </span>
                           )}
                         </div>

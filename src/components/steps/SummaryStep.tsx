@@ -144,12 +144,15 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         ? Math.round(estimatedPrice * 0.95)
         : Math.round(estimatedPrice * 0.5)
 
-      // Crear reserva en la BD
+      // Generar ID único para la reserva
+      const bookingId = `Q-${Date.now()}`
+
+      // Crear reserva temporal (se confirmará solo si el pago es exitoso)
       const response = await fetch('/api/bookings/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quote_id: `Q-${Date.now()}`,
+          quote_id: bookingId,
           client_name: personalInfo?.name,
           client_email: personalInfo?.email,
           client_phone: personalInfo?.phone,
@@ -161,6 +164,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           original_price: estimatedPrice,
           origin_address: originFull,
           destination_address: destinationFull,
+          payment_status: 'pending', // Pendiente hasta que se confirme el pago
+          status: 'pending', // Status temporal
         }),
       })
 
@@ -169,10 +174,34 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         throw new Error(error.error || 'Error al crear la reserva')
       }
 
-      const result = await response.json()
+      // Crear orden de pago en Flow
+      const paymentResponse = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: bookingId,
+          amount: finalPrice,
+          email: personalInfo?.email,
+          subject: `Servicio de Mudanza - ${paymentType === 'completo' ? 'Pago Completo' : 'Abono 50%'}`,
+          paymentType: paymentType,
+        }),
+      })
 
-      setConfirmed(true)
-      toast.success('¡Reserva confirmada! Te contactaremos pronto.')
+      if (!paymentResponse.ok) {
+        const error = await paymentResponse.json()
+        throw new Error(error.error || 'Error al crear la orden de pago')
+      }
+
+      const paymentData = await paymentResponse.json()
+
+      // Redirigir al usuario a Flow para completar el pago
+      toast.success('Redirigiendo a la pasarela de pago segura...')
+
+      // Esperar un momento para que el usuario vea el mensaje
+      setTimeout(() => {
+        window.location.href = paymentData.paymentUrl
+      }, 1000)
+
     } catch (error) {
       console.error('Error confirming reservation:', error)
       toast.error(error instanceof Error ? error.message : 'Error al confirmar la reserva')
