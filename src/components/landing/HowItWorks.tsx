@@ -57,7 +57,7 @@ export default function HowItWorks() {
         {/* Pasos */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 relative">
           {/* Línea conectora en desktop */}
-          <div className="hidden lg:block absolute top-16 left-0 right-0 h-1 bg-gradient-to-r from-blue-200 via-cyan-200 to-green-200 transform translate-y-1/2" 
+          <div className="hidden lg:block absolute top-16 left-0 right-0 h-1 bg-gradient-to-r from-brand-blue-light via-brand-blue to-brand-green transform translate-y-1/2" 
                style={{ width: 'calc(100% - 12rem)', margin: '0 6rem' }} 
           />
 

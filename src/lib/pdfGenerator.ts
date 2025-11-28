@@ -28,11 +28,11 @@ export const generateQuotePDF = async () => {
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
-  // Colores
-  const primaryColor: [number, number, number] = [37, 99, 235] // #2563eb
-  const secondaryColor: [number, number, number] = [22, 163, 74] // #16a34a
-  const textColor: [number, number, number] = [55, 65, 81] // #374151
-  const lightGray: [number, number, number] = [243, 244, 246] // #f3f4f6
+  // Colores corporativos
+  const primaryColor: [number, number, number] = [111, 168, 220] // #6FA8DC - Azul Cielo
+  const secondaryColor: [number, number, number] = [140, 198, 63] // #8CC63F - Verde Lima
+  const textColor: [number, number, number] = [0, 0, 0] // #000000 - Negro (Texto principal)
+  const lightGray: [number, number, number] = [225, 240, 250] // #E1F0FA - Azul Muy Claro
 
   let yPosition = 20
 

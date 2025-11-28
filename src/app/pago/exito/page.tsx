@@ -25,7 +25,7 @@ function PaymentSuccessContent() {
     }, [searchParams])
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 py-12 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-brand-blue-light via-white to-white py-12 px-4">
             <div className="max-w-2xl mx-auto">
                 <Card variant="elevated" className="py-12">
                     {/* Icono de éxito */}
@@ -43,8 +43,8 @@ function PaymentSuccessContent() {
                     </p>
 
                     {/* Detalles del pago */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-                        <h3 className="font-semibold text-blue-900 mb-4 text-center">
+                    <div className="bg-primary-50 border border-primary-200 rounded-lg p-6 mb-8">
+                        <h3 className="font-semibold text-primary-900 mb-4 text-center">
                             📋 Detalles de la Transacción
                         </h3>
                         <div className="space-y-3">
@@ -70,8 +70,8 @@ function PaymentSuccessContent() {
                     </div>
 
                     {/* Próximos pasos */}
-                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-6 mb-8">
-                        <h3 className="font-semibold mb-3 text-blue-900">📧 ¿Qué sigue?</h3>
+                    <div className="bg-gradient-to-r from-brand-blue-light to-brand-blue-light border border-brand-blue rounded-lg p-6 mb-8">
+                        <h3 className="font-semibold mb-3 text-primary-900">📧 ¿Qué sigue?</h3>
                         <ul className="space-y-2 text-sm text-gray-700">
                             <li className="flex items-start gap-2">
                                 <span className="text-green-600 mt-0.5">✅</span>
@@ -131,7 +131,7 @@ function PaymentSuccessContent() {
 
 function LoadingFallback() {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 py-12 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-brand-blue-light via-white to-white py-12 px-4">
             <div className="max-w-2xl mx-auto">
                 <Card variant="elevated" className="py-12">
                     <div className="flex flex-col items-center justify-center">

@@ -29,7 +29,7 @@ export default function Contact() {
   }
 
   return (
-    <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-blue-50">
+    <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-brand-blue-light">
       <div className="container mx-auto px-4">
         {/* Encabezado */}
         <motion.div

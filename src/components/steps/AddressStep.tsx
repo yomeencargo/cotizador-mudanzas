@@ -182,15 +182,15 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
         {/* ORIGEN */}
         <Card variant="elevated">
           <div className="flex items-center gap-2 mb-4 pb-4 border-b">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <MapPin className="w-5 h-5 text-primary-600" />
             </div>
             <h3 className="text-xl font-bold">Dirección de Origen</h3>
           </div>
 
           <div className="space-y-4">
             {/* Autocomplete de dirección */}
-            <div className="bg-gradient-to-r from-primary-50 to-blue-50 p-3 rounded-lg border border-primary-200 mb-4">
+            <div className="bg-gradient-to-r from-primary-50 to-brand-blue-light p-3 rounded-lg border border-primary-200 mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-4 h-4 text-primary-600" />
                 <span className="text-sm font-medium text-primary-900">
@@ -267,18 +267,18 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
         {/* DESTINO */}
         <Card variant="elevated">
           <div className="flex items-center gap-2 mb-4 pb-4 border-b">
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <Navigation className="w-5 h-5 text-green-600" />
+            <div className="w-10 h-10 bg-secondary-100 rounded-full flex items-center justify-center">
+              <Navigation className="w-5 h-5 text-secondary-600" />
             </div>
             <h3 className="text-xl font-bold">Dirección de Destino</h3>
           </div>
 
           <div className="space-y-4">
             {/* Autocomplete de dirección */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg border border-green-200 mb-4">
+            <div className="bg-gradient-to-r from-secondary-50 to-secondary-100 p-3 rounded-lg border border-secondary-200 mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium text-green-900">
+                <Sparkles className="w-4 h-4 text-secondary-600" />
+                <span className="text-sm font-medium text-secondary-900">
                   Búsqueda Inteligente
                 </span>
               </div>
@@ -295,7 +295,7 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
                   toast.success('¡Dirección autocompletada!')
                 }}
               />
-              <p className="text-xs text-green-700 mt-2">
+              <p className="text-xs text-secondary-700 mt-2">
                 Escribe y selecciona de la lista para autocompletar todos los campos
               </p>
             </div>
@@ -353,8 +353,8 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
       </div>
 
       {/* Info */}
-      <Card className="mt-6 bg-blue-50 border-blue-200">
-        <p className="text-sm text-blue-800">
+      <Card className="mt-6 bg-primary-50 border-primary-200">
+        <p className="text-sm text-primary-800">
           <strong>💡 Tip:</strong> Asegúrate de incluir toda la información relevante (número de 
           departamento, torre, etc.) para facilitar el acceso el día de la mudanza.
         </p>

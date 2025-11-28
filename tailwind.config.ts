@@ -9,41 +9,42 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Colores corporativos "Yo me Encargo" - Edita aquí para cambiar en toda la web
+        // Colores corporativos "Yo me Encargo" - Paleta del logo
         brand: {
-          blue: '#2563eb',      // Azul principal
-          'blue-light': '#3b82f6', // Azul claro
-          cyan: '#06b6d4',      // Celeste
-          'cyan-light': '#22d3ee', // Celeste claro
-          green: '#10b981',     // Verde
-          'green-light': '#34d399', // Verde claro
-          gray: '#6b7280',      // Gris
-          'gray-light': '#9ca3af', // Gris claro
-          'gray-dark': '#374151', // Gris oscuro
+          blue: '#6FA8DC',      // Azul Cielo (Color Principal / Cabeceras)
+          'blue-light': '#E1F0FA', // Azul Muy Claro (Fondos suaves / Degradados)
+          cyan: '#6FA8DC',      // Celeste (usado como variante del azul)
+          'cyan-light': '#E1F0FA', // Celeste claro (usado como variante del azul claro)
+          green: '#8CC63F',     // Verde Lima (Acento Principal / Botones)
+          'green-light': '#A8D66F', // Verde Lima más claro (hover states)
+          'green-dark': '#2F9D59', // Verde Bosque (Detalles / Bordes)
+          gray: '#666666',      // Gris Oscuro (Elementos neutros / Footer)
+          'gray-light': '#999999', // Gris claro (variante)
+          'gray-dark': '#666666', // Gris oscuro (Footer)
         },
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#E1F0FA',        // Azul Muy Claro
+          100: '#D0E7F7',
+          200: '#B8D9F0',
+          300: '#9FCBE9',
+          400: '#87BDE2',
+          500: '#6FA8DC',       // Azul Cielo (Color Principal)
+          600: '#5A8BC4',
+          700: '#456EAC',
+          800: '#305194',
+          900: '#1B347C',
         },
         secondary: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+          50: '#F0F8E8',
+          100: '#E0F1D1',
+          200: '#C8E4A8',
+          300: '#B0D77F',
+          400: '#98CA56',
+          500: '#8CC63F',       // Verde Lima (Acento Principal)
+          600: '#7AB033',
+          700: '#689A27',
+          800: '#56841B',
+          900: '#446E0F',
         },
       },
       animation: {

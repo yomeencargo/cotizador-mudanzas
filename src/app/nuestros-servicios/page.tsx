@@ -17,7 +17,7 @@ export default function NuestrosServiciosPage() {
         'Carga y descarga incluida',
         'Vehículos de diferentes tamaños',
       ],
-      color: 'from-blue-500 to-blue-600',
+      color: 'from-brand-blue to-brand-blue',
       delay: 0.1,
     },
     {
@@ -29,7 +29,7 @@ export default function NuestrosServiciosPage() {
         'Protección de muebles',
         'Personal capacitado',
       ],
-      color: 'from-cyan-500 to-cyan-600',
+      color: 'from-brand-blue to-brand-cyan',
       delay: 0.2,
     },
     {
@@ -41,7 +41,7 @@ export default function NuestrosServiciosPage() {
         'Horarios flexibles',
         'Minimal downtime',
       ],
-      color: 'from-green-500 to-green-600',
+      color: 'from-brand-green to-brand-green-dark',
       delay: 0.3,
     },
     {
@@ -87,7 +87,7 @@ export default function NuestrosServiciosPage() {
       <Navbar />
       
       <main className="pt-24 md:pt-28">
-        <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-blue-50">
+        <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-brand-blue-light">
           <div className="container mx-auto px-4">
             {/* Encabezado */}
             <motion.div

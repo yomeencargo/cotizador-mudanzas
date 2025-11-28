@@ -23,7 +23,7 @@ export default function Coverage() {
   ]
 
   return (
-    <section id="cobertura" className="py-20 md:py-28 bg-gradient-to-br from-blue-900 via-cyan-800 to-green-700 text-white relative overflow-hidden isolate">
+    <section id="cobertura" className="py-20 md:py-28 bg-gradient-to-br from-brand-blue via-brand-blue to-brand-green-dark text-white relative overflow-hidden isolate">
       {/* Patrón decorativo contenido */}
       <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ contain: 'paint' }}>
         <div className="absolute inset-0 w-full h-full" style={{

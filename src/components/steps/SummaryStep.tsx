@@ -526,7 +526,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         <div className="lg:col-span-1">
           <div className="sticky top-24 space-y-4">
             {/* Precio */}
-            <Card variant="elevated" className="bg-gradient-to-br from-blue-50 via-cyan-50 to-green-50 border-2 border-blue-200">
+            <Card variant="elevated" className="bg-gradient-to-br from-brand-blue-light via-brand-blue-light to-white border-2 border-brand-blue">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-primary-600" />
                 Precio Estimado

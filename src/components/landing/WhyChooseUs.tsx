@@ -75,7 +75,7 @@ export default function WhyChooseUs() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group p-6 rounded-xl bg-gradient-to-br from-gray-50 to-blue-50 hover:from-brand-blue hover:to-brand-cyan transition-all duration-300 cursor-default border border-gray-100 hover:border-transparent hover:shadow-xl"
+              className="group p-6 rounded-xl bg-gradient-to-br from-gray-50 to-brand-blue-light hover:from-brand-blue hover:to-brand-cyan transition-all duration-300 cursor-default border border-gray-100 hover:border-transparent hover:shadow-xl"
             >
               <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mb-4 shadow-md group-hover:scale-110 transition-transform duration-300">
                 <benefit.icon className="text-brand-blue group-hover:text-brand-cyan" size={28} />

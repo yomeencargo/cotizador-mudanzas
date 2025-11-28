@@ -5,12 +5,12 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 0%; /* Negro para texto principal */
   }
   
   body {
     @apply bg-gray-50;
-    color: hsl(var(--foreground));
+    color: #000000; /* Negro (Texto principal) */
   }
 
   /* Prevenir problemas de renderizado en secciones con efectos decorativos */
