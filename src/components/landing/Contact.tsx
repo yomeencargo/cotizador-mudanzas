@@ -1,274 +1,190 @@
 'use client'
 
-import { useState } from 'react'
-import { Mail, Phone, MapPin, Clock, Send, MessageCircle } from 'lucide-react'
+import { Mail, Phone, Clock, MessageCircle, ArrowRight, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    service: '',
-    message: '',
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // TODO: Aquí se debe integrar la lógica de envío del formulario
-    // Por ahora, redirigir a WhatsApp con los datos
-    const whatsappMessage = `Hola, mi nombre es ${formData.name}.%0A%0AServicio: ${formData.service}%0ATelefono: ${formData.phone}%0AEmail: ${formData.email}%0A%0AMensaje: ${formData.message}`
-    window.open(`https://wa.me/56954390267?text=${whatsappMessage}`, '_blank')
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    })
-  }
+  const contactItems = [
+    {
+      icon: MessageCircle,
+      title: 'WhatsApp',
+      value: '+56 9 5439 0267',
+      description: 'Respuesta inmediata',
+      href: 'https://wa.me/56954390267',
+      gradient: 'from-green-500 to-emerald-600',
+      bgGradient: 'from-green-50 to-emerald-50',
+      iconBg: 'bg-gradient-to-br from-green-400 to-emerald-500',
+      hoverTextColor: 'group-hover:text-green-600',
+    },
+    {
+      icon: Phone,
+      title: 'Teléfono',
+      value: '+56 9 5439 0267',
+      description: 'Lunes a Domingo',
+      href: 'tel:+56954390267',
+      gradient: 'from-blue-500 to-cyan-600',
+      bgGradient: 'from-blue-50 to-cyan-50',
+      iconBg: 'bg-gradient-to-br from-blue-400 to-cyan-500',
+      hoverTextColor: 'group-hover:text-blue-600',
+    },
+    {
+      icon: Mail,
+      title: 'Email',
+      value: 'contacto@yomeencargo.cl',
+      description: 'Respuesta en 24hrs',
+      href: 'mailto:contacto@yomeencargo.cl',
+      gradient: 'from-cyan-500 to-blue-600',
+      bgGradient: 'from-cyan-50 to-blue-50',
+      iconBg: 'bg-gradient-to-br from-cyan-400 to-blue-500',
+      hoverTextColor: 'group-hover:text-cyan-600',
+    },
+  ]
 
   return (
-    <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-brand-blue-light">
-      <div className="container mx-auto px-4">
+    <section className="relative py-20 md:py-32 overflow-hidden">
+      {/* Fondo decorativo */}
+      <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-light via-white to-cyan-50"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(111,168,220,0.1),transparent_50%)]"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(140,198,63,0.08),transparent_50%)]"></div>
+
+      <div className="container mx-auto px-4 relative z-10">
         {/* Encabezado */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-16 md:mb-20"
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+          <motion.div
+            initial={{ scale: 0 }}
+            whileInView={{ scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-blue to-brand-cyan rounded-2xl mb-6 shadow-lg"
+          >
+            <MessageCircle className="text-white" size={32} />
+          </motion.div>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
             Contáctanos
           </h2>
-          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
             Estamos listos para ayudarte con tu mudanza o traslado
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
-          {/* Información de Contacto */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="space-y-6"
-          >
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                Información de Contacto
-              </h3>
-
-              <div className="space-y-5">
-                {/* WhatsApp */}
-                <a
-                  href="https://wa.me/56954390267"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start space-x-4 p-4 rounded-xl hover:bg-green-50 transition-colors group"
+        <div className="max-w-6xl mx-auto">
+          {/* Grid de Contacto */}
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {contactItems.map((item, index) => {
+              const Icon = item.icon
+              return (
+                <motion.a
+                  key={item.title}
+                  href={item.href}
+                  target={item.href.startsWith('http') ? '_blank' : undefined}
+                  rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  whileHover={{ y: -8, scale: 1.02 }}
+                  className="group relative bg-white p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden"
                 >
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-green-200 transition-colors">
-                    <MessageCircle className="text-green-600" size={24} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">WhatsApp</p>
-                    <p className="text-brand-blue font-medium">+56 9 5439 0267</p>
-                    <p className="text-sm text-gray-600">Respuesta inmediata</p>
-                  </div>
-                </a>
+                  {/* Efecto de fondo al hover */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${item.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                  
+                  {/* Decoración de esquina */}
+                  <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.gradient} opacity-5 rounded-bl-full transform translate-x-8 -translate-y-8 group-hover:opacity-10 transition-opacity duration-300`}></div>
 
-                {/* Teléfono */}
-                <a
-                  href="tel:+56954390267"
-                  className="flex items-start space-x-4 p-4 rounded-xl hover:bg-blue-50 transition-colors group"
-                >
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                    <Phone className="text-blue-600" size={24} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">Teléfono</p>
-                    <p className="text-brand-blue font-medium">+56 9 5439 0267</p>
-                    <p className="text-sm text-gray-600">Lunes a Domingo</p>
-                  </div>
-                </a>
+                  <div className="relative z-10">
+                    {/* Icono */}
+                    <div className={`${item.iconBg} w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="text-white" size={32} />
+                    </div>
 
-                {/* Email */}
-                <a
-                  href="mailto:contacto@yomeencargo.cl"
-                  className="flex items-start space-x-4 p-4 rounded-xl hover:bg-cyan-50 transition-colors group"
-                >
-                  <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-200 transition-colors">
-                    <Mail className="text-cyan-600" size={24} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">Email</p>
-                    <p className="text-brand-blue font-medium">contacto@yomeencargo.cl</p>
-                    <p className="text-sm text-gray-600">Respuesta en 24hrs</p>
-                  </div>
-                </a>
+                    {/* Contenido */}
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-800 transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className={`text-lg font-semibold text-brand-blue mb-2 ${item.hoverTextColor} transition-colors`}>
+                      {item.value}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {item.description}
+                    </p>
 
-                {/* Ubicación */}
-                <div className="flex items-start space-x-4 p-4 rounded-xl">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <MapPin className="text-gray-600" size={24} />
+                    {/* Flecha */}
+                    <div className="mt-6 flex items-center text-brand-blue group-hover:translate-x-2 transition-transform duration-300">
+                      <span className="text-sm font-semibold mr-2">Contactar</span>
+                      <ArrowRight size={18} />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">Ubicación</p>
-                    <p className="text-gray-700">Región Metropolitana</p>
-                    <p className="text-sm text-gray-600">Santiago, Chile</p>
-                  </div>
+                </motion.a>
+              )
+            })}
+          </div>
+
+          {/* Información adicional y CTA */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Horario */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="bg-white p-8 rounded-3xl shadow-lg hover:shadow-xl transition-shadow duration-300"
+            >
+              <div className="flex items-start space-x-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <Clock className="text-white" size={32} />
                 </div>
-
-                {/* Horario */}
-                <div className="flex items-start space-x-4 p-4 rounded-xl">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Clock className="text-gray-600" size={24} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-1">Horario de Atención</p>
-                    <p className="text-gray-700">Lunes a Domingo</p>
-                    <p className="text-sm text-gray-600">9:00 - 19:00 hrs</p>
-                    <p className="text-xs text-brand-blue mt-1">*Respondemos emails y WhatsApp</p>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">Horario de Atención</h3>
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold text-gray-800">Lunes a Domingo</p>
+                    <p className="text-2xl font-bold text-brand-blue">9:00 - 18:00 hrs</p>
+                    <p className="text-sm text-gray-600 mt-3 flex items-center">
+                      <Sparkles size={14} className="mr-2 text-brand-green" />
+                      Respondemos emails y WhatsApp
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* CTA Rápido */}
-            <div className="bg-gradient-to-r from-brand-blue to-brand-cyan p-8 rounded-2xl shadow-lg text-white">
-              <h3 className="text-xl font-bold mb-3">¿Necesitas una cotización rápida?</h3>
-              <p className="mb-6 text-white/90">
-                Usa nuestro cotizador online y obtén tu presupuesto al instante
-              </p>
-              <a
-                href="/cotizador"
-                className="inline-block w-full text-center px-6 py-3 bg-white text-brand-blue rounded-lg hover:bg-gray-100 transition-all duration-300 font-bold"
-              >
-                Ir al Cotizador
-              </a>
-            </div>
-          </motion.div>
-
-          {/* Formulario de Contacto */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-white p-8 rounded-2xl shadow-lg"
-          >
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              Envíanos un Mensaje
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Nombre */}
-              <div>
-                <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Nombre Completo *
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent transition-all outline-none"
-                  placeholder="Tu nombre"
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent transition-all outline-none"
-                  placeholder="tu@email.com"
-                />
-              </div>
-
-              {/* Teléfono */}
-              <div>
-                <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Teléfono *
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  required
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent transition-all outline-none"
-                  placeholder="+56 9 XXXX XXXX"
-                />
-              </div>
-
-              {/* Tipo de Servicio */}
-              <div>
-                <label htmlFor="service" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Tipo de Servicio *
-                </label>
-                <select
-                  id="service"
-                  name="service"
-                  required
-                  value={formData.service}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent transition-all outline-none"
+            {/* CTA Cotización Rápida */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="relative bg-gradient-to-br from-brand-blue via-brand-cyan to-cyan-500 p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group"
+            >
+              {/* Efectos decorativos de fondo */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.2),transparent_50%)]"></div>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(255,255,255,0.1),transparent_50%)]"></div>
+              
+              <div className="relative z-10 text-white">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">
+                    <Sparkles className="text-white" size={24} />
+                  </div>
+                  <h3 className="text-2xl font-bold">¿Necesitas una cotización rápida?</h3>
+                </div>
+                <p className="text-white/90 mb-6 text-lg leading-relaxed">
+                  Usa nuestro cotizador online y obtén tu presupuesto al instante, sin esperas ni complicaciones.
+                </p>
+                <a
+                  href="/cotizador"
+                  className="inline-flex items-center justify-center w-full px-6 py-4 bg-white text-brand-blue rounded-xl hover:bg-gray-50 transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 group-hover:scale-105"
                 >
-                  <option value="">Selecciona un servicio</option>
-                  <option value="Flete en Santiago">Flete en Santiago</option>
-                  <option value="Mudanza de Hogar">Mudanza de Hogar</option>
-                  <option value="Mudanza de Oficina">Mudanza de Oficina</option>
-                  <option value="Traslado a Regiones">Traslado a Regiones</option>
-                  <option value="Servicio Corporativo">Servicio Corporativo</option>
-                  <option value="Otro">Otro</option>
-                </select>
+                  <span>Ir al Cotizador</span>
+                  <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                </a>
               </div>
-
-              {/* Mensaje */}
-              <div>
-                <label htmlFor="message" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Mensaje *
-                </label>
-                <textarea
-                  id="message"
-                  name="message"
-                  required
-                  value={formData.message}
-                  onChange={handleChange}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-transparent transition-all outline-none resize-none"
-                  placeholder="Cuéntanos qué necesitas..."
-                />
-              </div>
-
-              {/* Botón Submit */}
-              <button
-                type="submit"
-                className="w-full px-6 py-4 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-all duration-300 font-bold flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                <span>Enviar Mensaje</span>
-                <Send size={20} />
-              </button>
-
-              <p className="text-xs text-gray-500 text-center">
-                * Al enviar, serás redirigido a WhatsApp para completar tu consulta
-              </p>
-            </form>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </div>
     </section>
