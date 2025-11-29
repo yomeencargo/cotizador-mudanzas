@@ -17,7 +17,7 @@ import {
   Mail,
 } from 'lucide-react'
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
-import { generateQuotePDF } from '@/lib/pdfGenerator'
+import { generateQuotePDF, generateCheckoutPDF } from '@/lib/pdfGenerator'
 import { getPricingConfig } from '@/lib/pricingService'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -111,6 +111,17 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     }
   }
 
+  const handleDownloadCheckoutPDF = async () => {
+    try {
+      toast.loading('Generando cotización confirmada...', { id: 'checkout-pdf' })
+      await generateCheckoutPDF()
+      toast.success('📄 Cotización descargada exitosamente!', { id: 'checkout-pdf' })
+    } catch (error) {
+      console.error('Error generating checkout PDF:', error)
+      toast.error('Error al generar la cotización', { id: 'checkout-pdf' })
+    }
+  }
+
   // Función helper para construir dirección completa
   const buildAddress = (addr: any) => {
     if (!addr.address) return ''
@@ -166,6 +177,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           destination_address: destinationFull,
           payment_status: 'pending', // Pendiente hasta que se confirme el pago
           status: 'pending', // Status temporal
+          is_company: personalInfo?.isCompany || false,
+          company_name: personalInfo?.isCompany ? personalInfo.companyName : null,
+          company_rut: personalInfo?.isCompany ? personalInfo.companyRut : null,
+          photo_urls: additionalServices?.photos || [], // URLs de las fotos subidas
         }),
       })
 
@@ -661,6 +676,27 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                   Editar Cotización
                 </Button>
               </div>
+            </Card>
+
+            {/* Descargar Cotización */}
+            <Card className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-300">
+              <div className="text-center mb-3">
+                <p className="text-sm font-semibold text-gray-700 mb-2">
+                  📋 ¿Necesitas una copia de tu cotización?
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Descarga el PDF con todos los detalles
+                </p>
+              </div>
+              <Button
+                onClick={handleDownloadCheckoutPDF}
+                variant="outline"
+                className="w-full border-2 border-blue-500 text-blue-700 hover:bg-blue-50"
+                size="lg"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Descargar Cotización (PDF)
+              </Button>
             </Card>
 
             {/* Info de pago */}

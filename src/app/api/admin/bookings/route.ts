@@ -26,6 +26,12 @@ export async function GET() {
         original_price,
         origin_address,
         destination_address,
+        is_company,
+        company_name,
+        company_rut,
+        pdf_url,
+        pdf_generated_at,
+        photo_urls,
         created_at,
         confirmed_at,
         completed_at,
@@ -77,6 +83,9 @@ export async function POST(request: NextRequest) {
       origin_address,
       destination_address,
       notes,
+      is_company = false,
+      company_name,
+      company_rut,
     } = body
 
     if (!client_name || !client_email || !client_phone || !scheduled_date || !scheduled_time) {
@@ -146,6 +155,9 @@ export async function POST(request: NextRequest) {
         origin_address,
         destination_address,
         notes,
+        is_company,
+        company_name: is_company ? company_name : null,
+        company_rut: is_company ? company_rut : null,
       })
       .select()
       .single()

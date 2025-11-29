@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { deleteBookingPhotos } from '@/lib/deletePhotos'
 
 export async function PATCH(
   request: NextRequest,
@@ -49,6 +50,34 @@ export async function PATCH(
       updateData.notes = notes
     }
 
+    // Si se marca como completada, eliminar las fotos automáticamente
+    if (status === 'completed') {
+      console.log('[PATCH Booking] Reserva marcada como completada, eliminando fotos...')
+      
+      // Obtener las fotos actuales antes de actualizar
+      const { data: currentBooking, error: fetchError } = await supabaseAdmin
+        .from('bookings')
+        .select('photo_urls')
+        .eq('id', id)
+        .single()
+
+      if (!fetchError && currentBooking?.photo_urls) {
+        // Eliminar fotos de Supabase Storage
+        const deleteResult = await deleteBookingPhotos(currentBooking.photo_urls)
+        
+        if (deleteResult.success) {
+          console.log(`[PATCH Booking] ✓ ${deleteResult.deletedCount} foto(s) eliminada(s) exitosamente`)
+          // Limpiar photo_urls en la BD
+          updateData.photo_urls = []
+        } else {
+          console.error(`[PATCH Booking] Error eliminando fotos:`, deleteResult.errors)
+          // Continuar con la actualización aunque falle la eliminación de fotos
+        }
+      } else {
+        console.log('[PATCH Booking] No hay fotos para eliminar')
+      }
+    }
+
     // Actualizar la reserva
     const { data: booking, error } = await supabaseAdmin
       .from('bookings')
@@ -68,7 +97,9 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       booking,
-      message: 'Reserva actualizada correctamente'
+      message: status === 'completed' 
+        ? 'Reserva completada y fotos eliminadas correctamente' 
+        : 'Reserva actualizada correctamente'
     })
   } catch (error) {
     console.error('Error in /api/admin/bookings/[id]:', error)

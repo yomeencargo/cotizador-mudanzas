@@ -19,6 +19,10 @@ export async function POST(request: NextRequest) {
       origin_address,
       destination_address,
       payment_status = 'pending',
+      is_company = false,
+      company_name,
+      company_rut,
+      photo_urls = [],
     } = body
 
     // Validar datos
@@ -96,6 +100,10 @@ export async function POST(request: NextRequest) {
         original_price,
         origin_address,
         destination_address,
+        is_company,
+        company_name: is_company ? company_name : null,
+        company_rut: is_company ? company_rut : null,
+        photo_urls: Array.isArray(photo_urls) && photo_urls.length > 0 ? photo_urls : [],
       })
       .select()
       .single()

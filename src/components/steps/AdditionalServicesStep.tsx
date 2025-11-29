@@ -19,6 +19,7 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
 
   const [services, setServices] = useState<AdditionalService[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const [formData, setFormData] = useState({
     disassembly: additionalServices.disassembly,
     assembly: additionalServices.assembly,
@@ -52,16 +53,47 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
     })
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (files) {
-      // En producción, aquí subirías las imágenes a un servidor
-      const fileNames = Array.from(files).map((file) => file.name)
+    if (!files || files.length === 0) return
+
+    try {
+      setIsUploadingPhotos(true)
+      toast.loading(`Subiendo ${files.length} foto(s)...`, { id: 'upload-photos' })
+
+      // Crear FormData con todas las fotos
+      const uploadFormData = new FormData()
+      Array.from(files).forEach(file => {
+        uploadFormData.append('photos', file)
+      })
+
+      // Subir a Supabase Storage
+      const response = await fetch('/api/photos/upload', {
+        method: 'POST',
+        body: uploadFormData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Error al subir las fotos')
+      }
+
+      const { urls } = await response.json()
+
+      // Guardar las URLs (no los nombres de archivo)
       setFormData({
         ...formData,
-        photos: [...formData.photos, ...fileNames],
+        photos: [...formData.photos, ...urls],
       })
-      toast.success(`${files.length} foto(s) agregada(s)`)
+
+      toast.success(`${files.length} foto(s) subida(s) exitosamente`, { id: 'upload-photos' })
+    } catch (error) {
+      console.error('Error uploading photos:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al subir las fotos', { id: 'upload-photos' })
+    } finally {
+      setIsUploadingPhotos(false)
+      // Limpiar el input para permitir subir las mismas fotos de nuevo si es necesario
+      e.target.value = ''
     }
   }
 
@@ -175,10 +207,14 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
           </p>
 
           <label className="block w-full">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary-400 hover:bg-primary-50 transition-colors cursor-pointer">
-              <Camera className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+            <div className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors ${
+              isUploadingPhotos 
+                ? 'bg-gray-100 cursor-wait' 
+                : 'hover:border-primary-400 hover:bg-primary-50 cursor-pointer'
+            }`}>
+              <Camera className={`w-12 h-12 mx-auto mb-2 ${isUploadingPhotos ? 'text-gray-300 animate-pulse' : 'text-gray-400'}`} />
               <p className="text-sm font-medium text-gray-700">
-                Click para subir fotos
+                {isUploadingPhotos ? 'Subiendo fotos...' : 'Click para subir fotos'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 JPG, PNG o WEBP (Máx. 5MB cada una)
@@ -190,27 +226,42 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
               accept="image/*"
               onChange={handleFileUpload}
               className="hidden"
+              disabled={isUploadingPhotos}
             />
           </label>
 
           {/* Lista de fotos */}
           {formData.photos.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {formData.photos.map((photo, index) => (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+              {formData.photos.map((photoUrl, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="relative group rounded-lg overflow-hidden border-2 border-gray-200 hover:border-primary-400 transition-all"
                 >
-                  <div className="flex items-center gap-3">
-                    <Camera className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm text-gray-700">{photo}</span>
+                  {/* Preview de la imagen */}
+                  <div className="aspect-square bg-gray-100">
+                    <img
+                      src={photoUrl}
+                      alt={`Foto ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                   </div>
-                  <button
-                    onClick={() => removePhoto(index)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    Eliminar
-                  </button>
+                  
+                  {/* Overlay con botón eliminar */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                    <button
+                      onClick={() => removePhoto(index)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                  
+                  {/* Número de foto */}
+                  <div className="absolute top-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded text-xs font-semibold text-gray-700">
+                    #{index + 1}
+                  </div>
                 </div>
               ))}
             </div>

@@ -153,7 +153,8 @@ async function processPaymentResult(token: string, baseUrl: string) {
         const params = new URLSearchParams({
             token: token,
             order: paymentStatus.flowOrder.toString(),
-            amount: paymentStatus.amount.toString()
+            amount: paymentStatus.amount.toString(),
+            quoteId: paymentStatus.commerceOrder // Este es el quote_id real (Q-...)
         })
         return {
             url: `${origin}/pago/exito?${params.toString()}`,

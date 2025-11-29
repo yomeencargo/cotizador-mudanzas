@@ -44,6 +44,12 @@ interface Booking {
   original_price?: number
   origin_address?: string
   destination_address?: string
+  is_company?: boolean
+  company_name?: string
+  company_rut?: string
+  pdf_url?: string
+  pdf_generated_at?: string
+  photo_urls?: string | string[] // Puede ser JSON string o array
   created_at: string
   confirmed_at?: string
   completed_at?: string
@@ -87,6 +93,8 @@ export default function BookingsManagement() {
       setLoading(true)
       const response = await fetch('/api/admin/bookings')
       const data = await response.json()
+      console.log('[Admin] Bookings cargadas:', data.length)
+      console.log('[Admin] Bookings con PDF:', data.filter((b: Booking) => b.pdf_url).length)
       setBookings(data)
     } catch (error) {
       console.error('Error fetching bookings:', error)
@@ -641,6 +649,7 @@ export default function BookingsManagement() {
                             }}
                             variant="outline"
                             size="sm"
+                            title="Ver detalles"
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -651,14 +660,30 @@ export default function BookingsManagement() {
                             }}
                             variant="outline"
                             size="sm"
+                            title="Editar"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
+                          {booking.pdf_url && booking.pdf_url.trim() !== '' ? (
+                            <Button
+                              onClick={() => {
+                                console.log('[Admin] Abriendo PDF:', booking.pdf_url)
+                                window.open(booking.pdf_url, '_blank')
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                              title="Descargar PDF de Reserva"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          ) : null}
                           <Button
                             onClick={() => handleDelete(booking.id)}
                             variant="outline"
                             size="sm"
                             className="text-red-600 border-red-200 hover:bg-red-50"
+                            title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -951,6 +976,22 @@ export default function BookingsManagement() {
               </div>
             )}
 
+            {selectedBooking.is_company && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-blue-900 mb-2">
+                  📋 Información de Facturación
+                </label>
+                <div className="space-y-1">
+                  <p className="text-sm text-blue-800">
+                    <strong>Razón Social:</strong> {selectedBooking.company_name}
+                  </p>
+                  <p className="text-sm text-blue-800">
+                    <strong>RUT:</strong> {selectedBooking.company_rut}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {selectedBooking.notes && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">Notas</label>
@@ -958,7 +999,98 @@ export default function BookingsManagement() {
               </div>
             )}
 
+            {/* Galería de fotos */}
+            {(() => {
+              // Parsear photo_urls (puede venir como string JSON o array)
+              let photoUrls: string[] = []
+              try {
+                if (typeof selectedBooking.photo_urls === 'string') {
+                  photoUrls = JSON.parse(selectedBooking.photo_urls)
+                } else if (Array.isArray(selectedBooking.photo_urls)) {
+                  photoUrls = selectedBooking.photo_urls
+                }
+              } catch (e) {
+                console.error('Error parsing photo_urls:', e)
+              }
+
+              if (photoUrls.length > 0) {
+                return (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <label className="block text-sm font-medium text-purple-900 mb-3">
+                      📸 Fotos del Cliente ({photoUrls.length})
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {photoUrls.map((url, index) => (
+                        <div
+                          key={index}
+                          className="relative group rounded-lg overflow-hidden border-2 border-purple-200 hover:border-purple-400 transition-all cursor-pointer"
+                          onClick={() => window.open(url, '_blank')}
+                        >
+                          <div className="aspect-square bg-gray-100">
+                            <img
+                              src={url}
+                              alt={`Foto ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium">
+                              Ver en tamaño completo
+                            </span>
+                          </div>
+                          <div className="absolute top-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded text-xs font-semibold text-gray-700">
+                            #{index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-purple-700 mt-2">
+                      💡 Haz clic en cualquier foto para verla en tamaño completo
+                    </p>
+                  </div>
+                )
+              }
+              return null
+            })()}
+
+            {selectedBooking.pdf_url && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-green-900 mb-1">
+                      📄 Comprobante de Reserva
+                    </label>
+                    <p className="text-xs text-green-700">
+                      PDF generado el {selectedBooking.pdf_generated_at 
+                        ? format(new Date(selectedBooking.pdf_generated_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => window.open(selectedBooking.pdf_url, '_blank')}
+                    variant="primary"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Descargar PDF
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-4">
+              {selectedBooking.pdf_url && (
+                <Button
+                  onClick={() => window.open(selectedBooking.pdf_url, '_blank')}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Descargar PDF
+                </Button>
+              )}
               <Button
                 onClick={() => setShowDetailsModal(false)}
                 variant="outline"

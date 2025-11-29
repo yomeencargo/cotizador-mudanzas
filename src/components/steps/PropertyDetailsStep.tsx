@@ -157,9 +157,9 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
             <div className="flex gap-2">
               {[
                 { value: 0, label: 'En la puerta' },
-                { value: 10, label: '< 10m' },
-                { value: 30, label: '10-30m' },
-                { value: 50, label: '> 30m' },
+                { value: 20, label: '< 20m' },
+                { value: 40, label: '20-40m' },
+                { value: 60, label: '> 40m' },
               ].map((option) => (
                 <button
                   key={option.value}
@@ -268,9 +268,9 @@ export default function PropertyDetailsStep({ onNext, onPrevious }: PropertyDeta
             <div className="flex gap-2">
               {[
                 { value: 0, label: 'En la puerta' },
-                { value: 10, label: '< 10m' },
-                { value: 30, label: '10-30m' },
-                { value: 50, label: '> 30m' },
+                { value: 20, label: '< 20m' },
+                { value: 40, label: '20-40m' },
+                { value: 60, label: '> 40m' },
               ].map((option) => (
                 <button
                   key={option.value}

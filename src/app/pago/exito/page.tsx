@@ -5,8 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { CheckCircle, Home, Mail, Loader2 } from 'lucide-react'
+import { CheckCircle, Home, Mail, Loader2, Download } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { generateBookingPDF } from '@/lib/pdfGenerator'
+import toast from 'react-hot-toast'
 
 function PaymentSuccessContent() {
     const searchParams = useSearchParams()
@@ -14,15 +16,96 @@ function PaymentSuccessContent() {
         token: '',
         order: '',
         amount: '',
+        quoteId: '',
     })
+    const [isDownloading, setIsDownloading] = useState(false)
+    const [isPdfUploaded, setIsPdfUploaded] = useState(false)
+    const [isUploadingPdf, setIsUploadingPdf] = useState(false)
 
     useEffect(() => {
         setPaymentInfo({
             token: searchParams.get('token') || '',
             order: searchParams.get('order') || '',
             amount: searchParams.get('amount') || '',
+            quoteId: searchParams.get('quoteId') || '',
         })
     }, [searchParams])
+
+    // Subir PDF automáticamente cuando se carga la página
+    useEffect(() => {
+        const uploadPdfAutomatically = async () => {
+            // Solo subir si tenemos los datos necesarios y no se ha subido ya
+            if (!paymentInfo.quoteId || isPdfUploaded || isUploadingPdf) {
+                return
+            }
+
+            try {
+                setIsUploadingPdf(true)
+                console.log('[PDF Auto] Iniciando subida automática de PDF...')
+                console.log('[PDF Auto] Quote ID:', paymentInfo.quoteId)
+
+                // Generar el PDF (sin descargarlo)
+                const pdfResult = await generateBookingPDF(paymentInfo, false) // false = no descargar
+                
+                if (!pdfResult) {
+                    console.error('[PDF Auto] No se pudo generar el PDF')
+                    return
+                }
+
+                console.log('[PDF Auto] PDF generado:', pdfResult.fileName)
+
+                // Subir a Supabase Storage
+                const formData = new FormData()
+                formData.append('pdf', pdfResult.blob, pdfResult.fileName)
+                formData.append('quoteId', paymentInfo.quoteId)
+
+                const uploadResponse = await fetch('/api/bookings/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                })
+
+                if (uploadResponse.ok) {
+                    const successData = await uploadResponse.json()
+                    console.log('[PDF Auto] PDF subido exitosamente:', successData)
+                    setIsPdfUploaded(true)
+                    toast.success('✅ Comprobante generado y guardado', { duration: 2000 })
+                } else {
+                    const errorData = await uploadResponse.json().catch(() => ({}))
+                    console.error('[PDF Auto] Error al subir:', errorData)
+                }
+            } catch (error) {
+                console.error('[PDF Auto] Error:', error)
+            } finally {
+                setIsUploadingPdf(false)
+            }
+        }
+
+        uploadPdfAutomatically()
+    }, [paymentInfo.quoteId, isPdfUploaded, isUploadingPdf])
+
+    const handleDownloadPDF = async () => {
+        try {
+            setIsDownloading(true)
+            
+            console.log('[PDF Download] Descargando copia del PDF...')
+            
+            // Generar y descargar el PDF (true = descargar al dispositivo)
+            const pdfResult = await generateBookingPDF(paymentInfo, true)
+            
+            if (!pdfResult) {
+                throw new Error('No se pudo generar el PDF')
+            }
+
+            console.log('[PDF Download] PDF descargado:', pdfResult.fileName)
+            toast.success('📥 PDF descargado exitosamente')
+            
+        } catch (error) {
+            console.error('[PDF Download] Error:', error)
+            toast.error('Error al descargar el PDF')
+        } finally {
+            setIsDownloading(false)
+        }
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-brand-blue-light via-white to-white py-12 px-4">
@@ -94,8 +177,28 @@ function PaymentSuccessContent() {
 
                     {/* Acciones */}
                     <div className="space-y-3">
+                        <Button 
+                            variant="primary" 
+                            className="w-full" 
+                            size="lg"
+                            onClick={handleDownloadPDF}
+                            disabled={isDownloading}
+                        >
+                            {isDownloading ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                    Generando PDF...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="w-5 h-5 mr-2" />
+                                    Descargar Comprobante PDF
+                                </>
+                            )}
+                        </Button>
+
                         <Link href="/cotizador">
-                            <Button variant="primary" className="w-full" size="lg">
+                            <Button variant="outline" className="w-full" size="lg">
                                 <Home className="w-5 h-5 mr-2" />
                                 Volver al Inicio
                             </Button>
