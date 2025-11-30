@@ -5,11 +5,11 @@ import { supabaseAdmin } from './supabase'
  * @param photoUrls Array de URLs públicas de las fotos a eliminar
  * @returns Objeto con resultado de la operación
  */
-export async function deleteBookingPhotos(photoUrls: string[] | string): {
+export async function deleteBookingPhotos(photoUrls: string[] | string): Promise<{
   success: boolean
   deletedCount: number
   errors: string[]
-} {
+}> {
   console.log('[deletePhotos] Iniciando eliminación de fotos...')
   
   // Parsear URLs si viene como string JSON
