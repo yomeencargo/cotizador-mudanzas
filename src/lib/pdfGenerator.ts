@@ -1056,7 +1056,7 @@ export const generateCheckoutPDF = async () => {
       const indicators = []
       if (item.isFragile) indicators.push('Frágil')
       if (item.isHeavy) indicators.push('Pesado')
-      if (item.hasGlass) indicators.push('Con vidrio')
+      if (item.isGlass) indicators.push('Con vidrio')
       if (item.packaging && item.packaging.type !== 'none') {
         indicators.push(`Embalaje: ${item.packaging.type}`)
       }
