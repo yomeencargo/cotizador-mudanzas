@@ -81,7 +81,7 @@ function PaymentSuccessContent() {
         }
 
         uploadPdfAutomatically()
-    }, [paymentInfo.quoteId, isPdfUploaded, isUploadingPdf])
+    }, [paymentInfo, isPdfUploaded, isUploadingPdf])
 
     const handleDownloadPDF = async () => {
         try {

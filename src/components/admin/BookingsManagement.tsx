@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -1026,12 +1027,15 @@ export default function BookingsManagement() {
                           className="relative group rounded-lg overflow-hidden border-2 border-purple-200 hover:border-purple-400 transition-all cursor-pointer"
                           onClick={() => window.open(url, '_blank')}
                         >
-                          <div className="aspect-square bg-gray-100">
-                            <img
+                          <div className="aspect-square bg-gray-100 relative">
+                            <Image
                               src={url}
                               alt={`Foto ${index + 1}`}
-                              className="w-full h-full object-cover"
+                              fill
+                              className="object-cover"
                               loading="lazy"
+                              sizes="(max-width: 768px) 50vw, 33vw"
+                              unoptimized={url.startsWith('blob:') || url.startsWith('data:')}
                             />
                           </div>
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
