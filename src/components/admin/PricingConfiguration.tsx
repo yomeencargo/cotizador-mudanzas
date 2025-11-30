@@ -268,7 +268,7 @@ export default function PricingConfiguration() {
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
               <p className="text-xs text-blue-800">
-                <strong>💡 Nota:</strong> Los servicios de "Armado de Cajas" y "Desembalaje" requieren contacto con un ejecutivo para cotización personalizada.
+                <strong>💡 Nota:</strong> Los servicios de &quot;Armado de Cajas&quot; y &quot;Desembalaje&quot; requieren contacto con un ejecutivo para cotización personalizada.
               </p>
             </div>
           </div>
