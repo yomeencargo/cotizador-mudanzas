@@ -21,7 +21,6 @@ export interface PricingConfig {
     fragile: number
     electronics: number
     artwork: number
-    piano: number
   }
   timeSurcharges: {
     saturday: number
@@ -79,8 +78,7 @@ export async function getPricingConfig(): Promise<PricingConfig> {
       specialPackaging: {
         fragile: 10000,
         electronics: 15000,
-        artwork: 25000,
-        piano: 50000
+        artwork: 25000
       },
       timeSurcharges: {
         saturday: 20,

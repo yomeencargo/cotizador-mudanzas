@@ -37,8 +37,7 @@ export async function GET() {
         specialPackaging: {
           fragile: 10000,
           electronics: 15000,
-          artwork: 25000,
-          piano: 50000
+          artwork: 25000
         },
         timeSurcharges: {
           saturday: 20,

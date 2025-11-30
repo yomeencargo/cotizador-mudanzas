@@ -32,7 +32,6 @@ interface PricingConfig {
     fragile: number
     electronics: number
     artwork: number
-    piano: number
   }
   timeSurcharges: {
     saturday: number
@@ -337,18 +336,6 @@ export default function PricingConfiguration() {
                 value={config.specialPackaging.artwork}
                 onChange={(e) => handleInputChange('specialPackaging.artwork', Number(e.target.value))}
                 placeholder="25000"
-              />
-              <p className="text-xs text-gray-500 mt-1">Se multiplica por m³ totales</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Embalaje Especial (CLP por m³)
-              </label>
-              <Input
-                type="number"
-                value={config.specialPackaging.piano}
-                onChange={(e) => handleInputChange('specialPackaging.piano', Number(e.target.value))}
-                placeholder="50000"
               />
               <p className="text-xs text-gray-500 mt-1">Se multiplica por m³ totales</p>
             </div>

@@ -31,28 +31,21 @@ export async function getPackagingOptions(): Promise<PackagingOption[]> {
         id: 'basic',
         name: 'Embalaje Básico',
         price: pricing.specialPackaging.fragile,
-        description: 'Film plástico y protección básica (precio por m³)',
+        description: 'Film plástico (precio por m³)',
         icon: '📦'
       },
       {
         id: 'standard',
         name: 'Embalaje Estándar',
         price: pricing.specialPackaging.electronics,
-        description: 'Cartón corrugado y protección media (precio por m³)',
+        description: 'Cartón corrugado (precio por m³)',
         icon: '📦'
       },
       {
         id: 'premium',
         name: 'Embalaje Premium',
         price: pricing.specialPackaging.artwork,
-        description: 'Caja reforzada con protección interior (precio por m³)',
-        icon: '📦'
-      },
-      {
-        id: 'special',
-        name: 'Embalaje Especial',
-        price: pricing.specialPackaging.piano,
-        description: 'Embalaje profesional para objetos delicados (precio por m³)',
+        description: 'Cartón corrugado y Film plástico (precio por m³)',
         icon: '📦'
       }
     ]
@@ -72,28 +65,21 @@ export async function getPackagingOptions(): Promise<PackagingOption[]> {
         id: 'basic',
         name: 'Embalaje Básico',
         price: 10000,
-        description: 'Film plástico y protección básica',
+        description: 'Film plástico',
         icon: '📦'
       },
       {
         id: 'standard',
         name: 'Embalaje Estándar',
         price: 15000,
-        description: 'Cartón corrugado y protección media',
+        description: 'Cartón corrugado',
         icon: '📦'
       },
       {
         id: 'premium',
         name: 'Embalaje Premium',
         price: 25000,
-        description: 'Caja reforzada con protección interior',
-        icon: '📦'
-      },
-      {
-        id: 'special',
-        name: 'Embalaje Especial',
-        price: 50000,
-        description: 'Embalaje profesional para objetos delicados',
+        description: 'Cartón corrugado y Film plástico',
         icon: '📦'
       }
     ]
