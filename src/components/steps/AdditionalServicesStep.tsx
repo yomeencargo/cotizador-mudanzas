@@ -111,6 +111,8 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
 
   const totalServicesPrice = services.reduce((sum, service) => {
     const key = service.id as keyof typeof formData
+    // No incluir servicios que requieren contacto con ejecutivo en el total
+    if (service.requiresContact) return sum
     return sum + (formData[key] ? service.price : 0)
   }, 0)
 
@@ -153,11 +155,18 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-semibold">{service.name}</h4>
-                        <span className="text-sm font-bold text-primary-600">
-                          ${service.price.toLocaleString()}
-                        </span>
+                        {!service.requiresContact && (
+                          <span className="text-sm font-bold text-primary-600">
+                            ${service.price.toLocaleString()}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-gray-600">{service.description}</p>
+                      {service.requiresContact && service.contactMessage && (
+                        <p className="text-xs text-blue-600 mt-1 font-medium">
+                          💬 {service.contactMessage}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

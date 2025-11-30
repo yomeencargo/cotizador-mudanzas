@@ -27,8 +27,8 @@ const DEFAULT_PRICING = {
   services: {
     disassembly: 15000,
     assembly: 15000,
-    packing: 25000,
-    unpacking: 20000
+    packing: 0, // No se muestra precio, requiere contacto con ejecutivo
+    unpacking: 0 // No se muestra precio, requiere contacto con ejecutivo
   }
 }
 
@@ -72,8 +72,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           services: {
             disassembly: pricing.additionalServices.disassembly,
             assembly: pricing.additionalServices.assembly,
-            packing: pricing.additionalServices.packing,
-            unpacking: pricing.additionalServices.unpacking
+            packing: 0, // No se muestra precio, requiere contacto con ejecutivo
+            unpacking: 0 // No se muestra precio, requiere contacto con ejecutivo
           }
         })
       } catch (error) {
@@ -515,15 +515,19 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                     </div>
                   )}
                   {additionalServices.packing && (
-                    <div className="flex justify-between text-sm">
-                      <span>✓ Embalaje profesional</span>
-                      <span className="font-semibold">${pricingConfig.services.packing.toLocaleString()}</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <div>
+                        <span>✓ Armado de Cajas</span>
+                        <p className="text-xs text-blue-600 mt-0.5">💬 Para contratar este servicio, habla con un ejecutivo</p>
+                      </div>
                     </div>
                   )}
                   {additionalServices.unpacking && (
-                    <div className="flex justify-between text-sm">
-                      <span>✓ Desembalaje</span>
-                      <span className="font-semibold">${pricingConfig.services.unpacking.toLocaleString()}</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <div>
+                        <span>✓ Desembalaje</span>
+                        <p className="text-xs text-blue-600 mt-0.5">💬 Para contratar este servicio, habla con un ejecutivo</p>
+                      </div>
                     </div>
                   )}
                 </div>

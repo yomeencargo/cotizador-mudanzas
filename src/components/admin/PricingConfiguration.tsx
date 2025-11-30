@@ -246,28 +246,6 @@ export default function PricingConfiguration() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Armado de Cajas (CLP)
-              </label>
-              <Input
-                type="number"
-                value={config.additionalServices.packing}
-                onChange={(e) => handleInputChange('additionalServices.packing', Number(e.target.value))}
-                placeholder="25000"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Desembalaje (CLP)
-              </label>
-              <Input
-                type="number"
-                value={config.additionalServices.unpacking}
-                onChange={(e) => handleInputChange('additionalServices.unpacking', Number(e.target.value))}
-                placeholder="20000"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Desarme de Muebles (CLP)
               </label>
               <Input
@@ -287,6 +265,11 @@ export default function PricingConfiguration() {
                 onChange={(e) => handleInputChange('additionalServices.assembly', Number(e.target.value))}
                 placeholder="15000"
               />
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <p className="text-xs text-blue-800">
+                <strong>💡 Nota:</strong> Los servicios de "Armado de Cajas" y "Desembalaje" requieren contacto con un ejecutivo para cotización personalizada.
+              </p>
             </div>
           </div>
         </Card>

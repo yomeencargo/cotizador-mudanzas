@@ -243,11 +243,11 @@ export const generateQuotePDF = async () => {
       yPosition += 6
     }
     if (additionalServices.packing) {
-      pdf.text('[OK] Embalaje profesional - $20.000', 20, yPosition)
+      pdf.text('[OK] Armado de Cajas - Contactar ejecutivo', 20, yPosition)
       yPosition += 6
     }
     if (additionalServices.unpacking) {
-      pdf.text('[OK] Desembalaje - $10.000', 20, yPosition)
+      pdf.text('[OK] Desembalaje - Contactar ejecutivo', 20, yPosition)
       yPosition += 6
     }
     
@@ -687,11 +687,11 @@ export const generateBookingPDF = async (
       yPosition += 6
     }
     if (additionalServices.packing) {
-      pdf.text('✓ Embalaje profesional - $20.000', 20, yPosition)
+      pdf.text('✓ Armado de Cajas - Contactar ejecutivo', 20, yPosition)
       yPosition += 6
     }
     if (additionalServices.unpacking) {
-      pdf.text('✓ Desembalaje - $10.000', 20, yPosition)
+      pdf.text('✓ Desembalaje - Contactar ejecutivo', 20, yPosition)
       yPosition += 6
     }
     
@@ -1127,11 +1127,11 @@ export const generateCheckoutPDF = async () => {
       yPosition += 6
     }
     if (additionalServices.packing) {
-      pdf.text('✓ Embalaje profesional', 25, yPosition)
+      pdf.text('✓ Armado de Cajas (Contactar ejecutivo)', 25, yPosition)
       yPosition += 6
     }
     if (additionalServices.unpacking) {
-      pdf.text('✓ Desembalaje', 25, yPosition)
+      pdf.text('✓ Desembalaje (Contactar ejecutivo)', 25, yPosition)
       yPosition += 6
     }
 

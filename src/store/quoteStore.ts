@@ -253,8 +253,7 @@ export const useQuoteStore = create<QuoteState>()(
         // Servicios adicionales
         if (state.additionalServices.disassembly) basePrice += pricing.additionalServices.disassembly
         if (state.additionalServices.assembly) basePrice += pricing.additionalServices.assembly
-        if (state.additionalServices.packing) basePrice += pricing.additionalServices.packing
-        if (state.additionalServices.unpacking) basePrice += pricing.additionalServices.unpacking
+        // packing y unpacking requieren contacto con ejecutivo, no se suman al precio
 
         // Costo de embalaje especial - CORREGIDO: se calcula por volumen de items con embalaje
         // Agrupar items por tipo de embalaje y calcular el volumen específico de cada tipo

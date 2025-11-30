@@ -14,6 +14,8 @@ export interface AdditionalService {
   description: string
   icon: any
   price: number
+  requiresContact?: boolean // Si es true, muestra mensaje de contacto con ejecutivo
+  contactMessage?: string // Mensaje personalizado para contacto
 }
 
 export async function getAdditionalServices(): Promise<AdditionalService[]> {
@@ -40,14 +42,18 @@ export async function getAdditionalServices(): Promise<AdditionalService[]> {
         name: 'Armado de Cajas',
         description: 'Empaque seguro de objetos frágiles y delicados',
         icon: Package,
-        price: pricing.additionalServices.packing
+        price: 0,
+        requiresContact: true,
+        contactMessage: 'Para contratar este servicio, habla con un ejecutivo'
       },
       {
         id: 'unpacking',
         name: 'Desembalaje',
         description: 'Desempaque y ubicación de items en destino',
         icon: Package,
-        price: pricing.additionalServices.unpacking
+        price: 0,
+        requiresContact: true,
+        contactMessage: 'Para contratar este servicio, habla con un ejecutivo'
       }
     ]
   } catch (error) {
@@ -74,14 +80,18 @@ export async function getAdditionalServices(): Promise<AdditionalService[]> {
         name: 'Armado de Cajas',
         description: 'Empaque seguro de objetos frágiles y delicados',
         icon: Package,
-        price: 25000
+        price: 0,
+        requiresContact: true,
+        contactMessage: 'Para contratar este servicio, habla con un ejecutivo'
       },
       {
         id: 'unpacking',
         name: 'Desembalaje',
         description: 'Desempaque y ubicación de items en destino',
         icon: Package,
-        price: 20000
+        price: 0,
+        requiresContact: true,
+        contactMessage: 'Para contratar este servicio, habla con un ejecutivo'
       }
     ]
   }
