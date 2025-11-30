@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { useQuoteStore } from '@/store/quoteStore'
 import { getAdditionalServices, AdditionalService } from '@/lib/additionalServicesService'
 import Button from '../ui/Button'
@@ -240,15 +239,12 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
                   className="relative group rounded-lg overflow-hidden border-2 border-gray-200 hover:border-primary-400 transition-all"
                 >
                   {/* Preview de la imagen */}
-                  <div className="aspect-square bg-gray-100 relative">
-                    <Image
+                  <div className="aspect-square bg-gray-100">
+                    <img
                       src={photoUrl}
                       alt={`Foto ${index + 1}`}
-                      fill
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                       loading="lazy"
-                      sizes="(max-width: 768px) 50vw, 33vw"
-                      unoptimized={photoUrl.startsWith('blob:') || photoUrl.startsWith('data:')}
                     />
                   </div>
                   
