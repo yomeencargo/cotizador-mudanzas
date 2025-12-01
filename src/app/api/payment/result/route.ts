@@ -64,8 +64,10 @@ async function processPaymentResult(token: string, baseUrl: string) {
     console.log('Token recibido:', token)
     console.log('Consultando estado a Flow...')
 
-    // Extraer el origen de la URL base
-    const origin = new URL(baseUrl).origin
+    // Usar NEXT_PUBLIC_APP_URL para asegurar que siempre redirigimos al dominio correcto
+    // Esto evita problemas cuando Flow redirige desde una URL antigua (ej: Vercel)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const origin = new URL(appUrl).origin
 
     // Obtener estado del pago desde Flow
     let paymentStatus;
@@ -228,7 +230,8 @@ export async function GET(request: NextRequest) {
 
         if (!token) {
             console.error('Error: No token provided in query params')
-            const origin = new URL(request.url).origin
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+            const origin = new URL(appUrl).origin
             const html = createRedirectHtml(`${origin}/pago/error?reason=no_token`, 'Error')
             return new NextResponse(html, {
                 headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -242,7 +245,8 @@ export async function GET(request: NextRequest) {
         })
     } catch (error) {
         console.error('Error processing payment result GET (Critical):', error)
-        const origin = new URL(request.url).origin
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const origin = new URL(appUrl).origin
         const html = createRedirectHtml(`${origin}/pago/error?reason=error`, 'Error')
         return new NextResponse(html, {
             headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -262,7 +266,8 @@ export async function POST(request: NextRequest) {
 
         if (!token) {
             console.error('Error: No token provided in POST body')
-            const origin = new URL(request.url).origin
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+            const origin = new URL(appUrl).origin
             const html = createRedirectHtml(`${origin}/pago/error?reason=no_token`, 'Error')
             return new NextResponse(html, {
                 headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -276,7 +281,8 @@ export async function POST(request: NextRequest) {
         })
     } catch (error) {
         console.error('Error processing payment result POST (Critical):', error)
-        const origin = new URL(request.url).origin
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const origin = new URL(appUrl).origin
         const html = createRedirectHtml(`${origin}/pago/error?reason=error`, 'Error')
         return new NextResponse(html, {
             headers: { 'Content-Type': 'text/html; charset=utf-8' }
