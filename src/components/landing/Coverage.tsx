@@ -130,12 +130,13 @@ export default function Coverage() {
               ))}
             </div>
 
-            {/* Placeholder para imagen de mapa */}
-            <div className="mt-6 p-6 bg-white/5 rounded-xl border-2 border-dashed border-white/20 text-center">
-              <MapPin size={48} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm text-white/60">
-                Sube tu mapa: /public/images/cobertura-mapa.jpg
-              </p>
+            {/* Imagen de mapa de cobertura */}
+            <div className="mt-6 rounded-xl overflow-hidden">
+              <img
+                src="/images/cobertura-mapa.jpg"
+                alt="Mapa de cobertura - Todas las regiones de Chile"
+                className="w-full h-auto rounded-xl shadow-lg"
+              />
             </div>
           </motion.div>
         </div>
