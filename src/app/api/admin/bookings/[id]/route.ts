@@ -9,11 +9,11 @@ export async function PATCH(
   try {
     const { id } = params
     const body = await request.json()
-    const { status, notes, payment_type } = body
+    const { status, notes, payment_type, service_completed_at } = body
 
-    if (!status && !payment_type) {
+    if (!status && !payment_type && service_completed_at === undefined) {
       return NextResponse.json(
-        { error: 'Estado o tipo de pago requerido' },
+        { error: 'Estado, tipo de pago o timestamp de completación requerido' },
         { status: 400 }
       )
     }
@@ -22,6 +22,7 @@ export async function PATCH(
     const updateData: any = {}
     if (status) updateData.status = status
     if (payment_type) updateData.payment_type = payment_type
+    if (service_completed_at !== undefined) updateData.service_completed_at = service_completed_at
 
     // Si se marca como pago completo, sincronizar total_price con original_price
     if (payment_type === 'completo') {

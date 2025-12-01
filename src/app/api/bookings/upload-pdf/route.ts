@@ -7,14 +7,18 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const pdfFile = formData.get('pdf') as File
     const quoteId = formData.get('quoteId') as string
+    const bookingId = formData.get('bookingId') as string
+    const bookingType = formData.get('bookingType') as string
 
     console.log('[upload-pdf] Quote ID recibido:', quoteId)
+    console.log('[upload-pdf] Booking ID recibido:', bookingId)
+    console.log('[upload-pdf] Booking Type:', bookingType)
     console.log('[upload-pdf] PDF file:', pdfFile ? `${pdfFile.name} (${pdfFile.size} bytes)` : 'No file')
 
-    if (!pdfFile || !quoteId) {
-      console.error('[upload-pdf] ERROR: PDF o quote ID faltante')
+    if (!pdfFile || (!quoteId && !bookingId)) {
+      console.error('[upload-pdf] ERROR: PDF, quote ID o booking ID faltante')
       return NextResponse.json(
-        { error: 'PDF o quote ID faltante' },
+        { error: 'PDF y (quoteId o bookingId) son requeridos' },
         { status: 400 }
       )
     }
@@ -23,8 +27,9 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await pdfFile.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Generar nombre único para el archivo
-    const fileName = `${quoteId}_${Date.now()}.pdf`
+    // Generar nombre único para el archivo usando bookingId si está disponible
+    const identifier = bookingId || quoteId
+    const fileName = `${identifier}_${Date.now()}.pdf`
     const filePath = `booking-pdfs/${fileName}`
 
     // Subir a Supabase Storage
@@ -57,8 +62,25 @@ export async function POST(request: NextRequest) {
     console.log('[upload-pdf] URL pública generada:', pdfUrl)
 
     // Actualizar la reserva con la URL del PDF
+    // Priorizar buscar por bookingId (UUID directo), luego por quote_id
+    let updateData, updateError
+    
+    if (bookingId) {
+      console.log('[upload-pdf] Actualizando booking con id:', bookingId)
+      const result = await supabaseAdmin
+        .from('bookings')
+        .update({
+          pdf_url: pdfUrl,
+          pdf_generated_at: new Date().toISOString()
+        })
+        .eq('id', bookingId)
+        .select()
+      
+      updateData = result.data
+      updateError = result.error
+    } else {
     console.log('[upload-pdf] Actualizando booking con quote_id:', quoteId)
-    const { data: updateData, error: updateError } = await supabaseAdmin
+      const result = await supabaseAdmin
       .from('bookings')
       .update({
         pdf_url: pdfUrl,
@@ -66,6 +88,10 @@ export async function POST(request: NextRequest) {
       })
       .eq('quote_id', quoteId)
       .select()
+      
+      updateData = result.data
+      updateError = result.error
+    }
 
     if (updateError) {
       console.error('[upload-pdf] ERROR al actualizar booking:', updateError)
@@ -76,9 +102,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!updateData || updateData.length === 0) {
-      console.error('[upload-pdf] ERROR: No se encontró booking con quote_id:', quoteId)
+      console.error('[upload-pdf] ERROR: No se encontró booking con el ID proporcionado')
       return NextResponse.json(
-        { error: 'No se encontró la reserva con ese ID', quoteId },
+        { error: 'No se encontró la reserva con ese ID', bookingId, quoteId },
         { status: 404 }
       )
     }

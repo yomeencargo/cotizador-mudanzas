@@ -82,12 +82,22 @@ async function processPaymentResult(token: string, baseUrl: string) {
 
     // ===== ACTUALIZAR RESERVA EN LA BASE DE DATOS =====
     // Como Flow no siempre envía el webhook en sandbox, actualizamos aquí
+    let bookingData: any = null
     try {
         const { createClient } = await import('@supabase/supabase-js')
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
+
+        // Primero, obtener la reserva para saber su tipo
+        const { data: existingBooking } = await supabase
+            .from('bookings')
+            .select('id, booking_type, client_name, client_email, visit_address')
+            .eq('quote_id', paymentStatus.commerceOrder)
+            .single()
+
+        bookingData = existingBooking
 
         // Determinar estado del pago
         let paymentStatusStr = 'pending'
@@ -150,15 +160,44 @@ async function processPaymentResult(token: string, baseUrl: string) {
     // Flow status: 1 = pending, 2 = approved, 3 = rejected, 4 = cancelled
     if (paymentStatus.status === 2) {
         console.log('Pago APROBADO. Redirigiendo a éxito...')
+        
+        // Determinar si es cotización a domicilio o mudanza online
+        // Método 1: Por el campo booking_type (si existe la migración)
+        // Método 2: Por el prefijo del quote_id "DOMICILIO-" (fallback)
+        const isDomicilio = (bookingData && bookingData.booking_type === 'domicilio') || 
+                           paymentStatus.commerceOrder.startsWith('DOMICILIO-')
+        
+        console.log('[RESULT] Tipo de reserva detectado:', isDomicilio ? 'DOMICILIO' : 'ONLINE')
+        console.log('[RESULT] commerceOrder:', paymentStatus.commerceOrder)
+        console.log('[RESULT] booking_type:', bookingData?.booking_type)
+        
+        if (isDomicilio) {
+            console.log('Redirigiendo a página de éxito de cotización a domicilio...')
+            const params = new URLSearchParams({
+                token: token,
+                order: paymentStatus.flowOrder.toString(),
+                amount: paymentStatus.amount.toString(),
+                bookingId: bookingData?.id || '',
+                clientName: bookingData?.client_name || '',
+                clientEmail: bookingData?.client_email || '',
+                visitAddress: bookingData?.visit_address || ''
+            })
+            return {
+                url: `${origin}/domicilio/exito?${params.toString()}`,
+                message: '¡Pago Exitoso!'
+            }
+        } else {
+            console.log('Redirigiendo a página de éxito de mudanza online...')
         const params = new URLSearchParams({
             token: token,
             order: paymentStatus.flowOrder.toString(),
             amount: paymentStatus.amount.toString(),
-            quoteId: paymentStatus.commerceOrder // Este es el quote_id real (Q-...)
+                quoteId: paymentStatus.commerceOrder
         })
         return {
             url: `${origin}/pago/exito?${params.toString()}`,
             message: '¡Pago Exitoso!'
+            }
         }
     } else if (paymentStatus.status === 3) {
         console.log('Pago RECHAZADO')

@@ -50,6 +50,9 @@ interface Booking {
   pdf_url?: string
   pdf_generated_at?: string
   photo_urls?: string | string[] // Puede ser JSON string o array
+  booking_type?: 'online' | 'domicilio' // Tipo de reserva
+  visit_address?: string // Dirección para visita a domicilio
+  service_completed_at?: string // Fecha de completación del servicio
   created_at: string
   confirmed_at?: string
   completed_at?: string
@@ -62,6 +65,7 @@ export default function BookingsManagement() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [bookingTypeFilter, setBookingTypeFilter] = useState('all') // Nuevo filtro
   const [dateFilter, setDateFilter] = useState('all')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -122,6 +126,16 @@ export default function BookingsManagement() {
       filtered = filtered.filter(booking => booking.status === statusFilter)
     }
 
+    // Filtrar por tipo de reserva (soporta detección por prefijo si no hay campo booking_type)
+    if (bookingTypeFilter !== 'all') {
+      filtered = filtered.filter(booking => {
+        const isDomicilio = booking.booking_type === 'domicilio' || 
+                           (booking.quote_id && booking.quote_id.startsWith('DOMICILIO-'))
+        const detectedType = isDomicilio ? 'domicilio' : 'online'
+        return detectedType === bookingTypeFilter
+      })
+    }
+
     // Filtrar por fecha
     if (dateFilter !== 'all') {
       const today = new Date()
@@ -169,7 +183,7 @@ export default function BookingsManagement() {
     }
 
     setFilteredBookings(filtered)
-  }, [bookings, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate])
+  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchBookings()
@@ -181,10 +195,17 @@ export default function BookingsManagement() {
 
   const updateBookingStatus = async (bookingId: string, newStatus: string) => {
     try {
+      const updateData: any = { status: newStatus }
+      
+      // Si se marca como completado un servicio a domicilio, agregar timestamp
+      if (newStatus === 'completed') {
+        updateData.service_completed_at = new Date().toISOString()
+      }
+
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(updateData)
       })
 
       if (!response.ok) {
@@ -441,7 +462,7 @@ export default function BookingsManagement() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Buscar
@@ -456,6 +477,21 @@ export default function BookingsManagement() {
                 className="pl-10"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Servicio
+            </label>
+            <Select
+              value={bookingTypeFilter}
+              onChange={(e) => setBookingTypeFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Todos los tipos' },
+                { value: 'online', label: 'Mudanza Online' },
+                { value: 'domicilio', label: 'Cotización a Domicilio' },
+              ]}
+            />
           </div>
 
           <div>
@@ -526,6 +562,7 @@ export default function BookingsManagement() {
               onClick={() => {
                 setSearchTerm('')
                 setStatusFilter('all')
+                setBookingTypeFilter('all')
                 setDateFilter('all')
                 setCustomStartDate('')
                 setCustomEndDate('')
@@ -557,6 +594,9 @@ export default function BookingsManagement() {
                     Cliente
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha y Hora
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -574,7 +614,13 @@ export default function BookingsManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBookings.map((booking) => (
+                {filteredBookings.map((booking) => {
+                  // Detectar tipo por campo booking_type o por prefijo del quote_id
+                  const isDomicilio = booking.booking_type === 'domicilio' || 
+                                     (booking.quote_id && booking.quote_id.startsWith('DOMICILIO-'))
+                  const bookingType = isDomicilio ? 'domicilio' : 'online'
+                  
+                  return (
                   <tr key={booking.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -586,6 +632,17 @@ export default function BookingsManagement() {
                         </div>
                       </div>
                     </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isDomicilio ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                            🏠 Domicilio
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                            📦 Online
+                          </span>
+                        )}
+                      </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {(() => {
@@ -688,7 +745,7 @@ export default function BookingsManagement() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                        {booking.payment_type === 'mitad' && (
+                          {booking.payment_type === 'mitad' && !isDomicilio && (
                           <Button
                             onClick={() => {
                               if (confirm('¿Cambiar el estado de pago de "mitad" a "completo"?')) {
@@ -702,10 +759,25 @@ export default function BookingsManagement() {
                             ✓ Marcar completo
                           </Button>
                         )}
+                          {isDomicilio && booking.status !== 'completed' && booking.payment_status === 'approved' && (
+                            <Button
+                              onClick={() => {
+                                if (confirm('¿Marcar este servicio a domicilio como completado?')) {
+                                  updateBookingStatus(booking.id, 'completed')
+                                }
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                            >
+                              ✓ Marcar visitado
+                            </Button>
+                          )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -888,6 +960,38 @@ export default function BookingsManagement() {
       >
         {selectedBooking && (
           <div className="space-y-4">
+            {/* Indicador de tipo de servicio */}
+            {(() => {
+              const isDomicilioDetail = selectedBooking.booking_type === 'domicilio' || 
+                                       (selectedBooking.quote_id && selectedBooking.quote_id.startsWith('DOMICILIO-'))
+              return (
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border-2 border-purple-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Servicio</label>
+                      {isDomicilioDetail ? (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 border border-purple-300">
+                          🏠 Cotización a Domicilio
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-300">
+                          📦 Mudanza Online
+                        </span>
+                      )}
+                    </div>
+                    {selectedBooking.service_completed_at && (
+                      <div className="text-right">
+                        <label className="block text-xs font-medium text-gray-600">Servicio completado</label>
+                        <p className="text-xs text-green-700 font-semibold">
+                          {format(new Date(selectedBooking.service_completed_at), "dd/MM/yyyy HH:mm", { locale: es })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Cliente</label>
@@ -975,6 +1079,24 @@ export default function BookingsManagement() {
                 <p className="text-sm text-gray-900">{selectedBooking.destination_address}</p>
               </div>
             )}
+
+            {/* Dirección de visita para cotizaciones a domicilio */}
+            {(() => {
+              const isDomicilioVisit = selectedBooking.booking_type === 'domicilio' || 
+                                      (selectedBooking.quote_id && selectedBooking.quote_id.startsWith('DOMICILIO-'))
+              if (isDomicilioVisit && selectedBooking.visit_address) {
+                return (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <label className="block text-sm font-medium text-purple-900 mb-2 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-purple-600" />
+                      Dirección de Visita a Domicilio
+                    </label>
+                    <p className="text-sm text-purple-800">{selectedBooking.visit_address}</p>
+                  </div>
+                )
+              }
+              return null
+            })()}
 
             {selectedBooking.is_company && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

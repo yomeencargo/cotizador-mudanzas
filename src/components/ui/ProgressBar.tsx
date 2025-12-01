@@ -1,14 +1,18 @@
 import { Check } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
 
 interface ProgressBarProps {
   currentStep: number
   totalSteps: number
   onStepClick?: (step: number) => void
   isCompleted?: boolean
+  stepLabels?: string[] // Nombres personalizados de los pasos
 }
 
-const stepNames = [
+// Nombres por defecto para el cotizador online
+const defaultStepNames = [
   'Tus Datos',
   'Fecha y Hora',
   'Direcciones',
@@ -18,9 +22,12 @@ const stepNames = [
   'Resumen'
 ]
 
-export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCompleted = false }: ProgressBarProps) {
+export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCompleted = false, stepLabels }: ProgressBarProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const stepRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  // Usar los labels personalizados o los por defecto
+  const stepNames = stepLabels || defaultStepNames.slice(0, totalSteps)
 
   // Hacer scroll al paso actual cuando cambie
   useEffect(() => {
@@ -48,13 +55,27 @@ export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCo
   return (
     <div className="sticky top-0 z-50 bg-white shadow-md border-b">
       <div className="container mx-auto px-4 py-4">
-        {/* Contenedor con scroll horizontal para móvil */}
-        <div className="flex items-center justify-center">
-          <div 
-            ref={scrollContainerRef}
-            className="flex items-center overflow-x-auto scrollbar-hide w-full md:w-auto"
-          >
-            <div className="flex items-center space-x-2 md:space-x-4 min-w-max">
+        {/* Grid con logo a la izquierda y pasos centrados */}
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
+          {/* Logo */}
+          <Link href="/" className="flex-shrink-0">
+            <Image 
+              src="/logo.png" 
+              alt="Yo Me Encargo" 
+              width={120} 
+              height={40}
+              className="h-8 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+              priority
+            />
+          </Link>
+
+          {/* Contenedor de pasos centrado */}
+          <div className="flex items-center justify-center">
+            <div 
+              ref={scrollContainerRef}
+              className="flex items-center overflow-x-auto scrollbar-hide w-full md:w-auto"
+            >
+              <div className="flex items-center space-x-2 md:space-x-4 min-w-max">
               {stepNames.map((stepName, index) => {
                 const stepNumber = index + 1
                 const isCompleted = index < currentStep
@@ -131,14 +152,18 @@ export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCo
                   </div>
                 )
               })}
+              </div>
             </div>
           </div>
+
+          {/* Espacio vacío para balance (oculto en móvil) */}
+          <div className="hidden md:block w-[120px]"></div>
         </div>
         
         {/* Progress Percentage */}
         <div className="text-center mt-3">
           <span className="text-xs text-gray-500">
-            {isCompleted ? '100' : Math.round(((currentStep + 1) / (totalSteps + 1)) * 100)}% completado
+            {Math.round(((currentStep + 1) / totalSteps) * 100)}% completado
           </span>
         </div>
       </div>

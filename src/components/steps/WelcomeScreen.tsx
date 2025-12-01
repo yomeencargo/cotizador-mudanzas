@@ -1,6 +1,7 @@
 'use client'
 
-import { Truck, Clock, Shield, DollarSign, CheckCircle, TrendingDown } from 'lucide-react'
+import { Truck, Clock, Shield, DollarSign, CheckCircle, TrendingDown, Home } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
 
@@ -9,6 +10,8 @@ interface WelcomeScreenProps {
 }
 
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
+  const router = useRouter()
+
   return (
     <div className="max-w-6xl mx-auto">
       {/* Hero Section */}
@@ -18,11 +21,75 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
         </h1>
         <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
           Sistema inteligente de cotización para mudanzas y fletes. 
-          Obtén el precio exacto de tu mudanza de forma rápida, fácil y transparente.
+          Elige la modalidad que prefieras.
         </p>
-        <Button onClick={onNext} size="lg" className="px-12 text-lg animate-float">
-          Comenzar Cotización
+
+        {/* Opciones de cotización */}
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-8">
+          {/* Cotizador Online */}
+          <Card className="hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary-500">
+            <div className="text-center p-6">
+              <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Truck className="w-10 h-10 text-primary-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3">Cotizador Online</h3>
+              <p className="text-gray-600 mb-4">
+                Completa el formulario y obtén tu cotización instantánea
+              </p>
+              <ul className="text-sm text-gray-600 mb-6 space-y-2 text-left">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  Cotización inmediata
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  Reserva tu fecha al instante
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  Precio transparente
+                </li>
+              </ul>
+              <Button onClick={onNext} size="lg" className="w-full">
+                Comenzar Cotización Online
+              </Button>
+            </div>
+          </Card>
+
+          {/* Cotizador a Domicilio */}
+          <Card className="hover:shadow-2xl transition-all duration-300 border-2 hover:border-secondary-500">
+            <div className="text-center p-6">
+              <div className="w-20 h-20 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Home className="w-10 h-10 text-secondary-600" />
+              </div>
+              <h3 className="text-2xl font-bold mb-3">Cotización a Domicilio</h3>
+              <p className="text-gray-600 mb-4">
+                Te visitamos para evaluar tu mudanza en persona
+              </p>
+              <ul className="text-sm text-gray-600 mb-6 space-y-2 text-left">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  Evaluación profesional en tu hogar
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  Cotización detallada y personalizada
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  <span><strong>$23.000</strong> - Solo RM</span>
+                </li>
+              </ul>
+              <Button 
+                onClick={() => router.push('/domicilio')} 
+                size="lg" 
+                className="w-full bg-secondary-600 hover:bg-secondary-700"
+              >
+                Solicitar Visita a Domicilio
         </Button>
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* Features Grid */}
