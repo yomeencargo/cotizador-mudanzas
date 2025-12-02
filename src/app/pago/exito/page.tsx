@@ -197,7 +197,7 @@ function PaymentSuccessContent() {
                             )}
                         </Button>
 
-                        <Link href="/cotizador">
+                        <Link href="/">
                             <Button variant="outline" className="w-full" size="lg">
                                 <Home className="w-5 h-5 mr-2" />
                                 Volver al Inicio
@@ -216,7 +216,7 @@ function PaymentSuccessContent() {
                             ¿Necesitas ayuda? Contáctanos:
                         </p>
                         <p className="text-sm font-semibold text-primary-600">
-                            📞 +56 9 XXXX XXXX | 📧 contacto@yomeencargo.cl
+                            📞 +56 9 5439 0267 | 📧 contacto@yomeencargo.cl
                         </p>
                     </div>
                 </Card>

@@ -152,7 +152,7 @@ function PaymentErrorContent() {
                             ¿Necesitas ayuda? Contáctanos:
                         </p>
                         <p className="text-sm font-semibold text-primary-600">
-                            📞 +56 9 XXXX XXXX | 📧 contacto@yomeencargo.cl
+                            📞 +56 9 5439 0267 | 📧 contacto@yomeencargo.cl
                         </p>
                     </div>
                 </Card>

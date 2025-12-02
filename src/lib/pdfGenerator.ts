@@ -304,7 +304,7 @@ export const generateQuotePDF = async () => {
   }
   
   pdf.text('Esta cotizacion es valida por 7 dias desde la fecha de emision.', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('Para confirmar tu reserva, contactanos al +56 9 1234 5678', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('Para confirmar tu reserva, contactanos al +56 9 5439 0267', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl | contacto@yomeencargo.cl', pageWidth / 2, footerY, { align: 'center' })
 
   // Descargar el PDF
@@ -783,7 +783,7 @@ export const generateBookingPDF = async (
   }
   
   pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('+56 9 1234 5678 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
   // Generar el nombre del archivo
@@ -1258,7 +1258,7 @@ export const generateCheckoutPDF = async () => {
   }
   
   pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('+56 9 1234 5678 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
   // Descargar el PDF

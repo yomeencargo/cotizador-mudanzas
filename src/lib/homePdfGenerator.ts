@@ -153,7 +153,7 @@ export const generateHomePDF = async (
 
         yPosition += 7
         pdf.setFont('helvetica', 'normal')
-        pdf.text('📞 +56 9 XXXX XXXX | 📧 contacto@yomeencargo.cl', pageWidth / 2, yPosition, { align: 'center' })
+        pdf.text('📞 +56 9 5439 0267 | 📧 contacto@yomeencargo.cl', pageWidth / 2, yPosition, { align: 'center' })
 
         yPosition += 7
         pdf.text('www.yomeencargo.cl', pageWidth / 2, yPosition, { align: 'center' })
