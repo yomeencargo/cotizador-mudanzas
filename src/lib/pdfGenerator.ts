@@ -365,6 +365,25 @@ export const generateBookingPDF = async (
   pdf.setFillColor(...primaryColor)
   pdf.rect(0, 0, pageWidth, 45, 'F')
   
+  // Cargar y agregar logo
+  try {
+    const logoUrl = '/logo.png'
+    const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = logoUrl
+    })
+    
+    // Agregar logo a la izquierda (tamaño 30mm de alto, manteniendo proporción)
+    const logoHeight = 30
+    const logoWidth = (logoImg.width / logoImg.height) * logoHeight
+    pdf.addImage(logoImg, 'PNG', 15, 7.5, logoWidth, logoHeight)
+  } catch (error) {
+    console.warn('No se pudo cargar el logo:', error)
+  }
+  
   pdf.setTextColor(255, 255, 255)
   pdf.setFontSize(26)
   pdf.setFont('helvetica', 'bold')

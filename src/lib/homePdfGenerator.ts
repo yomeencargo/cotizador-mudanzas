@@ -30,6 +30,25 @@ export const generateHomePDF = async (
         pdf.setFillColor(...primaryColor)
         pdf.rect(0, 0, pageWidth, 40, 'F')
 
+        // Cargar y agregar logo
+        try {
+            const logoUrl = '/logo.png'
+            const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image()
+                img.crossOrigin = 'anonymous'
+                img.onload = () => resolve(img)
+                img.onerror = reject
+                img.src = logoUrl
+            })
+            
+            // Agregar logo a la izquierda (tamaño 30mm de alto, manteniendo proporción)
+            const logoHeight = 30
+            const logoWidth = (logoImg.width / logoImg.height) * logoHeight
+            pdf.addImage(logoImg, 'PNG', 15, 5, logoWidth, logoHeight)
+        } catch (error) {
+            console.warn('No se pudo cargar el logo:', error)
+        }
+
         pdf.setTextColor(255, 255, 255)
         pdf.setFontSize(24)
         pdf.setFont('helvetica', 'bold')
@@ -141,28 +160,15 @@ export const generateHomePDF = async (
             yPosition += 7
         })
 
-        yPosition += 15
-
         // Footer
-        pdf.setFillColor(243, 232, 255)
-        pdf.rect(20, yPosition - 5, pageWidth - 40, 25, 'F')
-
-        pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(10)
-        pdf.text('INFORMACIÓN DE CONTACTO', pageWidth / 2, yPosition, { align: 'center' })
-
-        yPosition += 7
-        pdf.setFont('helvetica', 'normal')
-        pdf.text('📞 +56 9 5439 0267 | 📧 contacto@yomeencargo.cl', pageWidth / 2, yPosition, { align: 'center' })
-
-        yPosition += 7
-        pdf.text('www.yomeencargo.cl', pageWidth / 2, yPosition, { align: 'center' })
-
-        // Nota de validez al final
-        yPosition = pdf.internal.pageSize.getHeight() - 20
+        const footerY = pdf.internal.pageSize.getHeight() - 20
         pdf.setFontSize(8)
         pdf.setTextColor(128, 128, 128)
-        pdf.text('Este documento es un comprobante de pago. Pago procesado de forma segura a través de Flow.', pageWidth / 2, yPosition, { align: 'center' })
+        pdf.setFont('helvetica', 'normal')
+        
+        pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
+        pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
+        pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
         // Generar el PDF
         const pdfBlob = pdf.output('blob')
