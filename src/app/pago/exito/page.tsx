@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { CheckCircle, Home, Mail, Loader2, Download } from 'lucide-react'
+import { CheckCircle, Home, Loader2, Download } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { generateBookingPDF } from '@/lib/pdfGenerator'
 import toast from 'react-hot-toast'
@@ -176,7 +176,7 @@ function PaymentSuccessContent() {
                     </div>
 
                     {/* Acciones */}
-                    <div className="space-y-3">
+                    <div className="space-y-6">
                         <Button 
                             variant="primary" 
                             className="w-full" 
@@ -197,17 +197,12 @@ function PaymentSuccessContent() {
                             )}
                         </Button>
 
-                        <Link href="/">
+                        <Link href="/" className="block mt-6">
                             <Button variant="outline" className="w-full" size="lg">
                                 <Home className="w-5 h-5 mr-2" />
                                 Volver al Inicio
                             </Button>
                         </Link>
-
-                        <Button variant="outline" className="w-full" size="lg">
-                            <Mail className="w-5 h-5 mr-2" />
-                            Enviar Comprobante por Email
-                        </Button>
                     </div>
 
                     {/* Información de contacto */}
