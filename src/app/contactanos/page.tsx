@@ -6,9 +6,14 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Contáctanos - Yo me Encargo | Transporte y Mudanzas',
   description: 'Contáctanos para tu mudanza o flete en Santiago y todo Chile. WhatsApp, teléfono y email disponibles. Respuesta rápida y atención personalizada.',
+  keywords: ['contacto mudanzas', 'whatsapp mudanzas', 'teléfono fletes', 'contacto yo me encargo'],
+  alternates: {
+    canonical: 'https://yomeencargo.cl/contactanos',
+  },
   openGraph: {
     title: 'Contáctanos - Yo me Encargo',
     description: 'Contáctanos para tu mudanza o flete. Atención rápida y personalizada.',
+    url: 'https://yomeencargo.cl/contactanos',
   },
 }
 

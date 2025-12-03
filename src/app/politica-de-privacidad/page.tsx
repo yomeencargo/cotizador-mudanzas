@@ -4,7 +4,14 @@ import Footer from '@/components/landing/Footer'
 
 export const metadata: Metadata = {
   title: 'Política de Privacidad | Yo me Encargo',
-  description: 'Política de privacidad y protección de datos personales de Yo me Encargo.',
+  description: 'Política de privacidad y protección de datos personales de Yo me Encargo. Conoce cómo protegemos tu información.',
+  alternates: {
+    canonical: 'https://yomeencargo.cl/politica-de-privacidad',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function PrivacyPage() {

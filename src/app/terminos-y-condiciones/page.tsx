@@ -5,7 +5,14 @@ import Footer from '@/components/landing/Footer'
 
 export const metadata: Metadata = {
   title: 'Términos y Condiciones | Yo me Encargo',
-  description: 'Términos y condiciones de uso de los servicios de transporte y mudanzas de Yo me Encargo.',
+  description: 'Términos y condiciones de uso de los servicios de transporte y mudanzas de Yo me Encargo. Conoce nuestras políticas.',
+  alternates: {
+    canonical: 'https://yomeencargo.cl/terminos-y-condiciones',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 }
 
 export default function TermsPage() {
