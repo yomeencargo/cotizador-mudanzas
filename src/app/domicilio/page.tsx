@@ -80,6 +80,12 @@ export default function DomicilioPage() {
                 <p className="text-xs text-gray-600">Solo Región Metropolitana</p>
               </div>
             </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+              <p className="text-sm text-blue-800 text-center">
+                💡 <strong>Importante:</strong> Si contratas el servicio de mudanza o transporte después de la cotización, 
+                los $23.000 pagados se descontarán del valor total del flete.
+              </p>
+            </div>
           </div>
         </div>
 

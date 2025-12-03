@@ -189,6 +189,12 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
                 <p className="text-xs text-gray-500">Precio fijo</p>
               </div>
             </div>
+            <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-4">
+              <p className="text-sm text-blue-900">
+                💡 <strong>Importante:</strong> Si contratas el servicio de mudanza o transporte después de la cotización, 
+                los $23.000 pagados se descontarán del valor total del flete.
+              </p>
+            </div>
           </div>
 
           {/* Qué incluye */}
@@ -215,7 +221,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
           {/* Información importante */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-sm text-yellow-800">
-              <strong>⚠️ Importante:</strong> Después del pago, nos contactaremos
+              <strong>⚠️ Nota:</strong> Después del pago, nos contactaremos
               contigo para coordinar la fecha y hora de la visita.
             </p>
           </div>

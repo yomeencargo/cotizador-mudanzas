@@ -125,6 +125,8 @@ export const generateHomePDF = async (
         pdf.setFontSize(11)
 
         const services = [
+            '✓ Si contratas el servicio después, los $23.000 se descuentan',
+            '   del valor total del flete',
             '✓ Visita profesional a tu domicilio',
             '✓ Evaluación completa de tus muebles y objetos',
             '✓ Cotización detallada y personalizada',
