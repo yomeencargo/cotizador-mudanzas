@@ -58,9 +58,7 @@ export const metadata: Metadata = {
     images: ['/images/hero-truck.jpg'],
   },
   verification: {
-    // Agrega aquí los códigos de verificación cuando los tengas
-    // google: 'tu-codigo-de-google',
-    // yandex: 'tu-codigo-de-yandex',
+    google: '44L3bcsIFU2zQOJ7aqffCqSkWNfWiE-KlxCrL2xNdeo',
   },
 }
 
