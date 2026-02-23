@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
+import { GoogleTagManager } from '@next/third-parties/google'
+import { MetaPixel } from '@/components/tracking/MetaPixel'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -116,11 +118,18 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* Meta Pixel */}
+        <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID || ''} />
       </head>
       <body className={inter.className}>
         {children}
         <Toaster position="top-right" />
       </body>
+
+      {/* Google Tag Manager */}
+      {process.env.NEXT_PUBLIC_GTM_ID && (
+        <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GTM_ID} />
+      )}
     </html>
   )
 }

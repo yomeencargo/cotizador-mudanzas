@@ -240,6 +240,26 @@ export default function BookingsManagement() {
     }
   }
 
+  const updatePaymentStatus = async (bookingId: string, newPaymentStatus: string) => {
+    try {
+      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_status: newPaymentStatus })
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el estado del pago')
+      }
+
+      toast.success('Estado del pago actualizado correctamente')
+      fetchBookings()
+    } catch (error) {
+      console.error('Error updating payment status:', error)
+      toast.error('Error al actualizar el estado del pago')
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed': return 'text-green-600 bg-green-50 border-green-200'
@@ -745,20 +765,38 @@ export default function BookingsManagement() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
+                          {/* Botones de pago para reservas ONLINE */}
+                          {!isDomicilio && booking.payment_status === 'pending' && (
+                            <Button
+                              onClick={() => {
+                                if (confirm('¿Marcar este pago como pagado?')) {
+                                  updatePaymentStatus(booking.id, 'approved')
+                                }
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                            >
+                              ✓ Marcar como pagado
+                            </Button>
+                          )}
+
                           {booking.payment_type === 'mitad' && !isDomicilio && (
-                          <Button
-                            onClick={() => {
-                              if (confirm('¿Cambiar el estado de pago de "mitad" a "completo"?')) {
-                                updatePaymentType(booking.id, 'completo')
-                              }
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                          >
-                            ✓ Marcar completo
-                          </Button>
-                        )}
+                            <Button
+                              onClick={() => {
+                                if (confirm('¿Cambiar el estado de pago de "mitad" a "completo"?')) {
+                                  updatePaymentType(booking.id, 'completo')
+                                }
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                            >
+                              ✓ Marcar completo
+                            </Button>
+                          )}
+
+                          {/* Botones para reservas a DOMICILIO */}
                           {isDomicilio && booking.status !== 'completed' && booking.payment_status === 'approved' && (
                             <Button
                               onClick={() => {
