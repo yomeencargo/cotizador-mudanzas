@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Menu, X, Phone } from 'lucide-react'
 import Image from 'next/image'
+import { trackEvent } from '@/lib/tracking'
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -35,11 +36,10 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
           ? 'bg-white shadow-lg py-0'
           : 'bg-white/95 backdrop-blur-sm py-0.5'
-      }`}
+        }`}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center lg:justify-between relative">
@@ -83,6 +83,7 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center space-x-4">
             <a
               href="tel:+56954390267"
+              onClick={() => trackEvent('Contact', { method: 'phone', location: 'navbar' })}
               className="flex items-center space-x-2 text-brand-gray hover:text-brand-blue transition-colors"
             >
               <Phone size={18} />
@@ -132,6 +133,7 @@ export default function Navbar() {
               ))}
               <a
                 href="tel:+56954390267"
+                onClick={() => trackEvent('Contact', { method: 'phone', location: 'navbar_mobile' })}
                 className="flex items-center space-x-2 text-brand-gray hover:text-brand-blue transition-colors py-2"
               >
                 <Phone size={18} />

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Instagram, Mail, Phone, MapPin, ChevronDown } from 'lucide-react'
+import { trackEvent } from '@/lib/tracking'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
@@ -39,6 +40,7 @@ export default function Footer() {
                 href="https://www.instagram.com/yo.me.encargo_"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackEvent('Contact', { method: 'instagram', location: 'footer' })}
                 className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-brand-blue transition-colors"
                 aria-label="Instagram"
               >
@@ -46,6 +48,7 @@ export default function Footer() {
               </a>
               <a
                 href="mailto:contacto@yomeencargo.cl"
+                onClick={() => trackEvent('Contact', { method: 'email', location: 'footer' })}
                 className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-brand-cyan transition-colors"
                 aria-label="Email"
               >
@@ -55,6 +58,7 @@ export default function Footer() {
                 href="https://wa.me/56954390267"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'footer' })}
                 className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-brand-green transition-colors"
                 aria-label="WhatsApp"
               >
@@ -71,21 +75,19 @@ export default function Footer() {
               className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
             >
               <span>Enlaces Rápidos</span>
-              <ChevronDown 
-                size={20} 
-                className={`md:hidden transition-transform duration-300 ${
-                  openSection === 'enlaces' ? 'rotate-180' : ''
-                }`}
+              <ChevronDown
+                size={20}
+                className={`md:hidden transition-transform duration-300 ${openSection === 'enlaces' ? 'rotate-180' : ''
+                  }`}
               />
             </button>
-            
+
             {/* Lista colapsable en móvil, siempre visible en desktop */}
-            <ul 
-              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${
-                openSection === 'enlaces' 
-                  ? 'max-h-96 opacity-100' 
+            <ul
+              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${openSection === 'enlaces'
+                  ? 'max-h-96 opacity-100'
                   : 'max-h-0 opacity-0'
-              }`}
+                }`}
             >
               <li>
                 <Link
@@ -130,21 +132,19 @@ export default function Footer() {
               className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
             >
               <span>Legal</span>
-              <ChevronDown 
-                size={20} 
-                className={`md:hidden transition-transform duration-300 ${
-                  openSection === 'legal' ? 'rotate-180' : ''
-                }`}
+              <ChevronDown
+                size={20}
+                className={`md:hidden transition-transform duration-300 ${openSection === 'legal' ? 'rotate-180' : ''
+                  }`}
               />
             </button>
-            
+
             {/* Lista colapsable en móvil, siempre visible en desktop */}
-            <ul 
-              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${
-                openSection === 'legal' 
-                  ? 'max-h-96 opacity-100' 
+            <ul
+              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${openSection === 'legal'
+                  ? 'max-h-96 opacity-100'
                   : 'max-h-0 opacity-0'
-              }`}
+                }`}
             >
               <li>
                 <Link href="/terminos-y-condiciones" className="hover:text-brand-blue transition-colors block">
@@ -167,26 +167,24 @@ export default function Footer() {
               className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
             >
               <span>Contacto</span>
-              <ChevronDown 
-                size={20} 
-                className={`md:hidden transition-transform duration-300 ${
-                  openSection === 'contacto' ? 'rotate-180' : ''
-                }`}
+              <ChevronDown
+                size={20}
+                className={`md:hidden transition-transform duration-300 ${openSection === 'contacto' ? 'rotate-180' : ''
+                  }`}
               />
             </button>
-            
+
             {/* Lista colapsable en móvil, siempre visible en desktop */}
-            <ul 
-              className={`space-y-4 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${
-                openSection === 'contacto' 
-                  ? 'max-h-96 opacity-100' 
+            <ul
+              className={`space-y-4 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${openSection === 'contacto'
+                  ? 'max-h-96 opacity-100'
                   : 'max-h-0 opacity-0'
-              }`}
+                }`}
             >
               <li className="flex items-start space-x-3">
                 <Phone size={20} className="text-brand-blue flex-shrink-0 mt-0.5" />
                 <div>
-                  <a href="tel:+56954390267" className="hover:text-brand-blue transition-colors">
+                  <a href="tel:+56954390267" onClick={() => trackEvent('Contact', { method: 'phone', location: 'footer' })} className="hover:text-brand-blue transition-colors">
                     +56 9 5439 0267
                   </a>
                   <p className="text-sm text-gray-500">Lun - Dom: 9:00 - 19:00</p>
@@ -196,6 +194,7 @@ export default function Footer() {
                 <Mail size={20} className="text-brand-cyan flex-shrink-0 mt-0.5" />
                 <a
                   href="mailto:contacto@yomeencargo.cl"
+                  onClick={() => trackEvent('Contact', { method: 'email', location: 'footer' })}
                   className="hover:text-brand-cyan transition-colors break-all"
                 >
                   contacto@yomeencargo.cl
@@ -221,7 +220,7 @@ export default function Footer() {
             <p className="text-sm text-gray-500 text-center">
               © {currentYear} Yo me Encargo. Todos los derechos reservados.
             </p>
-            
+
             {/* Segunda línea: Enlaces legales */}
             <div className="flex items-center space-x-4 text-sm">
               <Link href="/terminos-y-condiciones" className="text-gray-500 hover:text-brand-blue transition-colors">
@@ -236,9 +235,9 @@ export default function Footer() {
             {/* Tercera línea: Créditos */}
             <p className="text-sm text-gray-500 text-center">
               Desarrollado por{' '}
-              <a 
-                href="https://iaenblanco.com" 
-                target="_blank" 
+              <a
+                href="https://iaenblanco.com"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-brand-blue hover:text-brand-cyan transition-colors font-semibold"
               >

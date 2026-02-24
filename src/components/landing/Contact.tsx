@@ -2,6 +2,7 @@
 
 import { Mail, Phone, Clock, MessageCircle, ArrowRight, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { trackEvent } from '@/lib/tracking'
 
 export default function Contact() {
   const contactItems = [
@@ -84,6 +85,7 @@ export default function Contact() {
                   href={item.href}
                   target={item.href.startsWith('http') ? '_blank' : undefined}
                   rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  onClick={() => trackEvent('Contact', { method: item.title.toLowerCase(), location: 'contact_section' })}
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -93,7 +95,7 @@ export default function Contact() {
                 >
                   {/* Efecto de fondo al hover */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${item.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-                  
+
                   {/* Decoración de esquina */}
                   <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.gradient} opacity-5 rounded-bl-full transform translate-x-8 -translate-y-8 group-hover:opacity-10 transition-opacity duration-300`}></div>
 
@@ -164,7 +166,7 @@ export default function Contact() {
               {/* Efectos decorativos de fondo */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.2),transparent_50%)]"></div>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(255,255,255,0.1),transparent_50%)]"></div>
-              
+
               <div className="relative z-10 text-white">
                 <div className="flex items-center mb-4">
                   <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-4">

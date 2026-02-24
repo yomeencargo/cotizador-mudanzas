@@ -17,10 +17,9 @@ export const trackEvent = (eventName: string, data: Record<string, any> = {}) =>
     }
 
     // 2. Google Tag Manager (DataLayer)
-    // @ts-ignore
-    window.dataLayer = window.dataLayer || []
-    // @ts-ignore
-    window.dataLayer.push({
+    const win = window as any
+    win.dataLayer = win.dataLayer || []
+    win.dataLayer.push({
         event: eventName,
         ...data
     })

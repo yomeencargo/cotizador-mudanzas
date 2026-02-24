@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import { CheckCircle, Home, Loader2, Download } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { generateBookingPDF } from '@/lib/pdfGenerator'
+import { trackEvent } from '@/lib/tracking'
 import toast from 'react-hot-toast'
 
 function PaymentSuccessContent() {
@@ -21,6 +22,7 @@ function PaymentSuccessContent() {
     const [isDownloading, setIsDownloading] = useState(false)
     const [isPdfUploaded, setIsPdfUploaded] = useState(false)
     const [isUploadingPdf, setIsUploadingPdf] = useState(false)
+    const hasTracked = useRef(false)
 
     useEffect(() => {
         setPaymentInfo({
@@ -30,6 +32,18 @@ function PaymentSuccessContent() {
             quoteId: searchParams.get('quoteId') || '',
         })
     }, [searchParams])
+
+    // Fire Purchase Event
+    useEffect(() => {
+        if (paymentInfo.amount && paymentInfo.order && !hasTracked.current) {
+            trackEvent('Purchase', {
+                value: parseInt(paymentInfo.amount),
+                currency: 'CLP',
+                transaction_id: paymentInfo.order,
+            })
+            hasTracked.current = true
+        }
+    }, [paymentInfo])
 
     // Subir PDF automáticamente cuando se carga la página
     useEffect(() => {
@@ -46,7 +60,7 @@ function PaymentSuccessContent() {
 
                 // Generar el PDF (sin descargarlo)
                 const pdfResult = await generateBookingPDF(paymentInfo, false) // false = no descargar
-                
+
                 if (!pdfResult) {
                     console.error('[PDF Auto] No se pudo generar el PDF')
                     return
@@ -86,19 +100,19 @@ function PaymentSuccessContent() {
     const handleDownloadPDF = async () => {
         try {
             setIsDownloading(true)
-            
+
             console.log('[PDF Download] Descargando copia del PDF...')
-            
+
             // Generar y descargar el PDF (true = descargar al dispositivo)
             const pdfResult = await generateBookingPDF(paymentInfo, true)
-            
+
             if (!pdfResult) {
                 throw new Error('No se pudo generar el PDF')
             }
 
             console.log('[PDF Download] PDF descargado:', pdfResult.fileName)
             toast.success('📥 PDF descargado exitosamente')
-            
+
         } catch (error) {
             console.error('[PDF Download] Error:', error)
             toast.error('Error al descargar el PDF')
@@ -177,9 +191,9 @@ function PaymentSuccessContent() {
 
                     {/* Acciones */}
                     <div className="space-y-6">
-                        <Button 
-                            variant="primary" 
-                            className="w-full" 
+                        <Button
+                            variant="primary"
+                            className="w-full"
                             size="lg"
                             onClick={handleDownloadPDF}
                             disabled={isDownloading}

@@ -16,9 +16,10 @@ import {
   CreditCard,
   Mail,
 } from 'lucide-react'
-import { formatDate, formatTime, formatCurrency } from '@/lib/utils'
-import { generateQuotePDF, generateCheckoutPDF } from '@/lib/pdfGenerator'
+import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
+import { generateCheckoutPDF, generateQuotePDF } from '@/lib/pdfGenerator'
 import { getPricingConfig } from '@/lib/pricingService'
+import { trackEvent } from '@/lib/tracking'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
@@ -95,6 +96,13 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
     // Simular envío de cotización
     await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    // Tracking: Lead
+    trackEvent('Lead', {
+      method: 'email_quote',
+      value: estimatedPrice,
+      currency: 'CLP',
+    })
 
     toast.success('¡Cotización enviada a tu correo!')
     setIsSubmitting(false)
@@ -211,6 +219,13 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
       // Redirigir al usuario a Flow para completar el pago
       toast.success('Redirigiendo a la pasarela de pago segura...')
+
+      // Tracking: InitiateCheckout
+      trackEvent('InitiateCheckout', {
+        value: finalPrice,
+        currency: 'CLP',
+        content_ids: [bookingId],
+      })
 
       // Esperar un momento para que el usuario vea el mensaje
       setTimeout(() => {

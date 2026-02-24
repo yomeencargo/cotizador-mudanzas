@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Truck, Clock, MapPin, Shield, ArrowRight, MessageCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { trackEvent } from '@/lib/tracking'
 
 export default function Hero() {
   const benefits = [
@@ -17,7 +18,7 @@ export default function Hero() {
     <section id="inicio" className="relative pt-24 md:pt-32 pb-16 md:pb-24 overflow-hidden isolate">
       {/* Background gradiente */}
       <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-light via-brand-blue-light to-white -z-10" />
-      
+
       {/* Patron decorativo */}
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ contain: 'paint' }}>
         <div className="absolute inset-0 w-full h-full" style={{
@@ -63,11 +64,12 @@ export default function Hero() {
                 <span>Cotiza tu Traslado Online</span>
                 <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
               </Link>
-              
+
               <a
                 href="https://wa.me/56954390267?text=Hola,%20necesito%20información%20sobre%20sus%20servicios"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'hero' })}
                 className="px-8 py-4 bg-brand-green text-white rounded-lg hover:bg-brand-green-light transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center space-x-2"
               >
                 <MessageCircle size={20} />
