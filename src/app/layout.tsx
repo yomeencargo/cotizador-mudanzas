@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { GoogleTagManager } from '@next/third-parties/google'
 import { MetaPixel } from '@/components/tracking/MetaPixel'
+import WhatsAppFloatingButton from '@/components/ui/WhatsAppFloatingButton'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -124,6 +125,7 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <Toaster position="top-right" />
+        <WhatsAppFloatingButton />
       </body>
 
       {/* Google Tag Manager */}

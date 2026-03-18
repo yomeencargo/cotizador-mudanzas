@@ -11,7 +11,8 @@ import AdditionalServicesStep from '@/components/steps/AdditionalServicesStep'
 import SummaryStep from '@/components/steps/SummaryStep'
 import { useQuoteStore } from '@/store/quoteStore'
 import ProgressBar from '@/components/ui/ProgressBar'
-import ChatBot from '@/components/ui/ChatBot'
+import Navbar from '@/components/landing/Navbar'
+import Footer from '@/components/landing/Footer'
 
 const steps = [
   { id: 0, name: 'Bienvenida', component: WelcomeScreen },
@@ -59,47 +60,54 @@ export default function CotizadorPage() {
 
   const CurrentStepComponent = steps[currentStep].component
 
+  const isWelcome = currentStep === 0
+
   return (
-    <main className="min-h-screen">
-      {currentStep > 0 && (
-        <ProgressBar 
-          currentStep={currentStep - 1} 
-          totalSteps={steps.length - 1}
-          isCompleted={isConfirmed}
-          onStepClick={(step) => {
-            setCurrentStep(step + 1)
-          }}
-        />
-      )}
-      
-      <div ref={mainContentRef} className="container mx-auto px-4 py-8">
-        <CurrentStepComponent
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-          onReset={handleReset}
-          currentStep={currentStep}
-        />
-      </div>
+    <>
+      {isWelcome && <Navbar />}
 
-      <ChatBot />
-
-      {/* Footer */}
-      <footer className="bg-gray-50 border-t border-gray-200 py-6 mt-12">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-xs text-gray-500">
-            ©2025 - Desarrollado por{' '}
-            <a 
-              href="https://iaenblanco.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
-            >
-              IAenBlanco.com
-            </a>
-          </p>
+      <main className="min-h-screen">
+        {currentStep > 0 && (
+          <ProgressBar 
+            currentStep={currentStep - 1} 
+            totalSteps={steps.length - 1}
+            isCompleted={isConfirmed}
+            onStepClick={(step) => {
+              setCurrentStep(step + 1)
+            }}
+          />
+        )}
+        
+        <div ref={mainContentRef} className={`container mx-auto px-4 py-8 ${isWelcome ? 'pt-24 md:pt-32' : ''}`}>
+          <CurrentStepComponent
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+            onReset={handleReset}
+            currentStep={currentStep}
+          />
         </div>
-      </footer>
-    </main>
+
+        {!isWelcome && (
+          <footer className="bg-gray-50 border-t border-gray-200 py-6 mt-12">
+            <div className="container mx-auto px-4 text-center">
+              <p className="text-xs text-gray-500">
+                ©2025 - Desarrollado por{' '}
+                <a 
+                  href="https://iaenblanco.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
+                >
+                  IAenBlanco.com
+                </a>
+              </p>
+            </div>
+          </footer>
+        )}
+      </main>
+
+      {isWelcome && <Footer />}
+    </>
   )
 }
 
