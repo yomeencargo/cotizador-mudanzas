@@ -29,6 +29,22 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
     try {
       setLoading(true)
 
+      // Guardar como prospecto
+      const visitAddr = `${visitAddress.street} ${visitAddress.number}, ${visitAddress.commune}, ${visitAddress.region}${visitAddress.additionalInfo ? ` (${visitAddress.additionalInfo})` : ''}`
+      fetch('/api/prospects/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'domicilio',
+          name: personalInfo.name,
+          email: personalInfo.email,
+          phone: personalInfo.phone,
+          visit_address: visitAddr,
+          total_price: FIXED_PRICE,
+          original_price: FIXED_PRICE,
+        }),
+      }).catch(err => console.error('Error saving domicilio prospect:', err))
+
       // Crear la reserva de tipo domicilio
       const bookingData = {
         quote_id: `DOMICILIO-${Date.now()}`,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useQuoteStore } from '@/store/quoteStore'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
@@ -86,13 +86,86 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   }, [])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const prospectSavedRef = useRef(false)
 
   useEffect(() => {
     calculateTotals()
   }, [calculateTotals])
 
+  const prospectIdRef = useRef<string | null>(null)
+
+  const saveProspect = async (source: string): Promise<string | null> => {
+    try {
+      const originFull = buildAddress(origin)
+      const destinationFull = buildAddress(destination)
+
+      const itemsSummary = items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        volume: parseFloat((item.volume * item.quantity).toFixed(2)),
+      }))
+
+      const res = await fetch('/api/prospects/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source,
+          name: personalInfo?.name,
+          email: personalInfo?.email,
+          phone: personalInfo?.phone,
+          is_company: personalInfo?.isCompany || false,
+          company_name: personalInfo?.companyName,
+          company_rut: personalInfo?.companyRut,
+          origin_address: originFull,
+          destination_address: destinationFull,
+          scheduled_date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
+          scheduled_time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
+          total_price: estimatedPrice,
+          original_price: isFlexible ? Math.round(estimatedPrice / 0.9) : estimatedPrice,
+          is_flexible: isFlexible,
+          recommended_vehicle: recommendedVehicle,
+          total_volume: totalVolume,
+          total_weight: totalWeight,
+          total_distance: totalDistance,
+          items_summary: itemsSummary,
+          additional_services: {
+            disassembly: additionalServices.disassembly,
+            assembly: additionalServices.assembly,
+            packing: additionalServices.packing,
+            unpacking: additionalServices.unpacking,
+            observations: additionalServices.observations,
+          },
+        }),
+      })
+      const data = await res.json()
+      prospectSavedRef.current = true
+      prospectIdRef.current = data.prospectId || null
+      return data.prospectId || null
+    } catch (error) {
+      console.error('Error saving prospect:', error)
+      return null
+    }
+  }
+
+  const uploadProspectPdf = async (blob: Blob, fileName: string) => {
+    const pid = prospectIdRef.current
+    const email = personalInfo?.email
+    if (!pid && !email) return
+    try {
+      const formData = new FormData()
+      formData.append('pdf', blob, fileName)
+      if (pid) formData.append('prospectId', pid)
+      if (email) formData.append('prospectEmail', email)
+      await fetch('/api/prospects/upload-pdf', { method: 'POST', body: formData })
+    } catch (err) {
+      console.error('Error uploading prospect PDF:', err)
+    }
+  }
+
   const handleSendQuote = async () => {
     setIsSubmitting(true)
+
+    await saveProspect('email_quote')
 
     // Simular envío de cotización
     await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -111,7 +184,13 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   const handleDownloadPDF = async () => {
     try {
       toast.loading('Generando PDF...', { id: 'pdf-generation' })
-      await generateQuotePDF()
+      if (!prospectSavedRef.current) {
+        await saveProspect('pdf_download')
+      }
+      const result = await generateQuotePDF()
+      if (result?.blob) {
+        uploadProspectPdf(result.blob, result.fileName)
+      }
       toast.success('PDF descargado exitosamente!', { id: 'pdf-generation' })
     } catch (error) {
       console.error('Error generating PDF:', error)
@@ -122,8 +201,14 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   const handleDownloadCheckoutPDF = async () => {
     try {
       toast.loading('Generando cotización confirmada...', { id: 'checkout-pdf' })
-      await generateCheckoutPDF()
-      toast.success('📄 Cotización descargada exitosamente!', { id: 'checkout-pdf' })
+      if (!prospectSavedRef.current) {
+        await saveProspect('pdf_download')
+      }
+      const result = await generateCheckoutPDF()
+      if (result?.blob) {
+        uploadProspectPdf(result.blob, result.fileName)
+      }
+      toast.success('Cotización descargada exitosamente!', { id: 'checkout-pdf' })
     } catch (error) {
       console.error('Error generating checkout PDF:', error)
       toast.error('Error al generar la cotización', { id: 'checkout-pdf' })
@@ -152,6 +237,11 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     setIsSubmitting(true)
 
     try {
+      // Guardar como prospecto antes de procesar el pago
+      if (!prospectSavedRef.current) {
+        await saveProspect('checkout_initiated')
+      }
+
       // Construir direcciones completas
       const originFull = buildAddress(origin)
       const destinationFull = buildAddress(destination)

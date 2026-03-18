@@ -10,6 +10,7 @@ import ScheduleManagement from '@/components/admin/ScheduleManagement'
 import PricingConfiguration from '@/components/admin/PricingConfiguration'
 import ScheduleConfiguration from '@/components/admin/ScheduleConfiguration'
 import ItemsManagement from '@/components/admin/ItemsManagement'
+import ProspectsManagement from '@/components/admin/ProspectsManagement'
 import { 
   Calendar, 
   Truck, 
@@ -24,7 +25,8 @@ import {
   TrendingUp,
   TrendingDown,
   LogOut,
-  Package
+  Package,
+  UserPlus
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -102,6 +104,7 @@ export default function AdminDashboard() {
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
     { id: 'bookings', name: 'Reservas', icon: Calendar },
+    { id: 'prospects', name: 'Prospectos', icon: UserPlus },
     { id: 'fleet', name: 'Flota', icon: Truck },
     { id: 'schedule', name: 'Horarios', icon: Clock },
     { id: 'settings', name: 'Configuración', icon: Settings },
@@ -356,6 +359,9 @@ export default function AdminDashboard() {
 
         {/* Bookings Tab */}
         {activeTab === 'bookings' && <BookingsManagement />}
+
+        {/* Prospects Tab */}
+        {activeTab === 'prospects' && <ProspectsManagement />}
 
         {/* Fleet Tab */}
         {activeTab === 'fleet' && <FleetManagement />}

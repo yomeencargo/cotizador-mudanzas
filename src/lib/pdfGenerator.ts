@@ -310,6 +310,11 @@ export const generateQuotePDF = async () => {
   // Descargar el PDF
   const fileName = `Cotizacion_Mudanza_${personalInfo?.name?.replace(/\s/g, '_') || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`
   pdf.save(fileName)
+
+  return {
+    blob: pdf.output('blob'),
+    fileName
+  }
 }
 
 export const generateQuotePDFFromData = (quoteData: any) => {

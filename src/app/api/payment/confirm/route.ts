@@ -107,6 +107,38 @@ export async function POST(request: NextRequest) {
                 status: updateData.status,
                 payment_status: paymentStatusStr
             })
+
+            // Si el pago fue exitoso, marcar el prospecto correspondiente como convertido
+            if (paymentStatus.status === 2) {
+                try {
+                    // Buscar la reserva para obtener el email y el ID
+                    const { data: bookingData } = await supabase
+                        .from('bookings')
+                        .select('id, client_email')
+                        .eq('quote_id', paymentStatus.commerceOrder)
+                        .single()
+
+                    if (bookingData) {
+                        const { error: prospectError } = await supabase
+                            .from('quote_prospects')
+                            .update({
+                                status: 'converted',
+                                converted_booking_id: bookingData.id,
+                                updated_at: new Date().toISOString(),
+                            })
+                            .eq('email', bookingData.client_email)
+                            .eq('status', 'new')
+
+                        if (prospectError) {
+                            console.error('[WEBHOOK] Error updating prospect:', prospectError)
+                        } else {
+                            console.log(`[WEBHOOK] Prospect marked as converted for email: ${bookingData.client_email}`)
+                        }
+                    }
+                } catch (prospectErr) {
+                    console.error('[WEBHOOK] Exception updating prospect:', prospectErr)
+                }
+            }
             
             // Si el pago fue rechazado o cancelado, eliminar la reserva después de 1 minuto
             // para mantener la base de datos limpia
