@@ -5,8 +5,7 @@ import { useQuoteStore } from '@/store/quoteStore'
 import Button from '../ui/Button'
 import Checkbox from '../ui/Checkbox'
 import Card from '../ui/Card'
-import Select from '../ui/Select'
-import { Calendar, Clock, TrendingDown, AlertCircle } from 'lucide-react'
+import { Calendar, Clock, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, addDays, isSameDay, startOfDay, endOfMonth, addMonths, startOfMonth, getMonth, getYear } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -43,7 +42,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
   const [availableSlots, setAvailableSlots] = useState<SlotData[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
 
-  // Generar fechas disponibles (desde mañana hasta casi un año más, excluyendo domingos)
+  // Generar fechas disponibles (desde mañana hasta casi un año más, incluyendo domingos)
   // Rango ajustado: permite reservar hasta 11 meses hacia adelante
   const availableDates = useMemo(() => {
     const today = new Date()
@@ -57,13 +56,9 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
     const diffInMs = lastDay.getTime() - tomorrow.getTime()
     const totalDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24)) + 1
     
-    // Generar array de fechas excluyendo domingos
     const dates: Date[] = []
     for (let i = 0; i < totalDays; i++) {
-      const date = addDays(tomorrow, i)
-      if (date.getDay() !== 0) { // Excluir domingos
-        dates.push(date)
-      }
+      dates.push(addDays(tomorrow, i))
     }
     
     return dates
@@ -102,8 +97,38 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
     }
   }, [availableMonths, selectedMonth])
 
-  // Fechas del mes seleccionado
-  const datesInSelectedMonth = datesByMonth[selectedMonth] || []
+  // Set de fechas disponibles para lookup O(1)
+  const availableDateSet = useMemo(() => {
+    return new Set(availableDates.map(d => format(d, 'yyyy-MM-dd')))
+  }, [availableDates])
+
+  // Índice del mes seleccionado para navegación
+  const currentMonthIndex = availableMonths.findIndex(m => m.key === selectedMonth)
+  const canGoPrev = currentMonthIndex > 0
+  const canGoNext = currentMonthIndex < availableMonths.length - 1
+
+  const goToPrevMonth = () => {
+    if (canGoPrev) setSelectedMonth(availableMonths[currentMonthIndex - 1].key)
+  }
+  const goToNextMonth = () => {
+    if (canGoNext) setSelectedMonth(availableMonths[currentMonthIndex + 1].key)
+  }
+
+  // Grilla del calendario (Lu→Do), con celdas vacías de relleno
+  const calendarGrid = useMemo(() => {
+    if (!selectedMonth) return []
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const firstOfMonth = new Date(year, month - 1, 1)
+    const daysInMonth = endOfMonth(firstOfMonth).getDate()
+    // Lunes = 0, ..., Domingo = 6
+    const offset = (firstOfMonth.getDay() + 6) % 7
+    const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7
+    const cells: (Date | null)[] = []
+    for (let i = 0; i < offset; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month - 1, d))
+    while (cells.length < totalCells) cells.push(null)
+    return cells
+  }, [selectedMonth])
 
   const fetchAvailableSlots = useCallback(async () => {
     try {
@@ -195,64 +220,91 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
               <Calendar className="w-5 h-5 text-primary-600" />
               <h3 className="text-lg font-semibold">Selecciona una Fecha</h3>
             </div>
-            
-            {/* Selector de Mes */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                📅 Selecciona el mes
-              </label>
-              <Select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                options={availableMonths.map(month => ({
-                  value: month.key,
-                  label: month.label
-                }))}
-                className="text-base font-semibold capitalize shadow-sm"
-              />
+
+            {/* Navegación de mes */}
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={goToPrevMonth}
+                disabled={!canGoPrev}
+                className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Mes anterior"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <span className="font-semibold text-gray-900 capitalize text-sm sm:text-base">
+                {availableMonths.find(m => m.key === selectedMonth)?.label ?? ''}
+              </span>
+              <button
+                onClick={goToNextMonth}
+                disabled={!canGoNext}
+                className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Mes siguiente"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
             </div>
 
-            {/* Días del mes seleccionado */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                📆 Selecciona el día
-              </label>
-              <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50">
-              {datesInSelectedMonth.map((date) => {
-                const isSelected = selectedDate && isSameDay(date, selectedDate)
-                const isWeekend = date.getDay() === 6
-                
+            {/* Cabecera días de la semana */}
+            <div className="grid grid-cols-7 mb-1">
+              {['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].map(d => (
+                <div key={d} className="text-center text-xs font-semibold text-gray-400 py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Grilla del calendario */}
+            <div className="grid grid-cols-7 gap-0.5 border border-gray-200 rounded-xl p-1.5 bg-gray-50">
+              {calendarGrid.map((date, i) => {
+                if (!date) {
+                  return <div key={`empty-${i}`} className="aspect-square" />
+                }
+                const dateKey = format(date, 'yyyy-MM-dd')
+                const isAvailable = availableDateSet.has(dateKey)
+                const isSelected = selectedDate ? isSameDay(date, selectedDate) : false
+                const isWeekend = date.getDay() === 6 || date.getDay() === 0
+
                 return (
                   <button
-                    key={date.toISOString()}
-                    onClick={() => setSelectedDate(date)}
+                    key={dateKey}
+                    onClick={() => isAvailable && setSelectedDate(date)}
+                    disabled={!isAvailable}
+                    title={isWeekend && isAvailable ? `+${(PRICING.saturdaySurcharge / 1000).toFixed(0)}k recargo fin de semana` : undefined}
                     className={`
-                      p-3 rounded-lg border-2 text-center transition-all hover:scale-105
-                      ${isSelected 
-                        ? 'border-primary-600 bg-primary-50 shadow-md' 
-                        : 'border-gray-200 hover:border-primary-300'
+                      aspect-square flex flex-col items-center justify-center rounded-lg
+                      text-xs sm:text-sm font-medium transition-all select-none
+                      ${isAvailable ? 'hover:scale-105' : 'cursor-not-allowed'}
+                      ${isSelected
+                        ? 'bg-primary-600 text-white shadow-md scale-105'
+                        : isAvailable
+                          ? isWeekend
+                            ? 'bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 text-gray-800'
+                            : 'bg-white hover:bg-primary-50 border border-gray-200 hover:border-primary-300 text-gray-800'
+                          : 'bg-gray-100 border border-gray-200 text-gray-400 line-through decoration-gray-300'
                       }
-                      ${isWeekend ? 'bg-yellow-50' : ''}
                     `}
                   >
-                    <div className="text-xs text-gray-500 mb-1">
-                      {format(date, 'EEE', { locale: es })}
-                    </div>
-                    <div className="text-lg font-bold">
-                      {format(date, 'd')}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {format(date, 'MMM', { locale: es })}
-                    </div>
-                    {isWeekend && PRICING.saturdaySurcharge > 0 && (
-                      <div className="text-xs text-orange-600 mt-1">
-                        +${(PRICING.saturdaySurcharge / 1000).toFixed(0)}k
-                      </div>
+                    <span className="leading-none font-semibold">{format(date, 'd')}</span>
+                    {isWeekend && isAvailable && !isSelected && PRICING.saturdaySurcharge > 0 && (
+                      <span className="text-[8px] sm:text-[9px] text-orange-400 leading-none mt-0.5 font-normal">
+                        +{(PRICING.saturdaySurcharge / 1000).toFixed(0)}k
+                      </span>
                     )}
                   </button>
                 )
               })}
-              </div>
+            </div>
+
+            {/* Leyenda */}
+            <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200 inline-block" />
+                Fin de semana
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-primary-600 inline-block" />
+                Seleccionado
+              </span>
             </div>
           </div>
 
@@ -372,8 +424,7 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
             <strong>💡 Tip:</strong> Las mudanzas en horario de mañana son más eficientes.
           </p>
           <p className="text-sm text-blue-800 mt-2">
-            <strong>📅 Domingos:</strong> Si necesitas agendar para un domingo, 
-            contáctanos directamente por WhatsApp o correo electrónico.
+            <strong>🟡 Fin de semana:</strong> Sábados y domingos tienen un recargo adicional de ${(PRICING.saturdaySurcharge / 1000).toFixed(0)}k.
           </p>
         </div>
 

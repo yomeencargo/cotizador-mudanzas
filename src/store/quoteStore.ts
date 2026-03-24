@@ -242,10 +242,10 @@ export const useQuoteStore = create<QuoteState>()(
           basePrice += state.destination.details.floor * pricing.floorSurcharge
         }
 
-        // Cargo por sábado (usando porcentaje)
+        // Cargo por fin de semana: sábado (6) y domingo (0) con el mismo porcentaje
         if (state.dateTime) {
           const dayOfWeek = new Date(state.dateTime).getDay()
-          if (dayOfWeek === 6) { // 6 = Sábado
+          if (dayOfWeek === 6 || dayOfWeek === 0) {
             basePrice += (basePrice * pricing.timeSurcharges.saturday) / 100
           }
         }
