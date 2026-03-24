@@ -22,25 +22,31 @@ export default function AdminLogin() {
     setIsLoading(true)
 
     try {
-      // Simular validación (en producción esto sería más seguro)
-      if (credentials.username === 'admin' && credentials.password === 'iaenblanco2025') {
-        // Enviar credenciales al servidor para establecer cookie
-        const response = await fetch('/api/admin/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(credentials)
-        })
+      const response = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      })
 
-        if (response.ok) {
-          toast.success('Acceso autorizado')
-          router.push('/admin')
-        } else {
-          toast.error('Error al iniciar sesión')
-        }
-      } else {
-        toast.error('Usuario o contraseña incorrectos')
+      const data = await response.json().catch(() => ({}))
+
+      if (response.ok) {
+        toast.success('Acceso autorizado')
+        router.push('/admin')
+        return
       }
-    } catch (error) {
+
+      if (response.status === 503 && typeof data.error === 'string') {
+        toast.error(data.error)
+        return
+      }
+
+      toast.error(
+        typeof data.error === 'string'
+          ? data.error
+          : 'Usuario o contraseña incorrectos'
+      )
+    } catch {
       toast.error('Error al iniciar sesión')
     } finally {
       setIsLoading(false)
