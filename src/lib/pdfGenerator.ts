@@ -2,7 +2,14 @@ import jsPDF from 'jspdf'
 import { useQuoteStore } from '@/store/quoteStore'
 import { formatDate, formatTime, formatCurrency } from './utils'
 
-export const generateQuotePDF = async () => {
+type QuotePdfOptions = {
+  /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
+  download?: boolean
+}
+
+export const generateQuotePDF = async (options?: QuotePdfOptions) => {
+  const shouldDownload = options?.download !== false
+
   // Verificar que estamos en el cliente
   if (typeof window === 'undefined') {
     console.error('generateQuotePDF debe ejecutarse solo en el cliente')
@@ -307,9 +314,10 @@ export const generateQuotePDF = async () => {
   pdf.text('Para confirmar tu reserva, contactanos al +56 9 5439 0267', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl | contacto@yomeencargo.cl', pageWidth / 2, footerY, { align: 'center' })
 
-  // Descargar el PDF
   const fileName = `Cotizacion_Mudanza_${personalInfo?.name?.replace(/\s/g, '_') || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`
-  pdf.save(fileName)
+  if (shouldDownload) {
+    pdf.save(fileName)
+  }
 
   return {
     blob: pdf.output('blob'),
@@ -830,7 +838,13 @@ export const generateBookingPDF = async (
  * Similar al PDF de reserva pero sin información de pago
  * Este PDF solo se descarga localmente, NO se sube a la base de datos
  */
-export const generateCheckoutPDF = async () => {
+type CheckoutPdfOptions = {
+  download?: boolean
+}
+
+export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
+  const shouldDownload = options?.download !== false
+
   // Verificar que estamos en el cliente
   if (typeof window === 'undefined') {
     console.error('generateCheckoutPDF debe ejecutarse solo en el cliente')
@@ -1285,11 +1299,11 @@ export const generateCheckoutPDF = async () => {
   pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
-  // Descargar el PDF
   const fileName = `Cotizacion_Confirmada_${personalInfo?.name?.replace(/\s/g, '_') || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`
-  pdf.save(fileName)
-  
-  // Retornar el blob y nombre del archivo
+  if (shouldDownload) {
+    pdf.save(fileName)
+  }
+
   return {
     blob: pdf.output('blob'),
     fileName

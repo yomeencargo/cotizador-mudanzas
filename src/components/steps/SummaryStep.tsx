@@ -137,28 +137,43 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           },
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.prospectId) {
+        console.error('Error saving prospect:', !res.ok ? data?.error || res.status : 'sin prospectId')
+        return null
+      }
       prospectSavedRef.current = true
-      prospectIdRef.current = data.prospectId || null
-      return data.prospectId || null
+      prospectIdRef.current = data.prospectId
+      return data.prospectId
     } catch (error) {
       console.error('Error saving prospect:', error)
       return null
     }
   }
 
-  const uploadProspectPdf = async (blob: Blob, fileName: string) => {
+  const uploadProspectPdf = async (blob: Blob, fileName: string): Promise<boolean> => {
     const pid = prospectIdRef.current
     const email = personalInfo?.email
-    if (!pid && !email) return
+    if (!pid && !email) return false
     try {
       const formData = new FormData()
       formData.append('pdf', blob, fileName)
       if (pid) formData.append('prospectId', pid)
       if (email) formData.append('prospectEmail', email)
-      await fetch('/api/prospects/upload-pdf', { method: 'POST', body: formData })
+      const res = await fetch('/api/prospects/upload-pdf', { method: 'POST', body: formData })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        console.error('Error uploading prospect PDF:', data?.error || res.status)
+        return false
+      }
+      if (data.warning) {
+        console.warn('PDF subido pero no vinculado al prospecto')
+        return false
+      }
+      return true
     } catch (err) {
       console.error('Error uploading prospect PDF:', err)
+      return false
     }
   }
 
@@ -185,11 +200,20 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     try {
       toast.loading('Generando PDF...', { id: 'pdf-generation' })
       if (!prospectSavedRef.current) {
-        await saveProspect('pdf_download')
+        const id = await saveProspect('pdf_download')
+        if (!id) {
+          toast.error('No se pudo guardar el prospecto. Intenta de nuevo.', { id: 'pdf-generation' })
+          return
+        }
       }
       const result = await generateQuotePDF()
       if (result?.blob) {
-        uploadProspectPdf(result.blob, result.fileName)
+        toast.loading('Guardando copia en prospectos...', { id: 'pdf-generation' })
+        const uploaded = await uploadProspectPdf(result.blob, result.fileName)
+        if (!uploaded) {
+          toast.success('PDF descargado. No se pudo guardar la copia en el panel.', { id: 'pdf-generation' })
+          return
+        }
       }
       toast.success('PDF descargado exitosamente!', { id: 'pdf-generation' })
     } catch (error) {
@@ -202,11 +226,20 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     try {
       toast.loading('Generando cotización confirmada...', { id: 'checkout-pdf' })
       if (!prospectSavedRef.current) {
-        await saveProspect('pdf_download')
+        const id = await saveProspect('pdf_download')
+        if (!id) {
+          toast.error('No se pudo guardar el prospecto. Intenta de nuevo.', { id: 'checkout-pdf' })
+          return
+        }
       }
       const result = await generateCheckoutPDF()
       if (result?.blob) {
-        uploadProspectPdf(result.blob, result.fileName)
+        toast.loading('Guardando copia en prospectos...', { id: 'checkout-pdf' })
+        const uploaded = await uploadProspectPdf(result.blob, result.fileName)
+        if (!uploaded) {
+          toast.success('Cotización descargada. No se pudo guardar la copia en el panel.', { id: 'checkout-pdf' })
+          return
+        }
       }
       toast.success('Cotización descargada exitosamente!', { id: 'checkout-pdf' })
     } catch (error) {
@@ -232,6 +265,50 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
     return parts.join(', ')
   }
+
+  const summaryDataReadyForPdf =
+    Boolean(
+      personalInfo?.name?.trim() &&
+        personalInfo?.email?.trim() &&
+        personalInfo?.phone?.trim() &&
+        origin?.address &&
+        destination?.address &&
+        items?.length > 0
+    )
+
+  const summaryAutoPdfLockRef = useRef(false)
+
+  useEffect(() => {
+    if (isConfirmed || !summaryDataReadyForPdf) return
+    if (summaryAutoPdfLockRef.current) return
+    summaryAutoPdfLockRef.current = true
+
+    let cancelled = false
+
+    const run = async () => {
+      let success = false
+      try {
+        if (!prospectSavedRef.current) {
+          const id = await saveProspect('web')
+          if (cancelled || !id) return
+        }
+        const result = await generateQuotePDF({ download: false })
+        if (cancelled || !result?.blob) return
+        const ok = await uploadProspectPdf(result.blob, result.fileName)
+        if (!cancelled && ok) success = true
+      } catch (e) {
+        if (!cancelled) console.error('[SummaryStep] Auto-guardado PDF prospecto:', e)
+      } finally {
+        if (!success) summaryAutoPdfLockRef.current = false
+      }
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una pasada al cumplir datos; idempotencia en API
+  }, [isConfirmed, summaryDataReadyForPdf])
 
   const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
     setIsSubmitting(true)

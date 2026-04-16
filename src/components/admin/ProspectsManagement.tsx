@@ -734,7 +734,7 @@ export default function ProspectsManagement() {
             )}
 
             {/* PDF */}
-            {selectedProspect.pdf_url && (
+            {selectedProspect.pdf_url ? (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -757,6 +757,18 @@ export default function ProspectsManagement() {
                     Ver PDF
                   </Button>
                 </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-800 mb-1">
+                  PDF de Cotización
+                </label>
+                <p className="text-xs text-gray-600">
+                  Aún no hay PDF asociado. Suele generarse al llegar al resumen del cotizador; también
+                  puede guardarse al usar «Descargar PDF» o «Descargar cotización confirmada». Si cerró
+                  la página muy rápido, falló la red o faltaban datos en el resumen, puede no haberse
+                  completado la subida.
+                </p>
               </div>
             )}
 
