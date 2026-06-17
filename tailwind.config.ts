@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        archivo: ['var(--font-archivo)', 'system-ui', 'sans-serif'],
+        hanken: ['var(--font-hanken)', 'system-ui', 'sans-serif'],
+      },
       colors: {
         // Colores corporativos "Yo me Encargo" - Paleta del logo
         brand: {
@@ -18,6 +22,8 @@ const config: Config = {
           green: '#8CC63F',     // Verde Lima (Acento Principal / Botones)
           'green-light': '#A8D66F', // Verde Lima más claro (hover states)
           'green-dark': '#2F9D59', // Verde Bosque (Detalles / Bordes)
+          'blue-dark': '#2C5282',   // Azul autoridad (alternativa CTA)
+          'green-hover': '#6FA52E', // Verde hover
           gray: '#666666',      // Gris Oscuro (Elementos neutros / Footer)
           'gray-light': '#999999', // Gris claro (variante)
           'gray-dark': '#666666', // Gris oscuro (Footer)

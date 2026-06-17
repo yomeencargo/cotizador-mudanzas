@@ -1,112 +1,170 @@
 'use client'
 
-import { Star, Quote } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { ArrowRight } from 'lucide-react'
+
+const TESTI = [
+  {
+    body: 'Coticé un viernes y el lunes ya estaba en mi nueva casa. Precio fijo, sin sorpresas, y cuidaron cada caja.',
+    who: 'Camila Soto',
+    ctx: 'Mudanza Ñuñoa → Providencia',
+  },
+  {
+    body: 'Trasladamos toda la oficina en un fin de semana. Puntuales, ordenados y el equipo súper amable.',
+    who: 'Rodrigo Vera',
+    ctx: 'Traslado de oficina · Las Condes',
+  },
+  {
+    body: 'El flete a regiones llegó intacto y antes de lo previsto. Es la tercera vez que los contrato.',
+    who: 'Francisca Lillo',
+    ctx: 'Flete Santiago → Concepción',
+  },
+]
+
+const StarIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  </svg>
+)
+
+const GoogleIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" aria-label="Google">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/>
+    <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"/>
+  </svg>
+)
+
+function TestimonialCard({ t }: { t: typeof TESTI[0] }) {
+  return (
+    <div
+      className="bg-white rounded-xl p-[30px] flex flex-col shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+      style={{ minHeight: '280px' }}
+    >
+      <div
+        className="font-archivo font-black text-[#F3F4F6]"
+        style={{ fontSize: '44px', lineHeight: '0.6', height: '24px' }}
+      >
+        &ldquo;
+      </div>
+      <p className="text-[16px] leading-[1.6] text-[#374151] my-3.5 flex-1">{t.body}</p>
+      <div className="font-archivo font-extrabold text-[16px] text-[#111827]">{t.who}</div>
+      <div className="text-[14px] text-[#6B7280] mt-0.5">{t.ctx}</div>
+      <div className="flex gap-0.5 mt-4 text-[#F5A623]">
+        {[0,1,2,3,4].map(j => <StarIcon key={j} />)}
+      </div>
+      <div className="flex items-center gap-2 mt-3.5 text-[13px] text-[#6B7280] font-semibold">
+        <GoogleIcon /> via Google Reviews
+      </div>
+    </div>
+  )
+}
 
 export default function Testimonials() {
-  const testimonials = [
-    {
-      name: 'María González',
-      service: 'Mudanza de Departamento',
-      rating: 5,
-      comment: 'Excelente servicio. Fueron muy cuidadosos con mis muebles y llegaron puntualmente. El equipo fue muy profesional y amable. 100% recomendados.',
-      date: 'Octubre 2024',
-    },
-    {
-      name: 'Carlos Ramírez',
-      service: 'Flete a Viña del Mar',
-      rating: 5,
-      comment: 'Necesitaba enviar muebles urgente a Viña y cumplieron perfecto. La cotización fue clara y no hubo sorpresas. Muy contentos con el servicio.',
-      date: 'Septiembre 2024',
-    },
-    {
-      name: 'Andrea Muñoz',
-      service: 'Mudanza de Oficina',
-      rating: 5,
-      comment: 'Coordinaron todo perfectamente para nuestra mudanza de oficina. Nos trasladamos un fin de semana y el lunes ya estábamos operando sin problemas.',
-      date: 'Agosto 2024',
-    },
-    {
-      name: 'Jorge Silva',
-      service: 'Flete en Santiago',
-      rating: 5,
-      comment: 'Rápidos y eficientes. Solicité el servicio por la mañana y en la tarde ya tenía todo en mi nueva casa. Precios muy razonables.',
-      date: 'Octubre 2024',
-    },
-    {
-      name: 'Valentina Torres',
-      service: 'Mudanza de Casa',
-      rating: 5,
-      comment: 'La mejor experiencia de mudanza que he tenido. El equipo fue súper cuidadoso y profesional. El cotizador online es muy práctico.',
-      date: 'Septiembre 2024',
-    },
-    {
-      name: 'Roberto Pérez',
-      service: 'Transporte a Concepción',
-      rating: 5,
-      comment: 'Envié mercadería a Concepción y todo llegó perfecto y a tiempo. Me mantuvieron informado durante todo el proceso. Muy confiables.',
-      date: 'Agosto 2024',
-    },
-  ]
+  const [idx, setIdx] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   return (
-    <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-brand-blue-light">
-      <div className="container mx-auto px-4">
-        {/* Encabezado */}
+    <section className="py-[120px] bg-[#1A1A2E]" id="testimonios">
+      <div className="max-w-[1180px] mx-auto px-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="max-w-[640px] mb-14"
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-            Lo Que Dicen Nuestros Clientes
-          </h2>
-          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
-            Miles de personas confían en nosotros para sus mudanzas y traslados
+          <p
+            className="text-[13px] font-bold tracking-[0.18em] uppercase"
+            style={{ color: 'rgba(255,255,255,0.55)' }}
+          >
+            Lo que dicen
           </p>
+          <h2
+            className="font-archivo font-extrabold text-white mt-3.5 leading-[1.05]"
+            style={{ fontSize: 'clamp(30px, 4.4vw, 46px)' }}
+          >
+            Clientes que volverían a mudarse con nosotros.
+          </h2>
         </motion.div>
 
-        {/* Grid de Testimonios */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((testimonial, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-100 relative"
-            >
-              {/* Icono de comillas */}
-              <div className="absolute -top-3 -left-3 w-10 h-10 bg-gradient-to-br from-brand-blue to-brand-cyan rounded-full flex items-center justify-center shadow-lg">
-                <Quote size={20} className="text-white" />
-              </div>
+        {/* Desktop grid */}
+        {!isMobile && (
+          <div className="grid grid-cols-3 gap-6">
+            {TESTI.map((t, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: i * 0.08 }}
+              >
+                <TestimonialCard t={t} />
+              </motion.div>
+            ))}
+          </div>
+        )}
 
-              {/* Rating */}
-              <div className="flex items-center space-x-1 mb-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} size={18} className="text-yellow-400 fill-yellow-400" />
+        {/* Mobile carousel */}
+        {isMobile && (
+          <>
+            <div className="overflow-hidden">
+              <div
+                className="flex"
+                style={{ transform: `translateX(-${idx * 100}%)`, transition: 'transform .35s ease' }}
+              >
+                {TESTI.map((t, i) => (
+                  <div key={i} style={{ minWidth: '100%', flex: '0 0 100%' }}>
+                    <TestimonialCard t={t} />
+                  </div>
                 ))}
               </div>
+            </div>
+            <div className="flex gap-3 justify-center mt-7">
+              {TESTI.map((_, i) => (
+                <button
+                  key={i}
+                  aria-label={`Reseña ${i + 1}`}
+                  onClick={() => setIdx(i)}
+                  className={`w-[9px] h-[9px] rounded-full border-0 cursor-pointer p-0 transition-colors ${
+                    i === idx ? 'bg-white' : 'bg-white/30'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
-              {/* Comentario */}
-              <p className="text-gray-700 mb-4 leading-relaxed">
-                &ldquo;{testimonial.comment}&rdquo;
-              </p>
-
-              {/* Autor */}
-              <div className="pt-4 border-t border-gray-100">
-                <p className="font-bold text-gray-900">{testimonial.name}</p>
-                <p className="text-sm text-brand-blue">{testimonial.service}</p>
-                <p className="text-xs text-gray-500 mt-1">{testimonial.date}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {/* Aggregate rating link */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mt-11 flex justify-center"
+        >
+          <a
+            href="https://www.google.com/maps/search/yo+me+encargo+mudanzas+santiago"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2.5 font-bold text-[16px] text-white pb-1 hover:border-white transition-colors"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.35)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = '#fff')}
+            onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = 'rgba(255,255,255,0.35)')}
+          >
+            <GoogleIcon />
+            <strong>4.9 de 5</strong> en Google · 47 reseñas
+            <ArrowRight size={16} />
+          </a>
+        </motion.div>
       </div>
     </section>
   )
 }
-

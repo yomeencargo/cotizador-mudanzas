@@ -185,16 +185,6 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
           ))}
         </div>
       </Card>
-
-      {/* CTA */}
-      <div className="text-center">
-        <Button onClick={onNext} size="lg" className="px-12 text-lg">
-          Comenzar Ahora →
-        </Button>
-        <p className="text-sm text-gray-500 mt-4">
-          ⏱️ Tiempo estimado: 3-5 minutos
-        </p>
-      </div>
     </div>
   )
 }

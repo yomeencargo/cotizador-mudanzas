@@ -17,14 +17,17 @@ import {
   MapPin,
   DollarSign,
   Download,
-  UserCheck,
   UserX,
   MessageSquare,
+  MessageCircle,
+  Send,
   Users,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import PdfDownloadMenu from './PdfDownloadMenu'
+import type { AdminQuoteData } from '@/lib/adminQuotePdf'
 
 interface Prospect {
   id: string
@@ -50,13 +53,39 @@ interface Prospect {
   total_distance?: number
   items_summary?: Array<{ name: string; quantity: number; volume: number }>
   additional_services?: Record<string, any>
-  status: 'new' | 'contacted' | 'converted' | 'lost'
+  status: 'new' | 'contacted' | 'no_response' | 'converted' | 'lost'
   notes?: string
   converted_booking_id?: string
   pdf_url?: string
   pdf_generated_at?: string
+  adjusted_price?: number
+  adjustment_comment?: string
+  quote_sent_at?: string
   created_at: string
   updated_at: string
+}
+
+function prospectToQuoteData(p: Prospect): AdminQuoteData {
+  return {
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+    isCompany: p.is_company,
+    companyName: p.company_name,
+    companyRut: p.company_rut,
+    originAddress: p.origin_address,
+    destinationAddress: p.destination_address,
+    scheduledDate: p.scheduled_date,
+    scheduledTime: p.scheduled_time,
+    totalPrice: p.adjusted_price ?? p.total_price,
+    isFlexible: p.is_flexible,
+    recommendedVehicle: p.recommended_vehicle,
+    totalVolume: p.total_volume,
+    totalWeight: p.total_weight,
+    totalDistance: p.total_distance,
+    items: p.items_summary,
+    additionalServices: p.additional_services,
+  }
 }
 
 export default function ProspectsManagement() {
@@ -71,6 +100,14 @@ export default function ProspectsManagement() {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
   const [editNotes, setEditNotes] = useState('')
+  const [showQuoteModal, setShowQuoteModal] = useState(false)
+  const [quotePrice, setQuotePrice] = useState('')
+  const [quoteComment, setQuoteComment] = useState('')
+  const [quoteDate, setQuoteDate] = useState('')
+  const [quoteTime, setQuoteTime] = useState('')
+  const [isSavingAdjust, setIsSavingAdjust] = useState(false)
+  const [isSendingQuote, setIsSendingQuote] = useState(false)
+  const [isCreatingBooking, setIsCreatingBooking] = useState(false)
 
   const fetchProspects = async () => {
     try {
@@ -103,7 +140,7 @@ export default function ProspectsManagement() {
     }
 
     if (sourceFilter !== 'all') {
-      filtered = filtered.filter(p => p.source === sourceFilter)
+      filtered = filtered.filter(p => normalizeOrigin(p.source) === sourceFilter)
     }
 
     if (dateFilter !== 'all') {
@@ -174,6 +211,140 @@ export default function ProspectsManagement() {
     }
   }
 
+  // Normaliza un teléfono chileno a formato internacional para wa.me (solo dígitos, con 56)
+  const normalizePhoneCL = (raw?: string) => {
+    const digits = (raw || '').replace(/\D/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('56')) return digits
+    if (digits.length === 9 && digits.startsWith('9')) return '56' + digits
+    if (digits.length === 8) return '569' + digits
+    return '56' + digits
+  }
+
+  const buildWhatsappLink = (p: Prospect) => {
+    const phone = normalizePhoneCL(p.phone)
+    const price = p.adjusted_price ?? p.total_price
+    const precioTxt = price ? ` por $${price.toLocaleString('es-CL')}` : ''
+    const firstName = p.name?.split(' ')[0] || ''
+    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu cotización de mudanza${precioTxt}. ¿Cómo estás? Quería coordinar contigo los detalles para asegurar tu fecha.`
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+  }
+
+  const openQuoteModal = (p: Prospect) => {
+    setSelectedProspect(p)
+    setQuotePrice(String(p.adjusted_price ?? p.total_price ?? ''))
+    setQuoteComment(p.adjustment_comment || '')
+    setQuoteDate(p.scheduled_date || '')
+    setQuoteTime(p.scheduled_time ? p.scheduled_time.slice(0, 5) : '')
+    setShowQuoteModal(true)
+  }
+
+  const saveAdjustment = async () => {
+    if (!selectedProspect) return
+    const price = quotePrice === '' ? null : Math.round(Number(quotePrice))
+    if (price !== null && (!Number.isFinite(price) || price <= 0)) {
+      toast.error('Precio inválido')
+      return
+    }
+    try {
+      setIsSavingAdjust(true)
+      const response = await fetch('/api/admin/prospects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedProspect.id,
+          adjusted_price: price,
+          adjustment_comment: quoteComment,
+          scheduled_date: quoteDate || null,
+          scheduled_time: quoteTime || null,
+        }),
+      })
+      if (!response.ok) throw new Error('Error al guardar el ajuste')
+      toast.success('Ajuste guardado')
+      fetchProspects()
+    } catch (error) {
+      console.error('Error saving adjustment:', error)
+      toast.error('No se pudo guardar el ajuste')
+    } finally {
+      setIsSavingAdjust(false)
+    }
+  }
+
+  const sendAdjustedQuote = async () => {
+    if (!selectedProspect) return
+    const price = quotePrice === '' ? null : Math.round(Number(quotePrice))
+    if (price === null || !Number.isFinite(price) || price <= 0) {
+      toast.error('Ingresa un precio válido antes de enviar')
+      return
+    }
+    try {
+      setIsSendingQuote(true)
+      const response = await fetch('/api/admin/prospects/send-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prospectId: selectedProspect.id,
+          price,
+          comment: quoteComment,
+          date: quoteDate || undefined,
+          time: quoteTime || undefined,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo enviar la cotización')
+      }
+      toast.success('Cotización enviada por correo (50% y 100%)')
+      setShowQuoteModal(false)
+      fetchProspects()
+    } catch (error) {
+      console.error('Error sending adjusted quote:', error)
+      toast.error(error instanceof Error ? error.message : 'No se pudo enviar la cotización')
+    } finally {
+      setIsSendingQuote(false)
+    }
+  }
+
+  const createBookingFromProspect = async () => {
+    if (!selectedProspect) return
+    const price = quotePrice === '' ? null : Math.round(Number(quotePrice))
+    if (price === null || !Number.isFinite(price) || price <= 0) {
+      toast.error('Ingresa un precio válido')
+      return
+    }
+    if (!quoteDate || !quoteTime) {
+      toast.error('Agrega fecha y hora para crear la reserva')
+      return
+    }
+    if (!confirm(`¿Crear una reserva confirmada para ${selectedProspect.name} el ${quoteDate} a las ${quoteTime} por $${price.toLocaleString('es-CL')}? Esta reserva ocupará cupo.`)) return
+    try {
+      setIsCreatingBooking(true)
+      const response = await fetch('/api/admin/prospects/create-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prospectId: selectedProspect.id,
+          price,
+          comment: quoteComment,
+          date: quoteDate,
+          time: quoteTime,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo crear la reserva')
+      }
+      toast.success('Reserva creada y prospecto convertido')
+      setShowQuoteModal(false)
+      fetchProspects()
+    } catch (error) {
+      console.error('Error creating booking:', error)
+      toast.error(error instanceof Error ? error.message : 'No se pudo crear la reserva')
+    } finally {
+      setIsCreatingBooking(false)
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este prospecto? Esta acción no se puede deshacer.')) return
     try {
@@ -191,6 +362,7 @@ export default function ProspectsManagement() {
     switch (status) {
       case 'new': return 'text-blue-600 bg-blue-50 border-blue-200'
       case 'contacted': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
+      case 'no_response': return 'text-orange-600 bg-orange-50 border-orange-200'
       case 'converted': return 'text-green-600 bg-green-50 border-green-200'
       case 'lost': return 'text-red-600 bg-red-50 border-red-200'
       default: return 'text-gray-600 bg-gray-50 border-gray-200'
@@ -201,30 +373,55 @@ export default function ProspectsManagement() {
     switch (status) {
       case 'new': return 'Nuevo'
       case 'contacted': return 'Contactado'
+      case 'no_response': return 'Sin respuesta'
       case 'converted': return 'Convertido'
       case 'lost': return 'Perdido'
       default: return status
     }
   }
 
+  const SOURCE_OPTIONS = [
+    { value: 'web', label: 'Web' },
+    { value: 'rrss', label: 'RRSS' },
+    { value: 'recomendacion', label: 'Recomendación' },
+  ]
+
+  // Origen de marketing: solo Web / RRSS / Recomendación.
+  // Los orígenes técnicos antiguos (pdf_download, email_quote, checkout_initiated, domicilio)
+  // se muestran y filtran como "Web" (todos llegaron por el sitio).
+  const normalizeOrigin = (source: string) =>
+    source === 'rrss' || source === 'recomendacion' ? source : 'web'
+
   const getSourceLabel = (source: string) => {
-    switch (source) {
-      case 'web': return 'Web'
-      case 'pdf_download': return 'PDF'
-      case 'email_quote': return 'Email'
-      case 'checkout_initiated': return 'Checkout'
-      case 'domicilio': return 'Domicilio'
-      default: return source
+    switch (normalizeOrigin(source)) {
+      case 'rrss': return 'RRSS'
+      case 'recomendacion': return 'Recomendación'
+      default: return 'Web'
     }
   }
 
   const getSourceBadge = (source: string) => {
-    switch (source) {
-      case 'pdf_download': return 'bg-purple-100 text-purple-800 border-purple-200'
-      case 'email_quote': return 'bg-cyan-100 text-cyan-800 border-cyan-200'
-      case 'checkout_initiated': return 'bg-green-100 text-green-800 border-green-200'
-      case 'domicilio': return 'bg-orange-100 text-orange-800 border-orange-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+    switch (normalizeOrigin(source)) {
+      case 'rrss': return 'bg-pink-100 text-pink-800 border-pink-200'
+      case 'recomendacion': return 'bg-teal-100 text-teal-800 border-teal-200'
+      default: return 'bg-blue-100 text-blue-800 border-blue-200'
+    }
+  }
+
+  const updateProspectSource = async (id: string, newSource: string) => {
+    try {
+      const response = await fetch('/api/admin/prospects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, source: newSource }),
+      })
+      if (!response.ok) throw new Error('Error al actualizar')
+      toast.success('Origen actualizado')
+      setSelectedProspect(prev => (prev && prev.id === id ? { ...prev, source: newSource } : prev))
+      fetchProspects()
+    } catch (error) {
+      console.error('Error updating source:', error)
+      toast.error('No se pudo actualizar el origen')
     }
   }
 
@@ -255,7 +452,7 @@ export default function ProspectsManagement() {
   // Estadísticas rápidas
   const statsNew = prospects.filter(p => p.status === 'new').length
   const statsContacted = prospects.filter(p => p.status === 'contacted').length
-  const statsConverted = prospects.filter(p => p.status === 'converted').length
+  const statsNoResponse = prospects.filter(p => p.status === 'no_response').length
   const statsLost = prospects.filter(p => p.status === 'lost').length
 
   if (loading) {
@@ -312,10 +509,10 @@ export default function ProspectsManagement() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase">Convertidos</p>
-              <p className="text-2xl font-bold text-green-600">{statsConverted}</p>
+              <p className="text-xs font-medium text-gray-500 uppercase">Sin respuesta</p>
+              <p className="text-2xl font-bold text-orange-600">{statsNoResponse}</p>
             </div>
-            <UserCheck className="w-6 h-6 text-green-400" />
+            <Clock className="w-6 h-6 text-orange-400" />
           </div>
         </Card>
         <Card className="p-4">
@@ -353,11 +550,9 @@ export default function ProspectsManagement() {
               onChange={(e) => setSourceFilter(e.target.value)}
               options={[
                 { value: 'all', label: 'Todos' },
-                { value: 'pdf_download', label: 'Descarga PDF' },
-                { value: 'email_quote', label: 'Email' },
-                { value: 'checkout_initiated', label: 'Checkout' },
-                { value: 'domicilio', label: 'Domicilio' },
                 { value: 'web', label: 'Web' },
+                { value: 'rrss', label: 'RRSS' },
+                { value: 'recomendacion', label: 'Recomendación' },
               ]}
             />
           </div>
@@ -371,7 +566,7 @@ export default function ProspectsManagement() {
                 { value: 'all', label: 'Todos' },
                 { value: 'new', label: 'Nuevo' },
                 { value: 'contacted', label: 'Contactado' },
-                { value: 'converted', label: 'Convertido' },
+                { value: 'no_response', label: 'Sin respuesta' },
                 { value: 'lost', label: 'Perdido' },
               ]}
             />
@@ -474,7 +669,7 @@ export default function ProspectsManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           <Button
                             onClick={() => {
                               setSelectedProspect(prospect)
@@ -485,6 +680,24 @@ export default function ProspectsManagement() {
                             title="Ver detalles"
                           >
                             <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => window.open(buildWhatsappLink(prospect), '_blank')}
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            title="Contactar por WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => openQuoteModal(prospect)}
+                            variant="outline"
+                            size="sm"
+                            className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                            title="Ajustar y enviar cotización por correo"
+                          >
+                            <Send className="w-4 h-4" />
                           </Button>
                           <Button
                             onClick={() => {
@@ -498,17 +711,10 @@ export default function ProspectsManagement() {
                           >
                             <MessageSquare className="w-4 h-4" />
                           </Button>
-                          {prospect.pdf_url && (
-                            <Button
-                              onClick={() => window.open(prospect.pdf_url, '_blank')}
-                              variant="outline"
-                              size="sm"
-                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                              title="Ver PDF de Cotización"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <PdfDownloadMenu
+                            data={prospectToQuoteData(prospect)}
+                            compact
+                          />
                           <Button
                             onClick={() => handleDelete(prospect.id)}
                             variant="outline"
@@ -529,16 +735,28 @@ export default function ProspectsManagement() {
                             Marcar contactado
                           </Button>
                         )}
-                        {prospect.status === 'contacted' && (
-                          <div className="flex gap-1">
-                            <Button
-                              onClick={() => updateProspectStatus(prospect.id, 'converted')}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                            >
-                              Convertido
-                            </Button>
+                        {(prospect.status === 'contacted' || prospect.status === 'no_response') && (
+                          <div className="flex gap-1 flex-wrap">
+                            {prospect.status === 'contacted' && (
+                              <Button
+                                onClick={() => updateProspectStatus(prospect.id, 'no_response')}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                              >
+                                Sin respuesta
+                              </Button>
+                            )}
+                            {prospect.status === 'no_response' && (
+                              <Button
+                                onClick={() => updateProspectStatus(prospect.id, 'contacted')}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100"
+                              >
+                                Reintentar
+                              </Button>
+                            )}
                             <Button
                               onClick={() => updateProspectStatus(prospect.id, 'lost')}
                               variant="outline"
@@ -579,6 +797,17 @@ export default function ProspectsManagement() {
               <span className="text-sm text-gray-500">
                 {format(new Date(selectedProspect.created_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}
               </span>
+            </div>
+
+            {/* Origen editable (CRM) */}
+            <div className="max-w-xs">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Origen del lead</label>
+              <Select
+                value={normalizeOrigin(selectedProspect.source)}
+                onChange={(e) => updateProspectSource(selectedProspect.id, e.target.value)}
+                options={SOURCE_OPTIONS}
+              />
+              <p className="text-xs text-gray-500 mt-1">Cámbialo a Web, RRSS o Recomendación según de dónde vino.</p>
             </div>
 
             {/* Contacto */}
@@ -734,43 +963,21 @@ export default function ProspectsManagement() {
             )}
 
             {/* PDF */}
-            {selectedProspect.pdf_url ? (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-green-900 mb-1">
-                      PDF de Cotización
-                    </label>
-                    <p className="text-xs text-green-700">
-                      Generado el {selectedProspect.pdf_generated_at
-                        ? format(new Date(selectedProspect.pdf_generated_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => window.open(selectedProspect.pdf_url, '_blank')}
-                    variant="primary"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Ver PDF
-                  </Button>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-green-900 mb-1">
+                    PDF de Cotización
+                  </label>
+                  <p className="text-xs text-green-700">
+                    Elige la versión con precios (cliente) o sin precios (trabajadores).
+                  </p>
                 </div>
+                <PdfDownloadMenu
+                  data={prospectToQuoteData(selectedProspect)}
+                />
               </div>
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <label className="block text-sm font-medium text-gray-800 mb-1">
-                  PDF de Cotización
-                </label>
-                <p className="text-xs text-gray-600">
-                  Aún no hay PDF asociado. Suele generarse al llegar al resumen del cotizador; también
-                  puede guardarse al usar «Descargar PDF» o «Descargar cotización confirmada». Si cerró
-                  la página muy rápido, falló la red o faltaban datos en el resumen, puede no haberse
-                  completado la subida.
-                </p>
-              </div>
-            )}
+            </div>
 
             {/* Notas */}
             {selectedProspect.notes && (
@@ -822,6 +1029,114 @@ export default function ProspectsManagement() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Quote / Adjust Modal */}
+      <Modal
+        isOpen={showQuoteModal}
+        onClose={() => setShowQuoteModal(false)}
+        title={`Cotización - ${selectedProspect?.name || ''}`}
+        size="lg"
+      >
+        {selectedProspect && (
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              Precio cotizado originalmente:{' '}
+              <span className="font-semibold text-gray-900">
+                ${(selectedProspect.total_price || 0).toLocaleString('es-CL')}
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio final (ajustado)
+              </label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="number"
+                  min="0"
+                  value={quotePrice}
+                  onChange={(e) => setQuotePrice(e.target.value)}
+                  className="pl-9"
+                  placeholder="Ej: 240000"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Aumenta o baja el precio según corresponda. Se enviarán ambos links de pago.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                <Input type="date" value={quoteDate} onChange={(e) => setQuoteDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                <Input type="time" value={quoteTime} onChange={(e) => setQuoteTime(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#F2FBE9] border border-[#8CC63F] rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-600">Abono 50%</p>
+                <p className="text-lg font-bold text-[#3F6212]">
+                  ${Math.round((Number(quotePrice) || 0) * 0.5).toLocaleString('es-CL')}
+                </p>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-600">Pago 100% (5% dcto)</p>
+                <p className="text-lg font-bold text-gray-900">
+                  ${Math.round((Number(quotePrice) || 0) * 0.95).toLocaleString('es-CL')}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Comentario de ajuste (se incluye en el correo)
+              </label>
+              <textarea
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={quoteComment}
+                onChange={(e) => setQuoteComment(e.target.value)}
+                placeholder="Ej: Ajustamos el valor por piso sin ascensor y volumen adicional..."
+              />
+            </div>
+
+            {selectedProspect.quote_sent_at && (
+              <p className="text-xs text-gray-500">
+                Última cotización enviada:{' '}
+                {format(new Date(selectedProspect.quote_sent_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}
+              </p>
+            )}
+
+            <div className="flex flex-wrap justify-between items-center gap-2 pt-2">
+              <Button onClick={() => setShowQuoteModal(false)} variant="outline">
+                Cerrar
+              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={saveAdjustment} variant="outline" isLoading={isSavingAdjust}>
+                  Guardar ajuste
+                </Button>
+                <Button
+                  onClick={createBookingFromProspect}
+                  isLoading={isCreatingBooking}
+                  className="bg-secondary-600 hover:bg-secondary-700"
+                  title="Crear reserva confirmada (sin pago online)"
+                >
+                  Crear reserva
+                </Button>
+                <Button onClick={sendAdjustedQuote} isLoading={isSendingQuote}>
+                  <Send className="w-4 h-4 mr-2" />
+                  Enviar por correo
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

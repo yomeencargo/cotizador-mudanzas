@@ -1,17 +1,29 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Archivo, Hanken_Grotesk } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { GoogleTagManager } from '@next/third-parties/google'
 import { MetaPixel } from '@/components/tracking/MetaPixel'
 import WhatsAppFloatingButton from '@/components/ui/WhatsAppFloatingButton'
 
-const inter = Inter({ subsets: ['latin'] })
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['600', '700', '800', '900'],
+  variable: '--font-archivo',
+  display: 'swap',
+})
+
+const hankenGrotesk = Hanken_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-hanken',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://yomeencargo.cl'),
   title: {
-    default: 'Yo me Encargo - Transporte y Mudanzas en Santiago y Todo Chile',
+    default: 'Yo me Encargo - Fletes, Mudanzas y Traslados de Carga en Chile',
     template: '%s | Yo me Encargo'
   },
   description: 'Servicio profesional de mudanzas, fletes y transporte en la Región Metropolitana y todo Chile. Cotización online instantánea, precios transparentes y atención personalizada. ¡Contáctanos!',
@@ -42,8 +54,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_CL',
     url: 'https://yomeencargo.cl',
-    title: 'Yo me Encargo - Transporte y Mudanzas Confiables en Chile',
-    description: 'Mudanzas y fletes profesionales en Santiago y todo Chile. Cotiza online al instante. Servicio puntual, seguro y con los mejores precios.',
+    title: 'Yo me Encargo - Fletes, Mudanzas y Traslados de Carga en Chile',
+    description: 'Fletes, mudanzas y traslados de carga en Santiago y todo Chile. Cotiza online al instante. Servicio puntual, seguro y con los mejores precios.',
     siteName: 'Yo me Encargo',
     images: [
       {
@@ -56,8 +68,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Yo me Encargo - Transporte y Mudanzas en Chile',
-    description: 'Mudanzas y fletes profesionales en Santiago y todo Chile. Cotiza online al instante.',
+    title: 'Yo me Encargo - Fletes, Mudanzas y Traslados de Carga en Chile',
+    description: 'Fletes, mudanzas y traslados de carga en Santiago y todo Chile. Cotiza online al instante.',
     images: ['/images/hero-truck.jpg'],
   },
   verification: {
@@ -122,7 +134,7 @@ export default function RootLayout({
         {/* Meta Pixel */}
         <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID || ''} />
       </head>
-      <body className={inter.className}>
+      <body className={`${archivo.variable} ${hankenGrotesk.variable}`}>
         {children}
         <Toaster position="top-right" />
         <WhatsAppFloatingButton />

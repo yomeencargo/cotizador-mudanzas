@@ -150,14 +150,14 @@ export default function AdminLogin() {
             Sistema de Cotizador de Mudanzas
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            ©2025 - Desarrollado por{' '}
+            ©2025 - Crafted by{' '}
             <a 
-              href="https://iaenblanco.com" 
+              href="https://vanlookstudio.com" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
             >
-              IAenBlanco.com
+              vanlookstudio.com
             </a>
           </p>
         </div>

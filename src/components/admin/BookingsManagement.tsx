@@ -17,6 +17,7 @@ import {
   Clock,
   Calendar,
   Phone,
+  MessageCircle,
   Mail,
   MapPin,
   DollarSign,
@@ -26,6 +27,8 @@ import {
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import PdfDownloadMenu from './PdfDownloadMenu'
+import type { AdminQuoteData } from '@/lib/adminQuotePdf'
 
 interface Booking {
   id: string
@@ -40,6 +43,7 @@ interface Booking {
   notes?: string
   payment_type?: string
   payment_status?: string
+  is_provisional?: boolean
   total_price?: number
   original_price?: number
   origin_address?: string
@@ -57,6 +61,30 @@ interface Booking {
   confirmed_at?: string
   completed_at?: string
   cancelled_at?: string
+}
+
+function bookingToQuoteData(b: Booking): AdminQuoteData {
+  return {
+    name: b.client_name,
+    email: b.client_email,
+    phone: b.client_phone,
+    isCompany: b.is_company,
+    companyName: b.company_name,
+    companyRut: b.company_rut,
+    originAddress: b.origin_address || b.visit_address,
+    destinationAddress: b.destination_address,
+    scheduledDate: b.scheduled_date,
+    scheduledTime: b.scheduled_time,
+    totalPrice: b.total_price,
+    // Las reservas no almacenan el detalle de ítems ni servicios; la versión
+    // sin precios igual sirve como orden de trabajo con cliente, direcciones,
+    // fecha y vehículo. El PDF guardado (con precios) conserva el detalle original.
+    recommendedVehicle: undefined,
+    totalVolume: undefined,
+    totalWeight: undefined,
+    items: undefined,
+    additionalServices: undefined,
+  }
 }
 
 export default function BookingsManagement() {
@@ -121,8 +149,10 @@ export default function BookingsManagement() {
       )
     }
 
-    // Filtrar por estado
-    if (statusFilter !== 'all') {
+    // Filtrar por estado (incluye opción especial 'provisional' = pre-reservas sin pagar)
+    if (statusFilter === 'provisional') {
+      filtered = filtered.filter(booking => booking.is_provisional === true)
+    } else if (statusFilter !== 'all') {
       filtered = filtered.filter(booking => booking.status === statusFilter)
     }
 
@@ -278,6 +308,29 @@ export default function BookingsManagement() {
       case 'cancelled': return <XCircle className="w-4 h-4" />
       default: return <Clock className="w-4 h-4" />
     }
+  }
+
+  // WhatsApp: normaliza teléfono chileno y arma mensaje según la reserva
+  const normalizePhoneCL = (raw?: string) => {
+    const digits = (raw || '').replace(/\D/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('56')) return digits
+    if (digits.length === 9 && digits.startsWith('9')) return '56' + digits
+    if (digits.length === 8) return '569' + digits
+    return '56' + digits
+  }
+
+  const buildWhatsappLink = (b: Booking) => {
+    const phone = normalizePhoneCL(b.client_phone)
+    const firstName = b.client_name?.split(' ')[0] || ''
+    let fechaTxt = ''
+    if (b.scheduled_date) {
+      const [y, m, d] = b.scheduled_date.split('-').map(Number)
+      fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
+    }
+    const cuando = fechaTxt ? ` del ${fechaTxt}${b.scheduled_time ? ` a las ${b.scheduled_time.slice(0, 5)}` : ''}` : ''
+    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu reserva de mudanza${cuando}. ¿Cómo estás? Quería coordinar contigo los detalles del traslado.`
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
   }
 
   const addHoursToTime = (time: string, hoursToAdd: number) => {
@@ -523,6 +576,7 @@ export default function BookingsManagement() {
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: 'all', label: 'Todos los estados' },
+                { value: 'provisional', label: 'Sin pagar (provisional)' },
                 { value: 'pending', label: 'Pendiente' },
                 { value: 'confirmed', label: 'Confirmado' },
                 { value: 'completed', label: 'Completado' },
@@ -676,10 +730,17 @@ export default function BookingsManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
-                        {getStatusIcon(booking.status)}
-                        {booking.status}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
+                          {getStatusIcon(booking.status)}
+                          {booking.status}
+                        </span>
+                        {booking.is_provisional && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600 border border-gray-300" title="Pre-reserva: el cliente aún no paga. No ocupa cupo.">
+                            Sin pagar
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {(booking.original_price || booking.total_price) ? (
@@ -718,7 +779,7 @@ export default function BookingsManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Button
                             onClick={() => {
                               setSelectedBooking(booking)
@@ -731,6 +792,15 @@ export default function BookingsManagement() {
                             <Eye className="w-4 h-4" />
                           </Button>
                           <Button
+                            onClick={() => window.open(buildWhatsappLink(booking), '_blank')}
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            title="Contactar por WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </Button>
+                          <Button
                             onClick={() => {
                               setSelectedBooking(booking)
                               setShowEditModal(true)
@@ -741,20 +811,10 @@ export default function BookingsManagement() {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          {booking.pdf_url && booking.pdf_url.trim() !== '' ? (
-                            <Button
-                              onClick={() => {
-                                console.log('[Admin] Abriendo PDF:', booking.pdf_url)
-                                window.open(booking.pdf_url, '_blank')
-                              }}
-                              variant="outline"
-                              size="sm"
-                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                              title="Descargar PDF de Reserva"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          ) : null}
+                          <PdfDownloadMenu
+                            data={bookingToQuoteData(booking)}
+                            compact
+                          />
                           <Button
                             onClick={() => handleDelete(booking.id)}
                             variant="outline"
@@ -1214,43 +1274,23 @@ export default function BookingsManagement() {
               return null
             })()}
 
-            {selectedBooking.pdf_url && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-green-900 mb-1">
-                      📄 Comprobante de Reserva
-                    </label>
-                    <p className="text-xs text-green-700">
-                      PDF generado el {selectedBooking.pdf_generated_at 
-                        ? format(new Date(selectedBooking.pdf_generated_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => window.open(selectedBooking.pdf_url, '_blank')}
-                    variant="primary"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Descargar PDF
-                  </Button>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-green-900 mb-1">
+                    📄 Comprobante de Reserva
+                  </label>
+                  <p className="text-xs text-green-700">
+                    Elige la versión con precios (cliente) o sin precios (trabajadores).
+                  </p>
                 </div>
+                <PdfDownloadMenu
+                  data={bookingToQuoteData(selectedBooking)}
+                />
               </div>
-            )}
+            </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              {selectedBooking.pdf_url && (
-                <Button
-                  onClick={() => window.open(selectedBooking.pdf_url, '_blank')}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Descargar PDF
-                </Button>
-              )}
               <Button
                 onClick={() => setShowDetailsModal(false)}
                 variant="outline"

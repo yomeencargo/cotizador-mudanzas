@@ -1,119 +1,117 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, HelpCircle } from 'lucide-react'
+import { Plus, MessageCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { trackEvent } from '@/lib/tracking'
+
+const FAQS = [
+  {
+    q: '¿Cómo calculan el precio?',
+    a: 'Según volumen, distancia y accesos. Nuestro cotizador online te entrega el precio exacto y fijo de tu traslado en 3 minutos. Usa el cotizador para más detalles.',
+  },
+  {
+    q: '¿Incluye embalaje?',
+    a: 'Sí. Llevamos cajas, film y mantas. Podemos embalar todo por ti o solo lo frágil; tú eliges.',
+  },
+  {
+    q: '¿Trasladan a regiones?',
+    a: 'Sí, hacemos fletes interprovinciales a todo Chile con una fecha de entrega comprometida.',
+  },
+  {
+    q: '¿Está asegurada mi carga?',
+    a: 'Cada traslado va cubierto. Protegemos y aseguramos tus cosas durante todo el trayecto.',
+  },
+  {
+    q: '¿Con cuánta anticipación agendo?',
+    a: 'Idealmente 48 horas, pero según disponibilidad podemos coordinar traslados para el mismo día.',
+  },
+]
 
 export default function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
-
-  const faqs = [
-    {
-      question: '¿Con cuánta anticipación debo agendar mi servicio?',
-      answer: 'Recomendamos agendar con al menos 24-48 horas de anticipación para garantizar disponibilidad. Sin embargo, también ofrecemos servicio el mismo día según disponibilidad, especialmente para fletes dentro de Santiago.',
-    },
-    {
-      question: '¿Trabajan fines de semana y festivos?',
-      answer: 'Sí, trabajamos de lunes a domingo. Para fines de semana y festivos, te recomendamos agendar con mayor anticipación debido a la alta demanda. El cotizador online te mostrará la disponibilidad en tiempo real.',
-    },
-    {
-      question: '¿Realizan traslados a regiones?',
-      answer: 'Sí, realizamos traslados y envíos a todas las regiones de Chile. Puedes cotizar directamente en nuestro sistema online ingresando la dirección de origen y destino. Te entregaremos un tiempo estimado de entrega y el costo total.',
-    },
-    {
-      question: '¿Qué tipo de cosas NO trasladan?',
-      answer: 'No transportamos materiales peligrosos, inflamables, explosivos, sustancias químicas, animales vivos, ni alimentos que requieran refrigeración. Para cargas especiales, contáctanos directamente para evaluar tu caso.',
-    },
-    {
-      question: '¿Cómo funciona la cotización online?',
-      answer: 'Nuestro cotizador es muy simple: ingresas origen, destino, fecha, y seleccionas los items o tipo de carga. El sistema calcula automáticamente el precio basado en distancia, volumen y servicios adicionales. Todo transparente y sin sorpresas.',
-    },
-    {
-      question: '¿Cómo se realiza el pago?',
-      answer: 'Aceptamos transferencia bancaria, efectivo y tarjetas de crédito/débito. El pago se realiza una vez confirmado el servicio. Para empresas ofrecemos facturación y crédito según evaluación.',
-    },
-    {
-      question: '¿Incluyen embalaje y materiales?',
-      answer: 'El embalaje y materiales (cajas, plástico burbuja, etc.) se pueden contratar como servicio adicional. Si prefieres, puedes embalar tú mismo y nosotros solo nos encargamos del transporte.',
-    },
-    {
-      question: '¿Qué pasa si se daña algo durante el traslado?',
-      answer: 'Todos nuestros servicios incluyen seguro básico. Manejamos tus pertenencias con el mayor cuidado, pero si ocurre algún daño, contamos con cobertura. Te recomendamos contratar seguro extendido para items de alto valor.',
-    },
-  ]
-
-  const toggleFAQ = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index)
-  }
+  const [open, setOpen] = useState<number>(0)
 
   return (
-    <section className="py-20 md:py-28 bg-white">
-      <div className="container mx-auto px-4 max-w-4xl">
-        {/* Encabezado */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-blue/10 rounded-full mb-4">
-            <HelpCircle size={32} className="text-brand-blue" />
-          </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-            Preguntas Frecuentes
-          </h2>
-          <p className="text-lg md:text-xl text-gray-600">
-            Todo lo que necesitas saber sobre nuestros servicios
-          </p>
-        </motion.div>
+    <section className="py-[120px] bg-[#F8F8F8]" id="faq">
+      <div className="max-w-[1180px] mx-auto px-6">
+        <div className="grid grid-cols-1 md:grid-cols-[0.8fr_1.2fr] gap-16 items-start">
 
-        {/* Lista de FAQs */}
-        <div className="space-y-4">
-          {faqs.map((faq, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.05 }}
-              className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow"
+          {/* Left: heading + WhatsApp CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <p className="text-[13px] font-bold tracking-[0.18em] uppercase text-[#6B7280]">
+              Preguntas frecuentes
+            </p>
+            <h2
+              className="font-archivo font-extrabold text-[#111827] mt-3.5 leading-[1.05]"
+              style={{ fontSize: 'clamp(28px, 3.6vw, 40px)' }}
             >
-              <button
-                onClick={() => toggleFAQ(index)}
-                className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-semibold text-gray-900 pr-4">
-                  {faq.question}
-                </span>
-                <ChevronDown
-                  size={24}
-                  className={`text-brand-blue flex-shrink-0 transition-transform duration-300 ${
-                    openIndex === index ? 'transform rotate-180' : ''
-                  }`}
-                />
-              </button>
+              Resolvemos tus dudas antes de mover una caja.
+            </h2>
+            <p className="mt-4 text-[16px] text-[#374151] leading-[1.6]">
+              ¿Te queda algo en el tintero? Escríbenos por WhatsApp y te respondemos al toque.
+            </p>
+            <a
+              href="https://wa.me/56954390267"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'faq' })}
+              className="mt-6 inline-flex items-center gap-2 h-[46px] px-5 bg-transparent hover:bg-[#111827] text-[#111827] hover:text-white border-2 border-[#111827] font-bold text-[16px] rounded-xl transition-colors"
+            >
+              <MessageCircle size={18} />
+              Hablar con una persona
+            </a>
+          </motion.div>
 
-              <AnimatePresence>
-                {openIndex === index && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="px-6 pb-5 text-gray-600 leading-relaxed border-t border-gray-100 pt-4">
-                      {faq.answer}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
+          {/* Right: accordion */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="border-t border-[#E5E7EB]"
+          >
+            {FAQS.map((f, i) => (
+              <div key={i} className="border-b border-[#E5E7EB]">
+                <button
+                  onClick={() => setOpen(open === i ? -1 : i)}
+                  aria-expanded={open === i}
+                  className="w-full flex items-center justify-between gap-6 py-6 text-left bg-transparent border-0 cursor-pointer"
+                >
+                  <span className="font-archivo font-extrabold text-[19px] text-[#111827] tracking-[-0.01em]">
+                    {f.q}
+                  </span>
+                  <Plus
+                    size={22}
+                    className="flex-shrink-0 transition-transform duration-200"
+                    style={{
+                      color: open === i ? '#6FA52E' : '#6B7280',
+                      transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
+                    }}
+                  />
+                </button>
+                <AnimatePresence>
+                  {open === i && (
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: 'auto' }}
+                      exit={{ height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="pb-6 text-[16px] text-[#374151] leading-[1.6] max-w-[560px]">
+                        {f.a}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </motion.div>
         </div>
       </div>
     </section>
   )
 }
-

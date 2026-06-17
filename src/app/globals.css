@@ -5,80 +5,81 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 0%; /* Negro para texto principal */
-  }
-  
-  body {
-    @apply bg-gray-50;
-    color: #000000; /* Negro (Texto principal) */
+    --foreground: 0 0% 0%;
   }
 
-  /* Prevenir problemas de renderizado en secciones con efectos decorativos */
+  body {
+    font-family: var(--font-hanken), system-ui, sans-serif;
+    background: #fff;
+    color: #111827;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-archivo), system-ui, sans-serif;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  p { margin: 0; }
+  a { color: inherit; }
+  img { display: block; max-width: 100%; }
+
   section {
     position: relative;
     transform: translateZ(0);
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+    scroll-margin-top: 80px;
   }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .text-balance { text-wrap: balance; }
+  .contain-paint { contain: paint; }
+}
+
+/* ── Hero image: left-to-right loading reveal ── */
+/* The clip's right edge sweeps from the left side to the right, so the whole
+   card "expands" from left to right. The `round` keeps the card's 28px corners
+   visible while the clip is active. Runs once on load. */
+@keyframes heroImgReveal {
+  from { clip-path: inset(0 100% 0 0 round 12px); }
+  to   { clip-path: inset(0 0 0 0 round 12px); }
+}
+
+.hero-img-reveal {
+  animation: heroImgReveal 1400ms cubic-bezier(0.65, 0, 0.35, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-img-reveal {
+    animation: none !important;
   }
 }
 
-/* Animaciones personalizadas */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+/* ── Marquee (client logos) ── */
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee 38s linear infinite;
+}
+.marquee-wrapper:hover .marquee-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
 }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* Scrollbar personalizado */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* Ocultar scrollbar para el contenedor de la barra de progreso */
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari, Opera */
-}
-
-/* Mejorar renderizado de patrones decorativos y prevenir sangrado visual */
-@layer utilities {
-  .contain-paint {
-    contain: paint;
-  }
-  
-  .gpu-accelerated {
-    transform: translateZ(0);
-    will-change: transform;
-  }
-}
+.scrollbar-hide::-webkit-scrollbar { display: none; }

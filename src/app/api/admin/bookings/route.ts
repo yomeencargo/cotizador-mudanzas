@@ -22,6 +22,7 @@ export async function GET() {
         notes,
         payment_type,
         payment_status,
+        is_provisional,
         total_price,
         original_price,
         origin_address,

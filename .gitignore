@@ -22,9 +22,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
+# local env files (ignora todos los .env menos la plantilla)
 .env
+.env.*
+!.env.example
 
 # vercel
 .vercel

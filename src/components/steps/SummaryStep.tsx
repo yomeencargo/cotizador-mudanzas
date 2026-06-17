@@ -9,15 +9,15 @@ import {
   MapPin,
   Package,
   DollarSign,
-  Download,
   Send,
-  Edit,
   CheckCircle,
   CreditCard,
   Mail,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
-import { generateCheckoutPDF, generateQuotePDF } from '@/lib/pdfGenerator'
+import { generateQuotePDF } from '@/lib/pdfGenerator'
 import { getPricingConfig } from '@/lib/pricingService'
 import { trackEvent } from '@/lib/tracking'
 import toast from 'react-hot-toast'
@@ -86,13 +86,52 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   }, [])
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSendingQuote, setIsSendingQuote] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const prospectSavedRef = useRef(false)
 
   useEffect(() => {
     calculateTotals()
   }, [calculateTotals])
 
+  // CRO: vista del checkout (una sola vez)
+  useEffect(() => {
+    trackEvent('view_checkout_summary', { value: estimatedPrice, currency: 'CLP' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const prospectIdRef = useRef<string | null>(null)
+  const pdfUrlRef = useRef<string | null>(null)
+
+  // ID único y ESTABLE de esta cotización (un solo booking por sesión).
+  // Lo comparten el envío por correo y los botones de pago en página => sin duplicados.
+  const quoteIdRef = useRef<string | null>(null)
+  const getQuoteId = () => {
+    if (!quoteIdRef.current) quoteIdRef.current = `Q-${Date.now()}`
+    return quoteIdRef.current
+  }
+
+  // Payload común (cliente + agenda + direcciones + precio) para checkout y correo
+  const buildQuotePayload = () => ({
+    client: {
+      name: personalInfo?.name,
+      email: personalInfo?.email,
+      phone: personalInfo?.phone,
+      isCompany: personalInfo?.isCompany || false,
+      companyName: personalInfo?.companyName,
+      companyRut: personalInfo?.companyRut,
+    },
+    schedule: {
+      date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
+      time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
+    },
+    addresses: {
+      origin: buildAddress(origin),
+      destination: buildAddress(destination),
+    },
+    estimatedPrice,
+    photoUrls: additionalServices?.photos || [],
+  })
 
   const saveProspect = async (source: string): Promise<string | null> => {
     try {
@@ -162,6 +201,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
       if (email) formData.append('prospectEmail', email)
       const res = await fetch('/api/prospects/upload-pdf', { method: 'POST', body: formData })
       const data = await res.json().catch(() => ({}))
+      if (data?.pdfUrl) pdfUrlRef.current = data.pdfUrl
       if (!res.ok) {
         console.error('Error uploading prospect PDF:', data?.error || res.status)
         return false
@@ -177,74 +217,70 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     }
   }
 
+  // Envío REAL de la cotización por correo: genera el link de pago (abono 50%)
+  // y dispara el webhook de n8n con el PDF + link. El cliente paga desde el correo.
   const handleSendQuote = async () => {
-    setIsSubmitting(true)
-
-    await saveProspect('email_quote')
-
-    // Simular envío de cotización
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    // Tracking: Lead
-    trackEvent('Lead', {
-      method: 'email_quote',
-      value: estimatedPrice,
-      currency: 'CLP',
-    })
-
-    toast.success('¡Cotización enviada a tu correo!')
-    setIsSubmitting(false)
-  }
-
-  const handleDownloadPDF = async () => {
-    try {
-      toast.loading('Generando PDF...', { id: 'pdf-generation' })
-      if (!prospectSavedRef.current) {
-        const id = await saveProspect('pdf_download')
-        if (!id) {
-          toast.error('No se pudo guardar el prospecto. Intenta de nuevo.', { id: 'pdf-generation' })
-          return
-        }
-      }
-      const result = await generateQuotePDF()
-      if (result?.blob) {
-        toast.loading('Guardando copia en prospectos...', { id: 'pdf-generation' })
-        const uploaded = await uploadProspectPdf(result.blob, result.fileName)
-        if (!uploaded) {
-          toast.success('PDF descargado. No se pudo guardar la copia en el panel.', { id: 'pdf-generation' })
-          return
-        }
-      }
-      toast.success('PDF descargado exitosamente!', { id: 'pdf-generation' })
-    } catch (error) {
-      console.error('Error generating PDF:', error)
-      toast.error('Error al generar el PDF', { id: 'pdf-generation' })
+    if (!acceptedTerms) {
+      toast.error('Debes aceptar los Términos y Condiciones y la Política de Privacidad.')
+      return
     }
-  }
-
-  const handleDownloadCheckoutPDF = async () => {
+    setIsSendingQuote(true)
+    trackEvent('click_enviar_cotizacion_email', { value: estimatedPrice, currency: 'CLP' })
     try {
-      toast.loading('Generando cotización confirmada...', { id: 'checkout-pdf' })
+      let prospectId = prospectIdRef.current
       if (!prospectSavedRef.current) {
-        const id = await saveProspect('pdf_download')
-        if (!id) {
-          toast.error('No se pudo guardar el prospecto. Intenta de nuevo.', { id: 'checkout-pdf' })
-          return
+        prospectId = await saveProspect('email_quote')
+      }
+
+      // Garantizar el PDF ANTES de enviar el correo: si la subida automática del
+      // resumen no alcanzó a terminar (o falló), lo generamos y subimos ahora,
+      // así el correo siempre incluye un PDF descargable.
+      if (!pdfUrlRef.current) {
+        try {
+          const result = await generateQuotePDF({ download: false })
+          if (result?.blob) {
+            await uploadProspectPdf(result.blob, result.fileName)
+          }
+        } catch (e) {
+          console.error('[SummaryStep] No se pudo generar/subir el PDF antes del envío:', e)
         }
       }
-      const result = await generateCheckoutPDF()
-      if (result?.blob) {
-        toast.loading('Guardando copia en prospectos...', { id: 'checkout-pdf' })
-        const uploaded = await uploadProspectPdf(result.blob, result.fileName)
-        if (!uploaded) {
-          toast.success('Cotización descargada. No se pudo guardar la copia en el panel.', { id: 'checkout-pdf' })
-          return
-        }
+
+      const res = await fetch('/api/prospects/send-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteId: getQuoteId(),
+          prospectId: prospectId || prospectIdRef.current,
+          pdfUrl: pdfUrlRef.current,
+          details: {
+            distanceKm: totalDistance,
+            volumeM3: totalVolume,
+            vehicle: recommendedVehicle,
+            isFlexible,
+          },
+          ...buildQuotePayload(),
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudo enviar la cotización')
       }
-      toast.success('Cotización descargada exitosamente!', { id: 'checkout-pdf' })
+
+      // Tracking: Lead (ahora sí, cuando el correo se envía de verdad)
+      trackEvent('Lead', {
+        method: 'email_quote',
+        value: estimatedPrice,
+        currency: 'CLP',
+      })
+
+      toast.success('¡Te enviamos tu cotización y link de pago al correo!')
     } catch (error) {
-      console.error('Error generating checkout PDF:', error)
-      toast.error('Error al generar la cotización', { id: 'checkout-pdf' })
+      console.error('Error sending quote:', error)
+      toast.error(error instanceof Error ? error.message : 'No se pudo enviar la cotización')
+    } finally {
+      setIsSendingQuote(false)
     }
   }
 
@@ -310,8 +346,16 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- una pasada al cumplir datos; idempotencia en API
   }, [isConfirmed, summaryDataReadyForPdf])
 
+  // Pago EN LA PÁGINA. Reutiliza el mismo quoteId (un solo booking) y delega en
+  // /api/quote/checkout, que crea/reutiliza la pre-reserva y genera la orden Flow.
   const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
     setIsSubmitting(true)
+    trackEvent(paymentType === 'completo' ? 'click_pagar_100' : 'click_abonar_50', {
+      value: paymentType === 'completo'
+        ? Math.round(estimatedPrice * 0.95)
+        : Math.round(estimatedPrice * 0.5),
+      currency: 'CLP',
+    })
 
     try {
       // Guardar como prospecto antes de procesar el pago
@@ -319,70 +363,25 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         await saveProspect('checkout_initiated')
       }
 
-      // Construir direcciones completas
-      const originFull = buildAddress(origin)
-      const destinationFull = buildAddress(destination)
-
-      // Determinar precio según tipo de pago
-      // 'completo' = pagar el 100% con descuento del 5% = 95% del precio
-      // 'mitad' = pagar el 50%
+      const quoteId = getQuoteId()
       const finalPrice = paymentType === 'completo'
-        ? Math.round(estimatedPrice * 0.95)
-        : Math.round(estimatedPrice * 0.5)
+        ? Math.round(estimatedPrice * 0.95) // 100% con 5% de descuento
+        : Math.round(estimatedPrice * 0.5)  // abono 50%
 
-      // Generar ID único para la reserva
-      const bookingId = `Q-${Date.now()}`
-
-      // Crear reserva temporal (se confirmará solo si el pago es exitoso)
-      const response = await fetch('/api/bookings/create', {
+      const response = await fetch('/api/quote/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quote_id: bookingId,
-          client_name: personalInfo?.name,
-          client_email: personalInfo?.email,
-          client_phone: personalInfo?.phone,
-          scheduled_date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
-          scheduled_time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
-          duration_hours: 4,
-          payment_type: paymentType,
-          total_price: finalPrice,
-          original_price: estimatedPrice,
-          origin_address: originFull,
-          destination_address: destinationFull,
-          payment_status: 'pending', // Pendiente hasta que se confirme el pago
-          status: 'pending', // Status temporal
-          is_company: personalInfo?.isCompany || false,
-          company_name: personalInfo?.isCompany ? personalInfo.companyName : null,
-          company_rut: personalInfo?.isCompany ? personalInfo.companyRut : null,
-          photo_urls: additionalServices?.photos || [], // URLs de las fotos subidas
+          quoteId,
+          paymentType,
+          ...buildQuotePayload(),
         }),
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al crear la reserva')
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.paymentUrl) {
+        throw new Error(data?.error || 'Error al crear la orden de pago')
       }
-
-      // Crear orden de pago en Flow
-      const paymentResponse = await fetch('/api/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: bookingId,
-          amount: finalPrice,
-          email: personalInfo?.email,
-          subject: `Servicio de Mudanza - ${paymentType === 'completo' ? 'Pago Completo' : 'Abono 50%'}`,
-          paymentType: paymentType,
-        }),
-      })
-
-      if (!paymentResponse.ok) {
-        const error = await paymentResponse.json()
-        throw new Error(error.error || 'Error al crear la orden de pago')
-      }
-
-      const paymentData = await paymentResponse.json()
 
       // Redirigir al usuario a Flow para completar el pago
       toast.success('Redirigiendo a la pasarela de pago segura...')
@@ -391,12 +390,12 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
       trackEvent('InitiateCheckout', {
         value: finalPrice,
         currency: 'CLP',
-        content_ids: [bookingId],
+        content_ids: [quoteId],
       })
 
       // Esperar un momento para que el usuario vea el mensaje
       setTimeout(() => {
-        window.location.href = paymentData.paymentUrl
+        window.location.href = data.paymentUrl
       }, 1000)
 
     } catch (error) {
@@ -430,13 +429,9 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           </div>
 
           <div className="space-y-3">
-            <Button onClick={handleDownloadPDF} variant="outline" className="w-full" size="lg">
-              <Download className="w-5 h-5 mr-2" />
-              Descargar Cotización PDF
-            </Button>
-            <Button onClick={handleSendQuote} variant="secondary" className="w-full" size="lg">
+            <Button onClick={handleSendQuote} isLoading={isSendingQuote} variant="secondary" className="w-full" size="lg">
               <Send className="w-5 h-5 mr-2" />
-              Enviar por Email
+              Enviarme la cotización por correo
             </Button>
             <Button onClick={onReset} variant="ghost" className="w-full" size="lg">
               Nueva Cotización
@@ -447,19 +442,250 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     )
   }
 
+  const abono50 = Math.round(estimatedPrice * 0.5)
+  const pago100 = Math.round(estimatedPrice * 0.95)
+  const descuento100 = Math.round(estimatedPrice * 0.05)
+
+  // Bloque de precio reutilizado (desglose flexible + facturación empresa)
+  const PriceBlock = (
+    <Card variant="elevated" className="rounded-2xl border border-gray-200 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3 flex items-center gap-1.5">
+        <DollarSign className="w-4 h-4 text-primary-600" />
+        Precio estimado
+      </p>
+      {isFlexible ? (
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Precio base:</span>
+            <span className="text-base font-semibold text-gray-500 line-through">
+              {formatCurrency(Math.round(estimatedPrice / 0.9))}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-semibold text-green-600">Descuento por flexibilidad:</span>
+            <span className="text-base font-semibold text-green-600">-10%</span>
+          </div>
+          <div className="border-t border-gray-200 pt-3 flex justify-between items-end">
+            <span className="text-sm text-gray-600">Total:</span>
+            <span className="text-3xl font-extrabold text-gray-900">{formatCurrency(estimatedPrice)}</span>
+          </div>
+          <p className="text-xs text-green-600 font-semibold text-right">
+            ¡Ahorraste {formatCurrency(Math.round(estimatedPrice / 0.9) - estimatedPrice)}!
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-end justify-between">
+          <span className="text-sm text-gray-600">Total:</span>
+          <span className="text-3xl font-extrabold text-gray-900">{formatCurrency(estimatedPrice)}</span>
+        </div>
+      )}
+      {personalInfo?.isCompany && (
+        <p className="text-xs text-gray-500 mt-1 text-right">IVA incluido</p>
+      )}
+      <p className="text-[11px] text-gray-400 mt-3 text-center">
+        Precio final estimado según los datos ingresados.
+      </p>
+
+      {personalInfo?.isCompany && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-800">
+            <p className="font-bold text-blue-900 mb-1">📄 Con factura</p>
+            <p className="font-semibold">Razón Social:</p>
+            <p className="mb-1">{personalInfo.companyName}</p>
+            <p className="font-semibold">RUT:</p>
+            <p>{personalInfo.companyRut}</p>
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+
   return (
     <div className="max-w-5xl mx-auto animate-slide-up">
+      {/* Header de cierre */}
       <div className="mb-6 text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Resumen de tu Cotización</h2>
-        <p className="text-gray-600">Revisa todos los detalles antes de confirmar</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Reserva tu mudanza ahora</h2>
+        <p className="text-gray-600">
+          Tu precio está confirmado. Completa tu reserva en menos de 1 minuto.
+        </p>
+        <div className="mt-3 inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-800 text-sm font-medium rounded-full px-4 py-1.5">
+          <Clock className="w-4 h-4 shrink-0" />
+          Tu fecha aún puede ocuparse. Abona ahora para asegurar tu cupo.
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Columna izquierda - Detalles */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+        {/* COLUMNA DE CONVERSIÓN — primera en mobile, derecha en desktop */}
+        <div className="order-1 lg:order-2 lg:col-span-1">
+          <div className="lg:sticky lg:top-24 space-y-4">
+            {/* 1. Precio */}
+            {PriceBlock}
+
+            {/* 2. Abonar 50% — CTA dominante */}
+            <Card variant="elevated" className="rounded-2xl border-2 border-[#8CC63F] bg-[#F2FBE9] shadow-lg">
+              <div className="text-center">
+                <span className="inline-block bg-[#8CC63F] text-[#0E1A05] text-[11px] font-bold uppercase tracking-wide px-3 py-1 rounded-full mb-3">
+                  ⭐ Opción más elegida
+                </span>
+                <h3 className="text-xl font-bold text-gray-900">Reserva con el 50%</h3>
+                <p className="text-sm text-gray-600 mt-1 mb-4">
+                  Asegura tu fecha abonando solo la mitad ahora. El resto lo pagas al finalizar el traslado.
+                </p>
+                <p className="text-4xl font-extrabold text-[#3F6212] leading-none">
+                  {formatCurrency(abono50)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1 mb-4">
+                  + {formatCurrency(abono50)} al finalizar el traslado
+                </p>
+                <Button
+                  onClick={() => handleConfirmReservation('mitad')}
+                  isLoading={isSubmitting}
+                  size="lg"
+                  className="w-full bg-[#8CC63F] hover:bg-[#6FA52E] text-[#0E1A05] font-bold shadow-md"
+                >
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Abonar 50% y asegurar mi cupo
+                </Button>
+                <p className="text-xs text-gray-500 mt-2">Confirmación inmediata por correo.</p>
+                <p className="text-xs text-gray-700 mt-3 bg-white/70 border border-[#cfe6a8] rounded-lg px-3 py-2">
+                  Tu fecha y horario se confirman solo al realizar el abono.
+                </p>
+              </div>
+            </Card>
+
+            {/* 3. Pagar 100% — opción secundaria */}
+            <Card className="rounded-2xl border border-gray-200">
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-700">¿Prefieres pagar todo ahora?</p>
+                <p className="text-xs text-green-700 font-medium mt-0.5 mb-2">
+                  Obtén 5% de descuento pagando el total.
+                </p>
+                <p className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(pago100)}</p>
+                <p className="text-[11px] text-gray-500 mb-3">Ahorras {formatCurrency(descuento100)}</p>
+                <Button
+                  onClick={() => handleConfirmReservation('completo')}
+                  isLoading={isSubmitting}
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                >
+                  Pagar 100% con descuento
+                </Button>
+                <p className="text-xs text-gray-500 mt-2">Pago seguro procesado por Webpay.</p>
+              </div>
+            </Card>
+
+            {/* 4. Mensaje de cuotas */}
+            <div className="flex items-start gap-2 text-xs text-gray-600 px-1">
+              <CreditCard className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+              <span>Puedes pagar con débito, crédito o en cuotas según tu medio de pago.</span>
+            </div>
+
+            {/* 5. Garantía / confianza */}
+            <Card className="rounded-2xl border border-gray-200">
+              <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#6FA52E]" />
+                Compra protegida
+              </h3>
+              <ul className="space-y-2 text-sm text-gray-700">
+                {[
+                  'Comprobante de reserva inmediato',
+                  'Precio fijo sin sorpresas',
+                  'Carga protegida durante el traslado',
+                  'Devolución disponible sujeta a políticas de garantía',
+                ].map((g) => (
+                  <li key={g} className="flex gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                    <span>{g}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            {/* 6. Qué ocurre después del pago */}
+            <Card className="rounded-2xl border border-gray-200 bg-blue-50/40">
+              <h3 className="text-base font-bold text-gray-900 mb-3">¿Qué pasa después de pagar?</h3>
+              <ol className="space-y-2.5">
+                {[
+                  'Confirmamos tu reserva',
+                  'Recibes comprobante por correo',
+                  'Coordinamos detalles por WhatsApp',
+                  'Realizamos tu mudanza en la fecha agendada',
+                ].map((step, i) => (
+                  <li key={step} className="flex gap-3 items-start">
+                    <span className="w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-gray-700">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </Card>
+
+            {/* 7. Enviar cotización por correo (para indecisos) */}
+            <Card className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+              <p className="text-sm font-semibold text-gray-800 text-center mb-1">
+                ¿Prefieres decidir con calma?
+              </p>
+              <p className="text-xs text-gray-500 text-center mb-3">
+                Te enviamos la cotización detallada y el enlace de pago para revisarlo cuando quieras.
+              </p>
+
+              {/* Aceptación de términos antes de enviar */}
+              <label className="flex items-start gap-2.5 mb-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                />
+                <span className="text-xs text-gray-600 leading-relaxed">
+                  Acepto los{' '}
+                  <a
+                    href="/terminos-y-condiciones"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-primary-600 underline hover:text-primary-700"
+                  >
+                    Términos y Condiciones
+                  </a>{' '}
+                  y la{' '}
+                  <a
+                    href="/politica-de-privacidad"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-primary-600 underline hover:text-primary-700"
+                  >
+                    Política de Privacidad
+                  </a>
+                  .
+                </span>
+              </label>
+
+              <Button
+                onClick={handleSendQuote}
+                isLoading={isSendingQuote}
+                disabled={!acceptedTerms}
+                variant="outline"
+                className="w-full border-2 border-blue-500 text-blue-700 hover:bg-blue-50"
+                size="lg"
+              >
+                <Send className="w-5 h-5 mr-2" />
+                Enviarme la cotización por correo
+              </Button>
+            </Card>
+          </div>
+        </div>
+
+        {/* COLUMNA DE RESUMEN — segunda en mobile, izquierda en desktop (menor peso visual) */}
+        <div className="order-2 lg:order-1 lg:col-span-2 space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Resumen de tu cotización
+          </p>
+
           {/* Datos Personales */}
           <Card>
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            <h3 className="font-semibold text-base mb-4 flex items-center gap-2 text-gray-700">
               <Mail className="w-5 h-5 text-primary-600" />
               Datos de Contacto
             </h3>
@@ -494,7 +720,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
           {/* Fecha y Hora */}
           <Card>
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            <h3 className="font-semibold text-base mb-4 flex items-center gap-2 text-gray-700">
               <Calendar className="w-5 h-5 text-primary-600" />
               Fecha y Hora
             </h3>
@@ -513,7 +739,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
           {/* Direcciones */}
           <Card>
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            <h3 className="font-semibold text-base mb-4 flex items-center gap-2 text-gray-700">
               <MapPin className="w-5 h-5 text-primary-600" />
               Direcciones
             </h3>
@@ -566,7 +792,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
           {/* Items */}
           <Card>
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            <h3 className="font-semibold text-base mb-4 flex items-center gap-2 text-gray-700">
               <Package className="w-5 h-5 text-primary-600" />
               Items a Transportar ({items.reduce((sum, item) => sum + item.quantity, 0)} items)
             </h3>
@@ -631,7 +857,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
             return (
               <Card>
-                <h3 className="font-bold text-lg mb-4">📦 Embalaje Especial</h3>
+                <h3 className="font-semibold text-base mb-4 text-gray-700">📦 Embalaje Especial</h3>
 
                 {/* Info importante */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
@@ -682,7 +908,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             additionalServices.unpacking ||
             additionalServices.observations) && (
               <Card>
-                <h3 className="font-bold text-lg mb-4">Servicios Adicionales</h3>
+                <h3 className="font-semibold text-base mb-4 text-gray-700">Servicios Adicionales</h3>
                 <div className="space-y-2">
                   {additionalServices.disassembly && (
                     <div className="flex justify-between text-sm">
@@ -722,185 +948,22 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
               </Card>
             )}
         </div>
+      </div>
 
-        {/* Columna derecha - Precio y Acciones */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-24 space-y-4">
-            {/* Precio */}
-            <Card variant="elevated" className="bg-gradient-to-br from-brand-blue-light via-brand-blue-light to-white border-2 border-brand-blue">
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-primary-600" />
-                Precio Estimado
-              </h3>
-              <div className="py-6">
-                {isFlexible ? (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center px-4">
-                      <span className="text-sm text-gray-600">Precio base:</span>
-                      <span className="text-lg font-semibold text-gray-700 line-through">
-                        {formatCurrency(Math.round(estimatedPrice / 0.9))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center px-4">
-                      <span className="text-sm font-semibold text-green-600">
-                        Descuento por flexibilidad:
-                      </span>
-                      <span className="text-lg font-semibold text-green-600">
-                        -10%
-                      </span>
-                    </div>
-                    <div className="border-t border-gray-300 pt-3 px-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Total a pagar:</span>
-                        <span className="text-4xl font-bold text-primary-600">
-                          {formatCurrency(estimatedPrice)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      {personalInfo?.isCompany && (
-                        <p className="text-xs text-gray-500">IVA incluido</p>
-                      )}
-                      <p className="text-xs text-green-600 font-semibold mt-1">
-                        ¡Ahorraste {formatCurrency(Math.round(estimatedPrice / 0.9) - estimatedPrice)}!
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 mb-2">Total a pagar:</p>
-                    <p className="text-4xl font-bold text-primary-600 mb-2">
-                      {formatCurrency(estimatedPrice)}
-                    </p>
-                    {personalInfo?.isCompany && (
-                      <p className="text-xs text-gray-500">IVA incluido</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Datos de Facturación */}
-                {personalInfo?.isCompany && (
-                  <div className="mt-4 pt-4 border-t border-gray-300">
-                    <div className="bg-blue-50 rounded-lg p-3 space-y-2">
-                      <p className="text-xs font-bold text-blue-900 text-center mb-2">
-                        📄 CON FACTURA
-                      </p>
-                      <div className="text-xs text-blue-800">
-                        <p className="font-semibold">Razón Social:</p>
-                        <p className="mb-2">{personalInfo.companyName}</p>
-                        <p className="font-semibold">RUT:</p>
-                        <p>{personalInfo.companyRut}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Opciones de Pago */}
-            <Card>
-              <h3 className="font-bold text-lg mb-4 text-center">Opciones de Pago</h3>
-
-              <div className="space-y-3">
-                {/* Opción 1: Pago 100% */}
-                <div className="border-2 border-green-500 rounded-lg p-4 bg-green-50 relative">
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    ¡Ahorra 5%!
-                  </div>
-                  <div className="text-center mb-3 mt-2">
-                    <p className="text-sm text-gray-600 mb-1">Paga el 100%</p>
-                    <p className="text-2xl font-bold text-green-700">
-                      {formatCurrency(Math.round(estimatedPrice * 0.95))}
-                    </p>
-                    <p className="text-xs text-green-600 font-semibold">
-                      Descuento de {formatCurrency(Math.round(estimatedPrice * 0.05))}
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => handleConfirmReservation('completo')}
-                    isLoading={isSubmitting}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    size="lg"
-                  >
-                    <DollarSign className="w-5 h-5 mr-2" />
-                    Pagar 100%
-                  </Button>
-                </div>
-
-                {/* Opción 2: Pago 50% */}
-                <div className="border-2 border-primary-500 rounded-lg p-4 bg-primary-50">
-                  <div className="text-center mb-3">
-                    <p className="text-sm text-gray-600 mb-1">Abona el 50%</p>
-                    <p className="text-xs text-gray-500 italic mb-2">Paga el otro 50% al terminar el flete</p>
-                    <p className="text-2xl font-bold text-primary-700">
-                      {formatCurrency(Math.round(estimatedPrice * 0.5))}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      + {formatCurrency(Math.round(estimatedPrice * 0.5))} al finalizar
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => handleConfirmReservation('mitad')}
-                    isLoading={isSubmitting}
-                    className="w-full"
-                    size="lg"
-                    variant="secondary"
-                  >
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    Abonar 50%
-                  </Button>
-                </div>
-
-                {/* Botón Editar */}
-                <Button
-                  onClick={onPrevious}
-                  variant="outline"
-                  className="w-full mt-4"
-                  disabled={isSubmitting}
-                >
-                  <Edit className="w-5 h-5 mr-2" />
-                  Editar Cotización
-                </Button>
-              </div>
-            </Card>
-
-            {/* Descargar Cotización */}
-            <Card className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-300">
-              <div className="text-center mb-3">
-                <p className="text-sm font-semibold text-gray-700 mb-2">
-                  📋 ¿Necesitas una copia de tu cotización?
-                </p>
-                <p className="text-xs text-gray-500 mb-3">
-                  Descarga el PDF con todos los detalles
-                </p>
-              </div>
-              <Button
-                onClick={handleDownloadCheckoutPDF}
-                variant="outline"
-                className="w-full border-2 border-blue-500 text-blue-700 hover:bg-blue-50"
-                size="lg"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Descargar Cotización (PDF)
-              </Button>
-            </Card>
-
-            {/* Info de pago */}
-            <Card className="bg-blue-50 border-blue-200">
-              <div className="flex items-start gap-3">
-                <CreditCard className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-semibold mb-1">Métodos de Pago</p>
-                  <p className="text-xs">
-                    Aceptamos Webpay, tarjetas de crédito/débito y transferencia bancaria.
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
+      {/* Editar cotización — link discreto al final */}
+      <div className="mt-8 text-center">
+        <button
+          type="button"
+          onClick={() => {
+            trackEvent('click_editar_cotizacion')
+            onPrevious()
+          }}
+          disabled={isSubmitting}
+          className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2 disabled:opacity-50"
+        >
+          ¿Necesitas cambiar algún dato? Editar cotización
+        </button>
       </div>
     </div>
   )
 }
-

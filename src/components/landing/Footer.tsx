@@ -1,253 +1,186 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Instagram, Mail, Phone, MapPin, ChevronDown } from 'lucide-react'
+import { Instagram, Mail, Phone } from 'lucide-react'
 import { trackEvent } from '@/lib/tracking'
+
+const PHONE = '+56 9 5439 0267'
+
+const SmallPhoneIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/>
+  </svg>
+)
+
+const WaIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 0 1 8.413 3.488 11.82 11.82 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.607zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/>
+  </svg>
+)
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
-  const [openSection, setOpenSection] = useState<string | null>(null)
-
-  const toggleSection = (section: string) => {
-    setOpenSection(openSection === section ? null : section)
-  }
 
   return (
-    <footer className="bg-gray-900 text-gray-300 relative isolate">
-      {/* Main Footer */}
-      <div className="container mx-auto px-4 py-12 md:py-16">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
-          {/* Columna 1: Logo y Descripción */}
-          <div className="lg:col-span-1">
-            <div className="flex flex-col items-center mb-4">
-              <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4">
-                <Image
-                  src="/logo.png"
-                  alt="Yo me Encargo"
-                  fill
-                  className="object-contain"
-                />
+    <footer
+      className="bg-[#111827] pt-[72px] pb-10"
+      style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}
+    >
+      <div className="max-w-[1180px] mx-auto px-6">
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-12">
+
+          {/* Col 1: Logo + tagline + social */}
+          <div>
+            <Link href="/" className="flex items-center">
+              <div className="relative w-16 h-16 flex-shrink-0">
+                <Image src="/logo.png" alt="Yo me Encargo" fill className="object-contain" />
               </div>
-              <p className="text-gray-400 mb-6 leading-relaxed text-center">
-                Tu aliado en transporte y mudanzas en todo Chile. Servicio confiable, puntual y profesional.
-              </p>
-            </div>
-            {/* Redes Sociales */}
-            <div className="flex space-x-4 justify-center">
+            </Link>
+            <p className="mt-4 text-[15px] leading-[1.6] max-w-[300px]">
+              Mudanzas y fletes con precio fijo en la Región Metropolitana y todo Chile. Operando desde 2020.
+            </p>
+            <div className="mt-4 flex gap-3">
               <a
                 href="https://www.instagram.com/yo.me.encargo_"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent('Contact', { method: 'instagram', location: 'footer' })}
-                className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-brand-blue transition-colors"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white transition-colors"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
                 aria-label="Instagram"
               >
-                <Instagram size={20} />
+                <Instagram size={16} />
               </a>
               <a
                 href="mailto:contacto@yomeencargo.cl"
                 onClick={() => trackEvent('Contact', { method: 'email', location: 'footer' })}
-                className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-brand-cyan transition-colors"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white transition-colors"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
                 aria-label="Email"
               >
-                <Mail size={20} />
+                <Mail size={16} />
               </a>
               <a
                 href="https://wa.me/56954390267"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'footer' })}
-                className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-brand-green transition-colors"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white transition-colors"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
                 aria-label="WhatsApp"
               >
-                <Phone size={20} />
+                <Phone size={16} />
               </a>
             </div>
           </div>
 
-          {/* Columna 2: Enlaces Rápidos */}
+          {/* Col 2: Services */}
           <div>
-            {/* Header clickeable en móvil */}
-            <button
-              onClick={() => toggleSection('enlaces')}
-              className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
-            >
-              <span>Enlaces Rápidos</span>
-              <ChevronDown
-                size={20}
-                className={`md:hidden transition-transform duration-300 ${openSection === 'enlaces' ? 'rotate-180' : ''
-                  }`}
-              />
-            </button>
-
-            {/* Lista colapsable en móvil, siempre visible en desktop */}
-            <ul
-              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${openSection === 'enlaces'
-                  ? 'max-h-96 opacity-100'
-                  : 'max-h-0 opacity-0'
-                }`}
-            >
-              <li>
-                <Link
-                  href="/"
-                  className="hover:text-brand-blue transition-colors block"
-                >
-                  Inicio
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/nuestros-servicios"
-                  className="hover:text-brand-blue transition-colors block"
-                >
-                  Nuestros Servicios
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/contactanos"
-                  className="hover:text-brand-blue transition-colors block"
-                >
-                  Contáctanos
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/cotizador"
-                  className="hover:text-brand-blue transition-colors block"
-                >
-                  Cotizar Online
-                </Link>
-              </li>
+            <h4 className="font-bold text-[13px] tracking-[0.12em] uppercase text-white mb-[18px]">
+              Servicios
+            </h4>
+            <ul className="flex flex-col gap-3">
+              {[
+                { label: 'Fletes', href: '#servicios' },
+                { label: 'Mudanzas', href: '#servicios' },
+                { label: 'Traslados de carga', href: '#servicios' },
+                { label: 'Cotizar online', href: '/cotizador' },
+              ].map(({ label, href }) => (
+                <li key={label}>
+                  {href.startsWith('/') ? (
+                    <Link
+                      href={href}
+                      className="text-[15px] transition-colors hover:text-white"
+                      style={{ color: 'rgba(255,255,255,0.62)' }}
+                    >
+                      {label}
+                    </Link>
+                  ) : (
+                    <a
+                      href={href}
+                      className="text-[15px] transition-colors hover:text-white"
+                      style={{ color: 'rgba(255,255,255,0.62)' }}
+                    >
+                      {label}
+                    </a>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Columna 3: Legal */}
+          {/* Col 3: Contact */}
           <div>
-            {/* Header clickeable en móvil */}
-            <button
-              onClick={() => toggleSection('legal')}
-              className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
-            >
-              <span>Legal</span>
-              <ChevronDown
-                size={20}
-                className={`md:hidden transition-transform duration-300 ${openSection === 'legal' ? 'rotate-180' : ''
-                  }`}
-              />
-            </button>
-
-            {/* Lista colapsable en móvil, siempre visible en desktop */}
-            <ul
-              className={`space-y-3 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${openSection === 'legal'
-                  ? 'max-h-96 opacity-100'
-                  : 'max-h-0 opacity-0'
-                }`}
-            >
-              <li>
-                <Link href="/terminos-y-condiciones" className="hover:text-brand-blue transition-colors block">
-                  Términos y Condiciones
-                </Link>
-              </li>
-              <li>
-                <Link href="/politica-de-privacidad" className="hover:text-brand-blue transition-colors block">
-                  Política de Privacidad
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Columna 4: Contacto */}
-          <div>
-            {/* Header clickeable en móvil */}
-            <button
-              onClick={() => toggleSection('contacto')}
-              className="md:cursor-default w-full flex items-center justify-between md:justify-start text-white font-bold text-lg mb-4"
-            >
-              <span>Contacto</span>
-              <ChevronDown
-                size={20}
-                className={`md:hidden transition-transform duration-300 ${openSection === 'contacto' ? 'rotate-180' : ''
-                  }`}
-              />
-            </button>
-
-            {/* Lista colapsable en móvil, siempre visible en desktop */}
-            <ul
-              className={`space-y-4 overflow-hidden transition-all duration-300 md:!block md:!max-h-none md:!opacity-100 ${openSection === 'contacto'
-                  ? 'max-h-96 opacity-100'
-                  : 'max-h-0 opacity-0'
-                }`}
-            >
-              <li className="flex items-start space-x-3">
-                <Phone size={20} className="text-brand-blue flex-shrink-0 mt-0.5" />
-                <div>
-                  <a href="tel:+56954390267" onClick={() => trackEvent('Contact', { method: 'phone', location: 'footer' })} className="hover:text-brand-blue transition-colors">
-                    +56 9 5439 0267
-                  </a>
-                  <p className="text-sm text-gray-500">Lun - Dom: 9:00 - 19:00</p>
-                </div>
-              </li>
-              <li className="flex items-start space-x-3">
-                <Mail size={20} className="text-brand-cyan flex-shrink-0 mt-0.5" />
-                <a
-                  href="mailto:contacto@yomeencargo.cl"
-                  onClick={() => trackEvent('Contact', { method: 'email', location: 'footer' })}
-                  className="hover:text-brand-cyan transition-colors break-all"
-                >
-                  contacto@yomeencargo.cl
-                </a>
-              </li>
-              <li className="flex items-start space-x-3">
-                <MapPin size={20} className="text-brand-green flex-shrink-0 mt-0.5" />
-                <div>
-                  <p>Región Metropolitana</p>
-                  <p className="text-sm text-gray-500">Santiago, Chile</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Bar */}
-      <div className="border-t border-gray-800">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col items-center space-y-3">
-            {/* Primera línea: Copyright */}
-            <p className="text-sm text-gray-500 text-center">
-              © {currentYear} Yo me Encargo. Todos los derechos reservados.
-            </p>
-
-            {/* Segunda línea: Enlaces legales */}
-            <div className="flex items-center space-x-4 text-sm">
-              <Link href="/terminos-y-condiciones" className="text-gray-500 hover:text-brand-blue transition-colors">
-                Términos y Condiciones
-              </Link>
-              <span className="text-gray-700">|</span>
-              <Link href="/politica-de-privacidad" className="text-gray-500 hover:text-brand-blue transition-colors">
-                Política de Privacidad
-              </Link>
-            </div>
-
-            {/* Tercera línea: Créditos */}
-            <p className="text-sm text-gray-500 text-center">
-              Desarrollado por{' '}
+            <h4 className="font-bold text-[13px] tracking-[0.12em] uppercase text-white mb-[18px]">
+              Contacto
+            </h4>
+            <div className="flex flex-col gap-3 text-[15px]">
               <a
-                href="https://iaenblanco.com"
+                href={`tel:${PHONE.replace(/\s/g, '')}`}
+                onClick={() => trackEvent('Contact', { method: 'phone', location: 'footer' })}
+                className="flex items-center gap-2.5 transition-colors hover:text-white whitespace-nowrap"
+                style={{ color: 'rgba(255,255,255,0.62)' }}
+              >
+                <SmallPhoneIcon /> {PHONE}
+              </a>
+              <a
+                href="https://wa.me/56954390267"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-brand-blue hover:text-brand-cyan transition-colors font-semibold"
+                onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'footer' })}
+                className="flex items-center gap-2.5 transition-colors hover:text-white"
+                style={{ color: 'rgba(255,255,255,0.62)' }}
               >
-                IAenBlanco
+                <WaIcon /> WhatsApp
               </a>
-            </p>
+              <a
+                href="mailto:contacto@yomeencargo.cl"
+                onClick={() => trackEvent('Contact', { method: 'email', location: 'footer' })}
+                className="transition-colors hover:text-white"
+                style={{ color: 'rgba(255,255,255,0.62)' }}
+              >
+                contacto@yomeencargo.cl
+              </a>
+              <span style={{ color: 'rgba(255,255,255,0.62)' }}>Región Metropolitana · Chile</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div
+          className="mt-14 pt-6 flex flex-wrap justify-between gap-4 text-[13px]"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.45)' }}
+        >
+          <span>© {currentYear} Yo me Encargo · yomeencargo.cl</span>
+          <div className="flex gap-4">
+            <Link href="/terminos-y-condiciones" className="hover:text-white/70 transition-colors">
+              Términos
+            </Link>
+            <Link href="/politica-de-privacidad" className="hover:text-white/70 transition-colors">
+              Privacidad
+            </Link>
+            <span>
+              Crafted by{' '}
+              <a
+                href="https://vanlookstudio.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-white"
+                style={{ color: 'rgba(255,255,255,0.6)' }}
+              >
+                vanlookstudio.com
+              </a>
+            </span>
           </div>
         </div>
       </div>
     </footer>
   )
 }
-

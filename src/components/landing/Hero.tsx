@@ -2,67 +2,64 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Truck, Clock, MapPin, Shield, ArrowRight, MessageCircle } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { ArrowRight, MessageCircle, Check } from 'lucide-react'
 import { trackEvent } from '@/lib/tracking'
+import LogisticsPaths from './LogisticsPaths'
+
+const benefits = [
+  'Puntualidad garantizada',
+  'Carga asegurada',
+  '+1000 clientes',
+]
 
 export default function Hero() {
-  const benefits = [
-    { icon: Clock, text: 'Puntualidad garantizada' },
-    { icon: MapPin, text: 'Cobertura nacional' },
-    { icon: Shield, text: 'Carga protegida' },
-    { icon: Truck, text: 'Flota moderna' },
-  ]
-
   return (
-    <section id="inicio" className="relative pt-24 md:pt-32 pb-16 md:pb-24 overflow-hidden isolate">
-      {/* Background gradiente */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-blue-light via-brand-blue-light to-white -z-10" />
+    <section id="top" className="relative overflow-hidden bg-white">
+      {/* Rutas logísticas animadas estilo Tron */}
+      <LogisticsPaths />
 
-      {/* Patron decorativo */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ contain: 'paint' }}>
-        <div className="absolute inset-0 w-full h-full" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236FA8DC' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          backgroundSize: '60px 60px',
-          backgroundRepeat: 'repeat',
-        }} />
-      </div>
+      <div className="relative max-w-[1180px] mx-auto px-6 pt-28 pb-20 lg:pt-36 lg:pb-28">
+        <div className="grid grid-cols-1 lg:grid-cols-[55fr_45fr] gap-12 lg:gap-16 items-center">
 
-      <div className="container mx-auto px-4">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Contenido Principal */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center lg:text-left"
-          >
-            {/* Badge */}
-            <div className="inline-flex items-center space-x-2 bg-brand-green/10 text-brand-green px-4 py-2 rounded-full mb-6">
-              <Shield size={18} />
-              <span className="text-sm font-semibold">Servicio Confiable desde 2020</span>
+          {/* ── Left column: message ── */}
+          <div className="min-w-0 max-w-[600px]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#F0F8E8] border border-[#D7EBBE] px-3.5 py-1.5 mb-6">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-[#8CC63F] opacity-60 animate-ping" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#6FA52E]" />
+              </span>
+              <span className="text-[13px] font-bold tracking-wide text-[#4B6B1E]">
+                Cotización online en minutos
+              </span>
             </div>
 
-            {/* Título Principal */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Transporte y Mudanzas{' '}
-              <span className="text-brand-blue">Confiables</span>{' '}
-              en todo Chile
+            <h1
+              className="font-archivo font-black text-[#101828] text-balance tracking-[-0.03em] leading-[1.02]"
+              style={{ fontSize: 'clamp(40px, 5.6vw, 60px)' }}
+            >
+              Tu traslado resuelto.{' '}
+              <span className="text-[#6FA52E]">Sin vueltas.</span>
             </h1>
 
-            {/* Subtítulo */}
-            <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl">
-              Yo me Encargo te ayuda con <strong>fletes, mudanzas y traslados de carga</strong> en la Región Metropolitana y todo Chile. Rápido, seguro y sin complicaciones.
+            <p
+              className="mt-6 font-medium text-[#475467] leading-[1.55] max-w-[540px]"
+              style={{ fontSize: 'clamp(17px, 2vw, 20px)' }}
+            >
+              <strong className="text-[#101828]">Fletes, mudanzas y traslados de carga</strong> con
+              precio fijo y sin sorpresas. Cotiza en minutos; nos encargamos de todo, de
+              principio a fin.
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-10">
+            <div className="mt-9 flex flex-col sm:flex-row sm:items-center gap-3.5">
               <Link
                 href="/cotizador"
-                className="group px-8 py-4 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-all duration-300 font-bold text-lg shadow-xl hover:shadow-2xl transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+                onClick={() => trackEvent('Click', { element: 'hero_cta', location: 'hero' })}
+                className="inline-flex items-center justify-center gap-2.5 px-7 bg-[#8CC63F] hover:bg-[#6FA52E] text-[#0E1A05] font-bold rounded-xl shadow-[0_8px_24px_-8px_rgba(140,198,63,0.7)] transition-all group"
+                style={{ height: '58px', fontSize: '18px' }}
               >
-                <span>Cotiza tu Traslado Online</span>
-                <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
+                Cotizar mi traslado online
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </Link>
 
               <a
@@ -70,65 +67,48 @@ export default function Hero() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'hero' })}
-                className="px-8 py-4 bg-brand-green text-white rounded-lg hover:bg-brand-green-light transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center space-x-2"
+                className="inline-flex items-center justify-center gap-2.5 px-6 bg-white hover:bg-[#F9FAFB] text-[#101828] font-bold rounded-xl border border-[#D0D5DD] hover:border-[#98A2B3] transition-colors"
+                style={{ height: '58px', fontSize: '17px' }}
               >
-                <MessageCircle size={20} />
-                <span>Hablar con Asesor</span>
+                <MessageCircle size={20} style={{ color: '#25D366' }} />
+                WhatsApp
               </a>
             </div>
 
-            {/* Beneficios Rápidos */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {benefits.map((benefit, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
-                  className="flex flex-col items-center text-center p-3 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm"
-                >
-                  <benefit.icon className="text-brand-cyan mb-2" size={28} />
-                  <span className="text-xs md:text-sm font-medium text-gray-700">
-                    {benefit.text}
-                  </span>
-                </motion.div>
+            {/* Benefits — compact row */}
+            <ul className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2.5">
+              {benefits.map((item) => (
+                <li key={item} className="flex items-center gap-2">
+                  <Check size={16} strokeWidth={3} className="text-[#6FA52E] flex-shrink-0" />
+                  <span className="font-semibold text-[13.5px] text-[#374151]">{item}</span>
+                </li>
               ))}
-            </div>
-          </motion.div>
+            </ul>
+          </div>
 
-          {/* Imagen/Ilustración */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="relative hidden lg:block"
-          >
-            <div className="relative w-full h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+          {/* ── Right column: team photo ── */}
+          <div className="relative">
+            {/* accent glow */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-4 rounded-[28px] bg-[#8CC63F]/10 blur-2xl"
+            />
+
+            {/* Premium image card with a left-to-right loading reveal */}
+            <div className="hero-img-reveal group relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-[#EEF2F6] shadow-[0_30px_60px_-18px_rgba(16,24,40,0.38)] ring-1 ring-black/5">
               <Image
-                src="/images/hero-truck.jpg"
-                alt="Camión de Yo me Encargo realizando mudanza"
+                src="/images/hero-team.jpg"
+                alt="Equipo de Yo me Encargo frente al camión corporativo"
                 fill
-                className="object-cover"
                 priority
+                sizes="(max-width: 1024px) 100vw, 45vw"
+                className="object-cover object-[50%_42%] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]"
               />
             </div>
+          </div>
 
-            {/* Elemento decorativo flotante */}
-            <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-xl animate-float">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-brand-green/10 rounded-full flex items-center justify-center">
-                  <Shield className="text-brand-green" size={24} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">+500</p>
-                  <p className="text-sm text-gray-600">Clientes Satisfechos</p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </div>
     </section>
   )
 }
-

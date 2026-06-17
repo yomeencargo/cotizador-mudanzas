@@ -3,9 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
+    // Los convertidos viven en "Reservas" (trabajo por hacer); aquí solo leads por convertir.
     const { data: prospects, error } = await supabaseAdmin
       .from('quote_prospects')
       .select('*')
+      .neq('status', 'converted')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -29,7 +31,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, status, notes } = body
+    const { id, status, notes, source, adjusted_price, adjustment_comment, scheduled_date, scheduled_time } = body
 
     if (!id) {
       return NextResponse.json(
@@ -43,7 +45,15 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (status !== undefined) updateData.status = status
+    if (source !== undefined) updateData.source = source
     if (notes !== undefined) updateData.notes = notes
+    if (adjusted_price !== undefined) {
+      updateData.adjusted_price =
+        adjusted_price === null || adjusted_price === '' ? null : Math.round(Number(adjusted_price))
+    }
+    if (adjustment_comment !== undefined) updateData.adjustment_comment = adjustment_comment || null
+    if (scheduled_date !== undefined) updateData.scheduled_date = scheduled_date || null
+    if (scheduled_time !== undefined) updateData.scheduled_time = scheduled_time || null
 
     const { data, error } = await supabaseAdmin
       .from('quote_prospects')

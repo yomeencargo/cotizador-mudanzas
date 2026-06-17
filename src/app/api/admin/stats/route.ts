@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+// Lee datos en vivo: no debe prerenderizarse/cachearse en build.
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     console.log('[API] Fetching admin stats...')

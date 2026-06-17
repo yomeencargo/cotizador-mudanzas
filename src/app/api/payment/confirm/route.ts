@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Referencia estable del booking. El commerceOrder puede variar por intento de
+        // pago (50% del correo, 50% en página, 100%), pero optional.bookingId siempre es
+        // el mismo quote_id => resolvemos SIEMPRE el mismo booking. Fallback retrocompatible.
+        const bookingRef = bookingId || paymentStatus.commerceOrder
+
         // Determinar estado del pago
         // Flow status: 1 = pending, 2 = approved, 3 = rejected, 4 = cancelled
         let paymentStatusStr = 'pending'
@@ -89,7 +94,12 @@ export async function POST(request: NextRequest) {
         // Si el pago fue exitoso, confirmar la reserva
         if (paymentStatus.status === 2) {
             updateData.status = 'confirmed'
-        } 
+            // El booking deja de ser provisional => ahora SÍ consume cupo de flota
+            updateData.is_provisional = false
+            // Registrar el monto realmente pagado y el tipo (abono 50% o pago completo)
+            if (paymentStatus.amount) updateData.total_price = paymentStatus.amount
+            if (paymentType) updateData.payment_type = paymentType
+        }
         // Si el pago fue rechazado o cancelado, cancelar la reserva
         else if (paymentStatus.status === 3 || paymentStatus.status === 4) {
             updateData.status = 'cancelled'
@@ -98,7 +108,7 @@ export async function POST(request: NextRequest) {
         const { error: updateError } = await supabase
             .from('bookings')
             .update(updateData)
-            .eq('quote_id', paymentStatus.commerceOrder)
+            .eq('quote_id', bookingRef)
 
         if (updateError) {
             console.error('[WEBHOOK] Error updating booking:', updateError)
@@ -108,32 +118,59 @@ export async function POST(request: NextRequest) {
                 payment_status: paymentStatusStr
             })
 
-            // Si el pago fue exitoso, marcar el prospecto correspondiente como convertido
+            // Si el pago fue exitoso, marcar el prospecto correspondiente como convertido.
+            // 1) Primero por quote_id (estable) => funciona aunque el lead ya esté 'contacted'
+            //    (flujo admin: WhatsApp -> contactado -> cotización -> pago).
+            // 2) Fallback por email al lead más reciente sin convertir.
             if (paymentStatus.status === 2) {
                 try {
-                    // Buscar la reserva para obtener el email y el ID
                     const { data: bookingData } = await supabase
                         .from('bookings')
                         .select('id, client_email')
-                        .eq('quote_id', paymentStatus.commerceOrder)
+                        .eq('quote_id', bookingRef)
                         .single()
 
                     if (bookingData) {
-                        const { error: prospectError } = await supabase
+                        const nowIso = new Date().toISOString()
+
+                        const { data: byQuote, error: byQuoteErr } = await supabase
                             .from('quote_prospects')
                             .update({
                                 status: 'converted',
                                 converted_booking_id: bookingData.id,
-                                updated_at: new Date().toISOString(),
+                                updated_at: nowIso,
                             })
-                            .eq('email', bookingData.client_email)
-                            .eq('status', 'new')
+                            .eq('quote_id', bookingRef)
+                            .in('status', ['new', 'contacted'])
+                            .select('id')
 
-                        if (prospectError) {
-                            console.error('[WEBHOOK] Error updating prospect:', prospectError)
-                        } else {
-                            console.log(`[WEBHOOK] Prospect marked as converted for email: ${bookingData.client_email}`)
+                        if (byQuoteErr) {
+                            console.error('[WEBHOOK] Error converting prospect by quote_id:', byQuoteErr)
                         }
+
+                        if (!byQuote || byQuote.length === 0) {
+                            const { data: latest } = await supabase
+                                .from('quote_prospects')
+                                .select('id')
+                                .eq('email', bookingData.client_email)
+                                .in('status', ['new', 'contacted'])
+                                .order('created_at', { ascending: false })
+                                .limit(1)
+
+                            const pid = latest?.[0]?.id
+                            if (pid) {
+                                await supabase
+                                    .from('quote_prospects')
+                                    .update({
+                                        status: 'converted',
+                                        converted_booking_id: bookingData.id,
+                                        updated_at: nowIso,
+                                    })
+                                    .eq('id', pid)
+                            }
+                        }
+
+                        console.log(`[WEBHOOK] Prospect conversion processed for: ${bookingData.client_email}`)
                     }
                 } catch (prospectErr) {
                     console.error('[WEBHOOK] Exception updating prospect:', prospectErr)
@@ -149,7 +186,7 @@ export async function POST(request: NextRequest) {
                         const { error: deleteError } = await supabase
                             .from('bookings')
                             .delete()
-                            .eq('quote_id', paymentStatus.commerceOrder)
+                            .eq('quote_id', bookingRef)
                             .eq('status', 'cancelled')
                         
                         if (deleteError) {

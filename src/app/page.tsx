@@ -1,41 +1,28 @@
-// Componentes de la Landing Page
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
+import ClientLogos from '@/components/landing/ClientLogos'
 import HowItWorks from '@/components/landing/HowItWorks'
 import WhyChooseUs from '@/components/landing/WhyChooseUs'
-import Coverage from '@/components/landing/Coverage'
 import Testimonials from '@/components/landing/Testimonials'
+import Servicios from '@/components/landing/Servicios'
 import FAQ from '@/components/landing/FAQ'
+import CtaFinal from '@/components/landing/CtaFinal'
 import Footer from '@/components/landing/Footer'
 
 export default function HomePage() {
   return (
     <>
-      {/* Navegación principal fija */}
       <Navbar />
-
-      {/* Contenido principal de la landing */}
-      <main className="overflow-x-hidden relative isolate">
-        {/* Hero principal con CTAs */}
+      <main className="overflow-x-hidden">
         <Hero />
-
-        {/* Sección: Por qué elegirnos */}
-        <WhyChooseUs />
-
-        {/* Sección: Cómo funciona el servicio */}
+        <ClientLogos />
         <HowItWorks />
-
-        {/* Sección: Testimonios de clientes */}
+        <WhyChooseUs />
         <Testimonials />
-
-        {/* Sección: Preguntas frecuentes */}
+        <Servicios />
         <FAQ />
-
-        {/* Sección: Cobertura geográfica */}
-        <Coverage />
+        <CtaFinal />
       </main>
-
-      {/* Footer con enlaces y datos de contacto */}
       <Footer />
     </>
   )

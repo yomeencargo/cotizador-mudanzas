@@ -1,156 +1,190 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Phone } from 'lucide-react'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { Home, Route, Truck, Star, HelpCircle, type LucideIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { trackEvent } from '@/lib/tracking'
 
-export default function Navbar() {
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+const PHONE = '+56 9 5439 0267'
 
-  // Detectar scroll para cambiar estilo del navbar
+const PhoneIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/>
+  </svg>
+)
+
+interface NavItem {
+  name: string
+  url: string
+  icon: LucideIcon
+}
+
+const navItems: NavItem[] = [
+  { name: 'Inicio',        url: '#top',          icon: Home },
+  { name: 'Cómo funciona', url: '#proceso',      icon: Route },
+  { name: 'Reseñas',       url: '#testimonios',  icon: Star },
+  { name: 'Servicios',     url: '#servicios',    icon: Truck },
+  { name: 'Preguntas',     url: '#faq',          icon: HelpCircle },
+]
+
+export default function Navbar() {
+  const [activeTab, setActiveTab] = useState(navItems[0].name)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const pathname = usePathname()
+  // Fuera de la home las secciones no existen: los links deben volver a "/"
+  const isHome = pathname === '/'
+
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
+      setIsScrolled(window.scrollY > 8)
+
+      // scroll-spy: marca activa la última sección que pasó el primer tercio
+      const probe = window.scrollY + window.innerHeight / 3
+      let current = navItems[0].name
+      for (const item of navItems) {
+        const el = document.getElementById(item.url.slice(1))
+        if (el && el.getBoundingClientRect().top + window.scrollY <= probe) {
+          current = item.name
+        }
+      }
+      setActiveTab(current)
     }
-    window.addEventListener('scroll', handleScroll)
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll()
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Navegación suave
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      setIsMobileMenuOpen(false)
-    }
-  }
+  // Ítems con el efecto tubelight (texto en desktop, íconos en mobile)
+  const tubelightItems = (layoutId: string, showLabels: boolean) =>
+    navItems.map((item) => {
+      const Icon = item.icon
+      const isActive = activeTab === item.name
 
-  const navLinks = [
-    { name: 'Inicio', id: 'inicio', href: '/' },
-    { name: 'Nuestros Servicios', id: 'servicios', href: '/nuestros-servicios' },
-    { name: 'Contáctanos', id: 'contacto', href: '/contactanos' },
-  ]
+      return (
+        <a
+          key={item.name}
+          href={isHome ? item.url : `/${item.url}`}
+          onClick={() => setActiveTab(item.name)}
+          className={cn(
+            'relative cursor-pointer text-sm font-semibold rounded-full transition-colors',
+            showLabels ? 'px-4 py-2' : 'px-3.5 py-2.5',
+            'text-[#374151] hover:text-[#3F6212]',
+            isActive && 'text-[#3F6212]',
+          )}
+        >
+          {showLabels ? (
+            <span className="whitespace-nowrap">{item.name}</span>
+          ) : (
+            <Icon size={18} strokeWidth={2.5} />
+          )}
+          {isActive && (
+            <motion.div
+              layoutId={layoutId}
+              className="absolute inset-0 w-full bg-[#8CC63F]/10 rounded-full -z-10"
+              initial={false}
+              transition={{
+                type: 'spring',
+                stiffness: 300,
+                damping: 30,
+              }}
+            >
+              {/* tubo de luz superior */}
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#8CC63F] rounded-t-full">
+                <div className="absolute w-12 h-6 bg-[#8CC63F]/25 rounded-full blur-md -top-2 -left-2" />
+                <div className="absolute w-8 h-6 bg-[#8CC63F]/25 rounded-full blur-md -top-1" />
+                <div className="absolute w-4 h-4 bg-[#8CC63F]/25 rounded-full blur-sm top-0 left-2" />
+              </div>
+            </motion.div>
+          )}
+        </a>
+      )
+    })
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
-          ? 'bg-white shadow-lg py-0'
-          : 'bg-white/95 backdrop-blur-sm py-0.5'
-        }`}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-center lg:justify-between relative">
-          {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <div className="relative w-16 h-16 md:w-20 md:h-20">
-              <Image
-                src="/logo.png"
-                alt="Yo me Encargo - Transporte y Mudanzas"
-                fill
-                className="object-contain"
-                priority
-              />
+    <>
+      {/* Desktop: todo en un solo pill flotante — logo, links, teléfono y CTA */}
+      <nav className="fixed top-3 left-1/2 -translate-x-1/2 z-50 hidden lg:block">
+        <div
+          className={cn(
+            'flex items-center gap-2 border border-[#E5E7EB] backdrop-blur-lg rounded-full py-1.5 pl-2.5 pr-1.5 shadow-lg shadow-black/[0.06] transition-colors duration-200',
+            isScrolled ? 'bg-white/90' : 'bg-white/75',
+          )}
+        >
+          <Link href="/" className="flex items-center flex-shrink-0 pr-1">
+            <div className="relative w-11 h-11">
+              <Image src="/logo.png" alt="Yo me Encargo" fill className="object-contain" priority />
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              link.href ? (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  className="text-gray-700 hover:text-brand-blue transition-colors font-medium"
-                >
-                  {link.name}
-                </Link>
-              ) : (
-                <button
-                  key={link.id}
-                  onClick={() => scrollToSection(link.id)}
-                  className="text-gray-700 hover:text-brand-blue transition-colors font-medium"
-                >
-                  {link.name}
-                </button>
-              )
-            ))}
+          <div className="flex items-center gap-1">
+            {tubelightItems('lamp-desktop', true)}
           </div>
 
-          {/* CTAs Desktop */}
-          <div className="hidden lg:flex items-center space-x-4">
+          <a
+            href={`tel:${PHONE.replace(/\s/g, '')}`}
+            onClick={() => trackEvent('Contact', { method: 'phone', location: 'navbar' })}
+            className="flex items-center gap-2 font-bold text-[15px] text-[#111827] whitespace-nowrap px-3"
+          >
+            <span className="text-[#6FA52E]"><PhoneIcon /></span>
+            {PHONE}
+          </a>
+
+          <Link
+            href="/cotizador"
+            className="flex items-center justify-center h-11 px-6 bg-[#8CC63F] hover:bg-[#6FA52E] text-[#0E1A05] font-bold text-[15px] rounded-full transition-colors whitespace-nowrap"
+          >
+            Cotizar Ahora
+          </Link>
+        </div>
+      </nav>
+
+      {/* Mobile: pill superior con logo, teléfono y CTA */}
+      <nav className="fixed top-3 left-3 right-3 z-50 lg:hidden">
+        <div
+          className={cn(
+            'flex items-center justify-between border border-[#E5E7EB] backdrop-blur-lg rounded-full py-1.5 pl-2.5 pr-1.5 shadow-lg shadow-black/[0.06] transition-colors duration-200',
+            isScrolled ? 'bg-white/90' : 'bg-white/80',
+          )}
+        >
+          <Link href="/" className="flex items-center flex-shrink-0">
+            <div className="relative w-10 h-10">
+              <Image src="/logo.png" alt="Yo me Encargo" fill className="object-contain" priority />
+            </div>
+          </Link>
+
+          <div className="flex items-center gap-2">
             <a
-              href="tel:+56954390267"
-              onClick={() => trackEvent('Contact', { method: 'phone', location: 'navbar' })}
-              className="flex items-center space-x-2 text-brand-gray hover:text-brand-blue transition-colors"
+              href={`tel:${PHONE.replace(/\s/g, '')}`}
+              onClick={() => trackEvent('Contact', { method: 'phone', location: 'navbar_mobile' })}
+              aria-label={`Llamar al ${PHONE}`}
+              className="flex items-center justify-center h-10 w-10 rounded-full border border-[#E5E7EB] text-[#6FA52E] bg-white/70"
             >
-              <Phone size={18} />
-              <span className="font-medium">+56 9 5439 0267</span>
+              <PhoneIcon />
             </a>
             <Link
               href="/cotizador"
-              className="px-6 py-3 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-all duration-300 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="flex items-center justify-center h-10 px-5 bg-[#8CC63F] hover:bg-[#6FA52E] text-[#0E1A05] font-bold text-[14px] rounded-full transition-colors whitespace-nowrap"
             >
               Cotizar Ahora
             </Link>
           </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 text-gray-700 hover:text-brand-blue transition-colors absolute right-0"
-            aria-label="Menú"
-          >
-            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-          </button>
         </div>
+      </nav>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden mt-4 py-4 border-t border-gray-200 animate-slide-down">
-            <div className="flex flex-col space-y-4">
-              {navLinks.map((link) => (
-                link.href ? (
-                  <Link
-                    key={link.id}
-                    href={link.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="text-left text-gray-700 hover:text-brand-blue transition-colors font-medium py-2"
-                  >
-                    {link.name}
-                  </Link>
-                ) : (
-                  <button
-                    key={link.id}
-                    onClick={() => scrollToSection(link.id)}
-                    className="text-left text-gray-700 hover:text-brand-blue transition-colors font-medium py-2"
-                  >
-                    {link.name}
-                  </button>
-                )
-              ))}
-              <a
-                href="tel:+56954390267"
-                onClick={() => trackEvent('Contact', { method: 'phone', location: 'navbar_mobile' })}
-                className="flex items-center space-x-2 text-brand-gray hover:text-brand-blue transition-colors py-2"
-              >
-                <Phone size={18} />
-                <span className="font-medium">+56 9 5439 0267</span>
-              </a>
-              <Link
-                href="/cotizador"
-                className="px-6 py-3 bg-brand-blue text-white rounded-lg hover:bg-brand-blue-light transition-colors font-semibold text-center"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Cotizar Ahora
-              </Link>
-            </div>
+      {/* Mobile: tubelight pill inferior con las secciones — solo en la home,
+          en otras páginas tapa los CTAs del contenido */}
+      {isHome && (
+        <div className="fixed bottom-0 mb-5 left-1/2 -translate-x-1/2 z-50 lg:hidden">
+          <div className="flex items-center gap-1 bg-white/75 border border-[#E5E7EB] backdrop-blur-lg py-1 px-1 rounded-full shadow-lg shadow-black/[0.06]">
+            {tubelightItems('lamp-mobile', false)}
           </div>
-        )}
-      </div>
-    </nav>
+        </div>
+      )}
+    </>
   )
 }
-
