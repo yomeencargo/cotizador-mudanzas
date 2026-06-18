@@ -581,48 +581,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
               <span>Puedes pagar con débito, crédito o en cuotas según tu medio de pago.</span>
             </div>
 
-            {/* 5. Garantía / confianza */}
-            <Card className="rounded-2xl border border-gray-200">
-              <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-[#6FA52E]" />
-                Compra protegida
-              </h3>
-              <ul className="space-y-2 text-sm text-gray-700">
-                {[
-                  'Comprobante de reserva inmediato',
-                  'Precio fijo sin sorpresas',
-                  'Carga protegida durante el traslado',
-                  'Devolución disponible sujeta a políticas de garantía',
-                ].map((g) => (
-                  <li key={g} className="flex gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                    <span>{g}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            {/* 6. Qué ocurre después del pago */}
-            <Card className="rounded-2xl border border-gray-200 bg-blue-50/40">
-              <h3 className="text-base font-bold text-gray-900 mb-3">¿Qué pasa después de pagar?</h3>
-              <ol className="space-y-2.5">
-                {[
-                  'Confirmamos tu reserva',
-                  'Recibes comprobante por correo',
-                  'Coordinamos detalles por WhatsApp',
-                  'Realizamos tu mudanza en la fecha agendada',
-                ].map((step, i) => (
-                  <li key={step} className="flex gap-3 items-start">
-                    <span className="w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                      {i + 1}
-                    </span>
-                    <span className="text-sm text-gray-700">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </Card>
-
-            {/* 7. Enviar cotización por correo (para indecisos) */}
+            {/* 5. Enviar cotización por correo (para indecisos) */}
             <Card className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white">
               <p className="text-sm font-semibold text-gray-800 text-center mb-1">
                 ¿Prefieres decidir con calma?
@@ -673,6 +632,47 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 <Send className="w-5 h-5 mr-2" />
                 Enviarme la cotización por correo
               </Button>
+            </Card>
+
+            {/* 6. Garantía / confianza */}
+            <Card className="rounded-2xl border border-gray-200">
+              <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#6FA52E]" />
+                Compra protegida
+              </h3>
+              <ul className="space-y-2 text-sm text-gray-700">
+                {[
+                  'Comprobante de reserva inmediato',
+                  'Precio fijo sin sorpresas',
+                  'Carga protegida durante el traslado',
+                  'Devolución disponible sujeta a políticas de garantía',
+                ].map((g) => (
+                  <li key={g} className="flex gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                    <span>{g}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            {/* 7. Qué ocurre después del pago */}
+            <Card className="rounded-2xl border border-gray-200 bg-blue-50/40">
+              <h3 className="text-base font-bold text-gray-900 mb-3">¿Qué pasa después de pagar?</h3>
+              <ol className="space-y-2.5">
+                {[
+                  'Confirmamos tu reserva',
+                  'Recibes comprobante por correo',
+                  'Coordinamos detalles por WhatsApp',
+                  'Realizamos tu mudanza en la fecha agendada',
+                ].map((step, i) => (
+                  <li key={step} className="flex gap-3 items-start">
+                    <span className="w-6 h-6 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-gray-700">{step}</span>
+                  </li>
+                ))}
+              </ol>
             </Card>
           </div>
         </div>
