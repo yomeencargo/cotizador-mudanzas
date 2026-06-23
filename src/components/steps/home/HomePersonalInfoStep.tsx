@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { User, Mail, Phone } from 'lucide-react'
+import { normalizeChileanPhone } from '@/lib/utils'
 
 interface HomePersonalInfoStepProps {
   onNext: () => void
@@ -66,7 +67,7 @@ export default function HomePersonalInfoStep({ onNext, onPrevious }: HomePersona
     setPersonalInfo({
       name: formData.name.trim(),
       email: formData.email.trim(),
-      phone: formData.phone.trim(),
+      phone: normalizeChileanPhone(formData.phone.trim()),
     })
 
     onNext()

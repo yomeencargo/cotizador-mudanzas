@@ -38,6 +38,22 @@ export function validatePhone(phone: string): boolean {
   return re.test(phone.replace(/\s/g, ''))
 }
 
+/**
+ * Normaliza un teléfono chileno al formato canónico "+56 9 XXXX XXXX".
+ * Acepta entradas como "9 7602 0510", "976020510", "+56976020510", "56 9 7602 0510".
+ * Si el número no calza con un móvil chileno válido, devuelve el valor original
+ * (no rompe entradas raras). Garantiza que el enlace de WhatsApp siempre funcione.
+ */
+export function normalizeChileanPhone(phone: string): string {
+  let digits = (phone || '').replace(/\D/g, '')
+  if (digits.startsWith('56')) digits = digits.slice(2)
+  if (digits.length === 8) digits = '9' + digits // faltaba el 9 inicial del móvil
+  if (digits.length === 9 && digits.startsWith('9')) {
+    return `+56 9 ${digits.slice(1, 5)} ${digits.slice(5, 9)}`
+  }
+  return phone
+}
+
 export function sanitizeInput(input: string): string {
   return input.trim().replace(/[<>]/g, '')
 }

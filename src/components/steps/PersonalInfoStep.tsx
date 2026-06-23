@@ -6,7 +6,7 @@ import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Checkbox from '../ui/Checkbox'
 import Card from '../ui/Card'
-import { validateEmail, validatePhone } from '@/lib/utils'
+import { validateEmail, validatePhone, normalizeChileanPhone } from '@/lib/utils'
 import { User, Mail, Phone, Building2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -64,7 +64,11 @@ export default function PersonalInfoStep({ onNext, onPrevious }: PersonalInfoSte
     e.preventDefault()
     
     if (validate()) {
-      setPersonalInfo(formData)
+      // Forzar el teléfono al formato +56 9 XXXX XXXX para que WhatsApp siempre funcione
+      const normalizedPhone = normalizeChileanPhone(formData.phone)
+      const normalized = { ...formData, phone: normalizedPhone }
+      setFormData(normalized)
+      setPersonalInfo(normalized)
       toast.success('Datos guardados correctamente')
       onNext()
     } else {

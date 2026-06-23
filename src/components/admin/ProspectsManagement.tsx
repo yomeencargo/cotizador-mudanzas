@@ -445,18 +445,22 @@ export default function ProspectsManagement() {
     { value: 'web', label: 'Web' },
     { value: 'rrss', label: 'RRSS' },
     { value: 'recomendacion', label: 'Recomendación' },
+    { value: 'cliente_antiguo', label: 'Cliente antiguo' },
   ]
 
-  // Origen de marketing: solo Web / RRSS / Recomendación.
+  // Origen de marketing: Web / RRSS / Recomendación / Cliente antiguo.
   // Los orígenes técnicos antiguos (pdf_download, email_quote, checkout_initiated, domicilio)
   // se muestran y filtran como "Web" (todos llegaron por el sitio).
   const normalizeOrigin = (source: string) =>
-    source === 'rrss' || source === 'recomendacion' ? source : 'web'
+    source === 'rrss' || source === 'recomendacion' || source === 'cliente_antiguo'
+      ? source
+      : 'web'
 
   const getSourceLabel = (source: string) => {
     switch (normalizeOrigin(source)) {
       case 'rrss': return 'RRSS'
       case 'recomendacion': return 'Recomendación'
+      case 'cliente_antiguo': return 'Cliente antiguo'
       default: return 'Web'
     }
   }
@@ -465,6 +469,7 @@ export default function ProspectsManagement() {
     switch (normalizeOrigin(source)) {
       case 'rrss': return 'bg-pink-100 text-pink-800 border-pink-200'
       case 'recomendacion': return 'bg-teal-100 text-teal-800 border-teal-200'
+      case 'cliente_antiguo': return 'bg-purple-100 text-purple-800 border-purple-200'
       default: return 'bg-blue-100 text-blue-800 border-blue-200'
     }
   }
@@ -609,12 +614,7 @@ export default function ProspectsManagement() {
             <Select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              options={[
-                { value: 'all', label: 'Todos' },
-                { value: 'web', label: 'Web' },
-                { value: 'rrss', label: 'RRSS' },
-                { value: 'recomendacion', label: 'Recomendación' },
-              ]}
+              options={[{ value: 'all', label: 'Todos' }, ...SOURCE_OPTIONS]}
             />
           </div>
 
@@ -931,7 +931,7 @@ export default function ProspectsManagement() {
                 onChange={(e) => updateProspectSource(selectedProspect.id, e.target.value)}
                 options={SOURCE_OPTIONS}
               />
-              <p className="text-xs text-gray-500 mt-1">Cámbialo a Web, RRSS o Recomendación según de dónde vino.</p>
+              <p className="text-xs text-gray-500 mt-1">Cámbialo a Web, RRSS, Recomendación o Cliente antiguo según de dónde vino.</p>
             </div>
 
             {/* Contacto */}
