@@ -792,7 +792,7 @@ export default function BookingsManagement() {
                             <Eye className="w-4 h-4" />
                           </Button>
                           <Button
-                            onClick={() => window.open(buildWhatsappLink(booking), '_blank')}
+                            onClick={() => window.open(buildWhatsappLink(booking), 'whatsapp_yme')}
                             variant="outline"
                             size="sm"
                             className="text-green-600 border-green-200 hover:bg-green-50"

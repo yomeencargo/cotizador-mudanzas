@@ -177,6 +177,16 @@ export default function Footer() {
               >
                 vanlookstudio.com
               </a>
+              {' '}·{' '}
+              <a
+                href="https://iaenblanco.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-white"
+                style={{ color: 'rgba(255,255,255,0.6)' }}
+              >
+                IAenBlanco
+              </a>
             </span>
           </div>
         </div>

@@ -412,6 +412,15 @@ export default function AdminDashboard() {
           >
             vanlookstudio.com
           </a>
+          {' '}· parte del sistema por{' '}
+          <a
+            href="https://iaenblanco.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
+          >
+            IAenBlanco
+          </a>
         </p>
       </div>
     </div>

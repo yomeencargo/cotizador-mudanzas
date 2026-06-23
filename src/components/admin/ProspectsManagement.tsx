@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Send,
   Users,
+  Star,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -61,6 +62,7 @@ interface Prospect {
   adjusted_price?: number
   adjustment_comment?: string
   quote_sent_at?: string
+  is_frequent?: boolean
   created_at: string
   updated_at: string
 }
@@ -96,6 +98,9 @@ export default function ProspectsManagement() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [frequentFilter, setFrequentFilter] = useState('all') // all | yes | no
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
@@ -158,14 +163,32 @@ export default function ProspectsManagement() {
           case 'month':
             return created.getMonth() === now.getMonth() &&
                    created.getFullYear() === now.getFullYear()
+          case 'range': {
+            if (!customStartDate && !customEndDate) return true
+            if (customStartDate) {
+              const [sy, sm, sd] = customStartDate.split('-').map(Number)
+              if (created < new Date(sy, (sm || 1) - 1, sd || 1, 0, 0, 0)) return false
+            }
+            if (customEndDate) {
+              const [ey, em, ed] = customEndDate.split('-').map(Number)
+              if (created > new Date(ey, (em || 1) - 1, ed || 1, 23, 59, 59)) return false
+            }
+            return true
+          }
           default:
             return true
         }
       })
     }
 
+    if (frequentFilter !== 'all') {
+      filtered = filtered.filter(p =>
+        frequentFilter === 'yes' ? !!p.is_frequent : !p.is_frequent
+      )
+    }
+
     setFilteredProspects(filtered)
-  }, [prospects, searchTerm, statusFilter, sourceFilter, dateFilter])
+  }, [prospects, searchTerm, statusFilter, sourceFilter, dateFilter, customStartDate, customEndDate, frequentFilter])
 
   useEffect(() => {
     fetchProspects()
@@ -189,6 +212,28 @@ export default function ProspectsManagement() {
     } catch (error) {
       console.error('Error updating prospect:', error)
       toast.error('Error al actualizar el estado')
+    }
+  }
+
+  const toggleFrequent = async (p: Prospect) => {
+    const next = !p.is_frequent
+    // Optimista: refleja el cambio al instante en la lista
+    setProspects(prev => prev.map(x => (x.id === p.id ? { ...x, is_frequent: next } : x)))
+    setSelectedProspect(prev => (prev && prev.id === p.id ? { ...prev, is_frequent: next } : prev))
+    try {
+      const response = await fetch('/api/admin/prospects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, is_frequent: next }),
+      })
+      if (!response.ok) throw new Error('Error al actualizar')
+      toast.success(next ? 'Marcado como cliente frecuente' : 'Quitado de clientes frecuentes')
+    } catch (error) {
+      console.error('Error toggling frequent:', error)
+      toast.error('No se pudo actualizar. Reintenta.')
+      // Revertir si falló
+      setProspects(prev => prev.map(x => (x.id === p.id ? { ...x, is_frequent: !next } : x)))
+      setSelectedProspect(prev => (prev && prev.id === p.id ? { ...prev, is_frequent: !next } : prev))
     }
   }
 
@@ -226,8 +271,24 @@ export default function ProspectsManagement() {
     const price = p.adjusted_price ?? p.total_price
     const precioTxt = price ? ` por $${price.toLocaleString('es-CL')}` : ''
     const firstName = p.name?.split(' ')[0] || ''
-    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu cotización de mudanza${precioTxt}. ¿Cómo estás? Quería coordinar contigo los detalles para asegurar tu fecha.`
+    // Incluir fecha/hora de la cotización si el prospecto las tiene
+    let cuando = ''
+    if (p.scheduled_date) {
+      const [y, m, d] = p.scheduled_date.split('-').map(Number)
+      const fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
+      cuando = ` para el ${fechaTxt}${p.scheduled_time ? ` a las ${p.scheduled_time.slice(0, 5)}` : ''}`
+    }
+    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu cotización de mudanza${cuando}${precioTxt}. ¿Cómo estás? Quería coordinar contigo los detalles para asegurar tu fecha.`
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+  }
+
+  // Contacto por WhatsApp: reutiliza una sola ventana (no abre pestaña nueva cada
+  // vez) y marca el prospecto como "contactado" si todavía estaba en "nuevo".
+  const contactWhatsApp = (p: Prospect) => {
+    window.open(buildWhatsappLink(p), 'whatsapp_yme')
+    if (p.status === 'new') {
+      void updateProspectStatus(p.id, 'contacted')
+    }
   }
 
   const openQuoteModal = (p: Prospect) => {
@@ -528,7 +589,7 @@ export default function ProspectsManagement() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
             <div className="relative">
@@ -572,16 +633,58 @@ export default function ProspectsManagement() {
             />
           </div>
 
-          <div>
+          <div className={dateFilter === 'range' ? 'md:col-span-2' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
             <Select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => {
+                setDateFilter(e.target.value)
+                if (e.target.value !== 'range') {
+                  setCustomStartDate('')
+                  setCustomEndDate('')
+                }
+              }}
               options={[
                 { value: 'all', label: 'Todas' },
                 { value: 'today', label: 'Hoy' },
                 { value: 'week', label: 'Última semana' },
                 { value: 'month', label: 'Este mes' },
+                { value: 'range', label: 'Rango personalizado' },
+              ]}
+            />
+            {dateFilter === 'range' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Desde</label>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="text-sm min-w-[150px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Hasta</label>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="text-sm min-w-[150px]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Frecuentes</label>
+            <Select
+              value={frequentFilter}
+              onChange={(e) => setFrequentFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Todos' },
+                { value: 'yes', label: 'Solo frecuentes' },
+                { value: 'no', label: 'No frecuentes' },
               ]}
             />
           </div>
@@ -593,6 +696,9 @@ export default function ProspectsManagement() {
                 setStatusFilter('all')
                 setSourceFilter('all')
                 setDateFilter('all')
+                setCustomStartDate('')
+                setCustomEndDate('')
+                setFrequentFilter('all')
               }}
               variant="outline"
               size="sm"
@@ -641,7 +747,14 @@ export default function ProspectsManagement() {
                 {filteredProspects.map((prospect) => (
                   <tr key={prospect.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{prospect.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-medium text-gray-900">{prospect.name}</span>
+                        {prospect.is_frequent && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Frecuente
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-500">{prospect.email}</div>
                       <div className="text-xs text-gray-400">{prospect.phone}</div>
                     </td>
@@ -682,11 +795,22 @@ export default function ProspectsManagement() {
                             <Eye className="w-4 h-4" />
                           </Button>
                           <Button
-                            onClick={() => window.open(buildWhatsappLink(prospect), '_blank')}
+                            onClick={() => toggleFrequent(prospect)}
+                            variant="outline"
+                            size="sm"
+                            className={prospect.is_frequent
+                              ? 'text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100'
+                              : 'text-gray-400 border-gray-200 hover:bg-gray-50'}
+                            title={prospect.is_frequent ? 'Quitar de clientes frecuentes' : 'Marcar como cliente frecuente'}
+                          >
+                            <Star className={`w-4 h-4 ${prospect.is_frequent ? 'fill-amber-400 text-amber-500' : ''}`} />
+                          </Button>
+                          <Button
+                            onClick={() => contactWhatsApp(prospect)}
                             variant="outline"
                             size="sm"
                             className="text-green-600 border-green-200 hover:bg-green-50"
-                            title="Contactar por WhatsApp"
+                            title="Contactar por WhatsApp (marca como contactado)"
                           >
                             <MessageCircle className="w-4 h-4" />
                           </Button>
