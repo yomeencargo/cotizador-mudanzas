@@ -132,8 +132,7 @@ export async function GET() {
         cancelled_at
       `)
       .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
-      .order('scheduled_date', { ascending: true })
-      .order('scheduled_time', { ascending: true })
+      .order('created_at', { ascending: false }) // Más recientes primero
 
     if (error) {
       console.error('[API] Error fetching bookings:', {

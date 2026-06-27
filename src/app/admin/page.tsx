@@ -148,14 +148,14 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F8F8F8]">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
-              <p className="text-sm text-gray-600">Gestión de mudanzas y reservas</p>
+              <h1 className="text-2xl font-archivo font-extrabold tracking-tight text-gray-900">Panel de Administración</h1>
+              <p className="text-sm text-gray-500">Gestión de mudanzas y reservas</p>
             </div>
             <div className="flex items-center gap-4">
               <Button
@@ -186,10 +186,10 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navigation Tabs */}
         <div className="mb-8">
-          <nav className="flex space-x-8">
+          <nav className="flex flex-wrap gap-2">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -197,9 +197,9 @@ export default function AdminDashboard() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors
+                    flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-full transition-colors
                     ${activeTab === tab.id
-                      ? 'bg-primary-100 text-primary-700 border border-primary-200'
+                      ? 'bg-secondary-500 text-white shadow-sm'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }
                   `}
@@ -221,11 +221,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Reservas Hoy</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-3xl font-archivo font-extrabold text-gray-900">
                       {stats?.todayBookings || 0}
                     </p>
                   </div>
-                  <Calendar className="w-8 h-8 text-primary-600" />
+                  <div className="p-3 rounded-full bg-primary-50">
+                    <Calendar className="w-6 h-6 text-primary-600" />
+                  </div>
                 </div>
               </Card>
 
@@ -233,11 +235,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Ingresos del Mes</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-3xl font-archivo font-extrabold text-gray-900">
                       ${stats?.monthlyRevenue?.toLocaleString() || 0}
                     </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-green-600" />
+                  <div className="p-3 rounded-full bg-secondary-50">
+                    <DollarSign className="w-6 h-6 text-secondary-600" />
+                  </div>
                 </div>
               </Card>
 
@@ -245,11 +249,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-3xl font-archivo font-extrabold text-gray-900">
                       {stats?.pendingBookings || 0}
                     </p>
                   </div>
-                  <AlertCircle className="w-8 h-8 text-yellow-600" />
+                  <div className="p-3 rounded-full bg-yellow-50">
+                    <AlertCircle className="w-6 h-6 text-yellow-600" />
+                  </div>
                 </div>
                 <div className="mt-2">
                   <span className="text-xs text-yellow-600 font-semibold">
@@ -262,11 +268,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Ocupación</p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-3xl font-archivo font-extrabold text-gray-900">
                       {stats?.occupancyRate || 0}%
                     </p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-blue-600" />
+                  <div className="p-3 rounded-full bg-blue-50">
+                    <TrendingUp className="w-6 h-6 text-blue-600" />
+                  </div>
                 </div>
                 <div className="mt-2">
                   <span className="text-xs text-blue-600 font-semibold">

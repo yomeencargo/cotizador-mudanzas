@@ -516,8 +516,8 @@ export default function BookingsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Reservas</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-archivo font-extrabold tracking-tight text-gray-900">Gestión de Reservas</h2>
+          <p className="text-sm text-gray-500">
             {filteredBookings.length} de {bookings.length} reservas
           </p>
         </div>
@@ -536,7 +536,7 @@ export default function BookingsManagement() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Buscar
@@ -665,25 +665,25 @@ export default function BookingsManagement() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cliente
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tipo
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha y Hora
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Precio
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contacto
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -697,7 +697,7 @@ export default function BookingsManagement() {
                   
                   return (
                   <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
                           {booking.client_name}
@@ -715,7 +715,7 @@ export default function BookingsManagement() {
                         )}
                       </div>
                     </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="hidden md:table-cell px-4 py-3 align-top whitespace-nowrap">
                         {isDomicilio ? (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
                             🏠 Domicilio
@@ -726,7 +726,7 @@ export default function BookingsManagement() {
                           </span>
                         )}
                       </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {(() => {
                           const [y, m, d] = booking.scheduled_date.split('-').map(Number)
@@ -738,7 +738,7 @@ export default function BookingsManagement() {
                         {booking.scheduled_time}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div className="flex flex-col gap-1">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
                           {getStatusIcon(booking.status)}
@@ -751,7 +751,7 @@ export default function BookingsManagement() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       {(booking.original_price || booking.total_price) ? (
                         <div>
                           <div className="text-sm font-semibold text-green-700">
@@ -759,17 +759,17 @@ export default function BookingsManagement() {
                           </div>
                           {/* Mostrar estado del pago */}
                           {booking.payment_status === 'approved' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
                               ✓ Pagado {booking.payment_type === 'mitad' ? '(50%)' : '(100%)'}
                             </span>
                           )}
                           {booking.payment_status === 'pending' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
                               ⏳ Pago pendiente
                             </span>
                           )}
                           {booking.payment_status === 'rejected' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
                               ✗ Pago rechazado
                             </span>
                           )}
@@ -778,7 +778,7 @@ export default function BookingsManagement() {
                         <span className="text-sm text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="hidden lg:table-cell px-4 py-3 align-top whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {booking.client_phone}
                       </div>
@@ -787,8 +787,8 @@ export default function BookingsManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <Button
                             onClick={() => {
                               setSelectedBooking(booking)

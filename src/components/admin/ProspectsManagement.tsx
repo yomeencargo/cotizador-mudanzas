@@ -519,8 +519,8 @@ export default function ProspectsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Prospectos / Leads</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-archivo font-extrabold tracking-tight text-gray-900">Prospectos / Leads</h2>
+          <p className="text-sm text-gray-500">
             {filteredProspects.length} de {prospects.length} prospectos
           </p>
         </div>
@@ -540,43 +540,51 @@ export default function ProspectsManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Nuevos</p>
-              <p className="text-2xl font-bold text-blue-600">{statsNew}</p>
+              <p className="text-2xl font-archivo font-extrabold text-blue-600">{statsNew}</p>
             </div>
-            <Users className="w-6 h-6 text-blue-400" />
+            <div className="p-2.5 rounded-full bg-blue-50">
+              <Users className="w-5 h-5 text-blue-500" />
+            </div>
           </div>
         </Card>
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Contactados</p>
-              <p className="text-2xl font-bold text-yellow-600">{statsContacted}</p>
+              <p className="text-2xl font-archivo font-extrabold text-yellow-600">{statsContacted}</p>
             </div>
-            <Phone className="w-6 h-6 text-yellow-400" />
+            <div className="p-2.5 rounded-full bg-yellow-50">
+              <Phone className="w-5 h-5 text-yellow-500" />
+            </div>
           </div>
         </Card>
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Sin respuesta</p>
-              <p className="text-2xl font-bold text-orange-600">{statsNoResponse}</p>
+              <p className="text-2xl font-archivo font-extrabold text-orange-600">{statsNoResponse}</p>
             </div>
-            <Clock className="w-6 h-6 text-orange-400" />
+            <div className="p-2.5 rounded-full bg-orange-50">
+              <Clock className="w-5 h-5 text-orange-500" />
+            </div>
           </div>
         </Card>
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Perdidos</p>
-              <p className="text-2xl font-bold text-red-600">{statsLost}</p>
+              <p className="text-2xl font-archivo font-extrabold text-red-600">{statsLost}</p>
             </div>
-            <UserX className="w-6 h-6 text-red-400" />
+            <div className="p-2.5 rounded-full bg-red-50">
+              <UserX className="w-5 h-5 text-red-500" />
+            </div>
           </div>
         </Card>
       </div>
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
             <div className="relative">
@@ -718,22 +726,22 @@ export default function ProspectsManagement() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contacto
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Origen
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Precio Est.
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -741,7 +749,7 @@ export default function ProspectsManagement() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProspects.map((prospect) => (
                   <tr key={prospect.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-medium text-gray-900">{prospect.name}</span>
                         {prospect.is_frequent && (
@@ -753,12 +761,12 @@ export default function ProspectsManagement() {
                       <div className="text-sm text-gray-500">{prospect.email}</div>
                       <div className="text-xs text-gray-400">{prospect.phone}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="hidden md:table-cell px-4 py-3 align-top whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getSourceBadge(prospect.source)}`}>
                         {getSourceLabel(prospect.source)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="hidden lg:table-cell px-4 py-3 align-top whitespace-nowrap">
                       {prospect.total_price ? (
                         <span className="text-sm font-semibold text-green-700">
                           ${prospect.total_price.toLocaleString()}
@@ -767,17 +775,17 @@ export default function ProspectsManagement() {
                         <span className="text-sm text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(prospect.status)}`}>
                         {getStatusLabel(prospect.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="hidden sm:table-cell px-4 py-3 align-top whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(prospect.created_at), 'dd/MM/yy HH:mm', { locale: es })}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1 flex-wrap">
+                    <td className="px-4 py-3 align-top whitespace-nowrap text-sm">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <Button
                             onClick={() => {
                               setSelectedProspect(prospect)
