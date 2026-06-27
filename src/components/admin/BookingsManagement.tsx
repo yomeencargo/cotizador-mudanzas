@@ -28,9 +28,14 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
-import type { AdminQuoteData } from '@/lib/adminQuotePdf'
+import {
+  bookingToAdminQuoteData,
+  type AdminBookingQuoteSource,
+} from '@/lib/adminBookingQuoteData'
+import { getSourceLabel, getSourceBadge } from '@/lib/prospectSource'
+import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
 
-interface Booking {
+interface Booking extends AdminBookingQuoteSource {
   id: string
   quote_id: string
   client_name: string
@@ -57,34 +62,17 @@ interface Booking {
   booking_type?: 'online' | 'domicilio' // Tipo de reserva
   visit_address?: string // Dirección para visita a domicilio
   service_completed_at?: string // Fecha de completación del servicio
+  is_flexible?: boolean
+  recommended_vehicle?: string
+  total_volume?: number
+  total_weight?: number
+  total_distance?: number
+  items_summary?: Array<{ name: string; quantity: number; volume: number }>
+  additional_services?: Record<string, any>
   created_at: string
   confirmed_at?: string
   completed_at?: string
   cancelled_at?: string
-}
-
-function bookingToQuoteData(b: Booking): AdminQuoteData {
-  return {
-    name: b.client_name,
-    email: b.client_email,
-    phone: b.client_phone,
-    isCompany: b.is_company,
-    companyName: b.company_name,
-    companyRut: b.company_rut,
-    originAddress: b.origin_address || b.visit_address,
-    destinationAddress: b.destination_address,
-    scheduledDate: b.scheduled_date,
-    scheduledTime: b.scheduled_time,
-    totalPrice: b.total_price,
-    // Las reservas no almacenan el detalle de ítems ni servicios; la versión
-    // sin precios igual sirve como orden de trabajo con cliente, direcciones,
-    // fecha y vehículo. El PDF guardado (con precios) conserva el detalle original.
-    recommendedVehicle: undefined,
-    totalVolume: undefined,
-    totalWeight: undefined,
-    items: undefined,
-    additionalServices: undefined,
-  }
 }
 
 export default function BookingsManagement() {
@@ -331,6 +319,19 @@ export default function BookingsManagement() {
     const cuando = fechaTxt ? ` del ${fechaTxt}${b.scheduled_time ? ` a las ${b.scheduled_time.slice(0, 5)}` : ''}` : ''
     const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu reserva de mudanza${cuando}. ¿Cómo estás? Quería coordinar contigo los detalles del traslado.`
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+  }
+
+  // Descarga un archivo .ics (calendario) de la reserva, compatible con Apple/Outlook/Google.
+  const downloadIcs = (b: Booking) => {
+    const blob = new Blob([buildIcsContent(b)], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = icsFileName(b)
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const addHoursToTime = (time: string, hoursToAdd: number) => {
@@ -704,6 +705,14 @@ export default function BookingsManagement() {
                         <div className="text-sm text-gray-500">
                           ID: {booking.quote_id}
                         </div>
+                        {booking.from_prospect && (
+                          <span
+                            className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${getSourceBadge(booking.source)}`}
+                            title="Reserva originada desde un prospecto"
+                          >
+                            👤 Prospecto · {getSourceLabel(booking.source)}
+                          </span>
+                        )}
                       </div>
                     </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -812,9 +821,27 @@ export default function BookingsManagement() {
                             <Edit className="w-4 h-4" />
                           </Button>
                           <PdfDownloadMenu
-                            data={bookingToQuoteData(booking)}
+                            data={bookingToAdminQuoteData(booking)}
                             compact
                           />
+                          <Button
+                            onClick={() => window.open(buildGoogleCalendarUrl(booking), '_blank')}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            title="Agregar a Google Calendar"
+                          >
+                            <Calendar className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => downloadIcs(booking)}
+                            variant="outline"
+                            size="sm"
+                            className="text-gray-600 hover:bg-gray-50"
+                            title="Descargar .ics (Apple / Outlook / Google)"
+                          >
+                            <span className="text-xs font-semibold">.ics</span>
+                          </Button>
                           <Button
                             onClick={() => handleDelete(booking.id)}
                             variant="outline"
@@ -1285,7 +1312,7 @@ export default function BookingsManagement() {
                   </p>
                 </div>
                 <PdfDownloadMenu
-                  data={bookingToQuoteData(selectedBooking)}
+                  data={bookingToAdminQuoteData(selectedBooking)}
                 />
               </div>
             </div>

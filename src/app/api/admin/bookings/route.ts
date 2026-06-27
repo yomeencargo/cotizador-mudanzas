@@ -1,5 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
+
+const PROSPECT_QUOTE_FIELDS = `
+  id,
+  quote_id,
+  email,
+  source,
+  status,
+  scheduled_date,
+  scheduled_time,
+  converted_booking_id,
+  is_flexible,
+  recommended_vehicle,
+  total_volume,
+  total_weight,
+  total_distance,
+  items_summary,
+  additional_services,
+  created_at
+`
+
+async function fetchProspectQuoteDetails(bookings: any[]) {
+  if (bookings.length === 0) return []
+
+  const bookingIds = [...new Set(bookings.map((b) => b.id).filter(Boolean))]
+  const quoteIds = [...new Set(bookings.map((b) => b.quote_id).filter(Boolean))]
+  const emails = [
+    ...new Set(
+      bookings
+        .map((b) => (typeof b.client_email === 'string' ? b.client_email.toLowerCase().trim() : ''))
+        .filter(Boolean)
+    ),
+  ]
+
+  const queries = []
+
+  if (bookingIds.length > 0) {
+    queries.push(
+      supabaseAdmin
+        .from('quote_prospects')
+        .select(PROSPECT_QUOTE_FIELDS)
+        .in('converted_booking_id', bookingIds)
+        .order('created_at', { ascending: false })
+    )
+  }
+
+  if (quoteIds.length > 0) {
+    queries.push(
+      supabaseAdmin
+        .from('quote_prospects')
+        .select(PROSPECT_QUOTE_FIELDS)
+        .in('quote_id', quoteIds)
+        .order('created_at', { ascending: false })
+    )
+  }
+
+  if (emails.length > 0) {
+    queries.push(
+      supabaseAdmin
+        .from('quote_prospects')
+        .select(PROSPECT_QUOTE_FIELDS)
+        .in('email', emails)
+        .order('created_at', { ascending: false })
+    )
+  }
+
+  const results = await Promise.all(queries)
+  const byId = new Map<string, any>()
+
+  results.forEach(({ data, error }) => {
+    if (error) {
+      console.error('[API] Error fetching booking quote details:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      return
+    }
+
+    const rows = data || []
+    rows.forEach((row: any) => {
+      if (row.id && !byId.has(row.id)) {
+        byId.set(row.id, row)
+      }
+    })
+  })
+
+  return [...byId.values()]
+}
 
 export async function GET() {
   try {
@@ -58,8 +148,12 @@ export async function GET() {
       )
     }
 
-    console.log(`[API] Successfully fetched ${bookings?.length || 0} bookings`)
-    return NextResponse.json(bookings || [])
+    const bookingRows = bookings || []
+    const prospects = await fetchProspectQuoteDetails(bookingRows)
+    const enrichedBookings = mergeBookingQuoteDetails(bookingRows, prospects)
+
+    console.log(`[API] Successfully fetched ${enrichedBookings.length} bookings`)
+    return NextResponse.json(enrichedBookings)
   } catch (error) {
     console.error('[API] Exception in /api/admin/bookings:', error)
     return NextResponse.json(

@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
 
     const {
       source = 'web',
+      quote_id,
       name,
       email,
       phone,
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
 
     const prospectData = {
       source,
+      quote_id: quote_id || null,
       name,
       email: email.toLowerCase().trim(),
       phone,

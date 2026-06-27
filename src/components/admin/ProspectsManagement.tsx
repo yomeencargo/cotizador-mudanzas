@@ -28,7 +28,14 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
+import {
+  SOURCE_OPTIONS,
+  normalizeOrigin,
+  getSourceLabel,
+  getSourceBadge,
+} from '@/lib/prospectSource'
 import type { AdminQuoteData } from '@/lib/adminQuotePdf'
+import { normalizeAdminPdfItems } from '@/lib/adminBookingQuoteData'
 
 interface Prospect {
   id: string
@@ -85,7 +92,7 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
     totalVolume: p.total_volume,
     totalWeight: p.total_weight,
     totalDistance: p.total_distance,
-    items: p.items_summary,
+    items: normalizeAdminPdfItems(p.items_summary, p.total_volume),
     additionalServices: p.additional_services,
   }
 }
@@ -101,6 +108,7 @@ export default function ProspectsManagement() {
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [frequentFilter, setFrequentFilter] = useState('all') // all | yes | no
+  const [showConverted, setShowConverted] = useState(false) // incluir prospectos ya convertidos
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
@@ -117,7 +125,10 @@ export default function ProspectsManagement() {
   const fetchProspects = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/prospects')
+      const url = showConverted
+        ? '/api/admin/prospects?includeConverted=1'
+        : '/api/admin/prospects'
+      const response = await fetch(url)
       const data = await response.json()
       setProspects(data)
     } catch (error) {
@@ -192,7 +203,8 @@ export default function ProspectsManagement() {
 
   useEffect(() => {
     fetchProspects()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showConverted])
 
   useEffect(() => {
     filterProspects()
@@ -441,38 +453,8 @@ export default function ProspectsManagement() {
     }
   }
 
-  const SOURCE_OPTIONS = [
-    { value: 'web', label: 'Web' },
-    { value: 'rrss', label: 'RRSS' },
-    { value: 'recomendacion', label: 'Recomendación' },
-    { value: 'cliente_antiguo', label: 'Cliente antiguo' },
-  ]
-
-  // Origen de marketing: Web / RRSS / Recomendación / Cliente antiguo.
-  // Los orígenes técnicos antiguos (pdf_download, email_quote, checkout_initiated, domicilio)
-  // se muestran y filtran como "Web" (todos llegaron por el sitio).
-  const normalizeOrigin = (source: string) =>
-    source === 'rrss' || source === 'recomendacion' || source === 'cliente_antiguo'
-      ? source
-      : 'web'
-
-  const getSourceLabel = (source: string) => {
-    switch (normalizeOrigin(source)) {
-      case 'rrss': return 'RRSS'
-      case 'recomendacion': return 'Recomendación'
-      case 'cliente_antiguo': return 'Cliente antiguo'
-      default: return 'Web'
-    }
-  }
-
-  const getSourceBadge = (source: string) => {
-    switch (normalizeOrigin(source)) {
-      case 'rrss': return 'bg-pink-100 text-pink-800 border-pink-200'
-      case 'recomendacion': return 'bg-teal-100 text-teal-800 border-teal-200'
-      case 'cliente_antiguo': return 'bg-purple-100 text-purple-800 border-purple-200'
-      default: return 'bg-blue-100 text-blue-800 border-blue-200'
-    }
-  }
+  // SOURCE_OPTIONS, normalizeOrigin, getSourceLabel, getSourceBadge se importan desde
+  // '@/lib/prospectSource' (compartidos con el panel de Reservas).
 
   const updateProspectSource = async (id: string, newSource: string) => {
     try {
@@ -690,6 +672,18 @@ export default function ProspectsManagement() {
           </div>
 
           <div className="flex items-end">
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 pb-2" title="Incluir prospectos ya convertidos en reserva">
+              <input
+                type="checkbox"
+                checked={showConverted}
+                onChange={(e) => setShowConverted(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+              />
+              Ver convertidos
+            </label>
+          </div>
+
+          <div className="flex items-end">
             <Button
               onClick={() => {
                 setSearchTerm('')
@@ -699,6 +693,7 @@ export default function ProspectsManagement() {
                 setCustomStartDate('')
                 setCustomEndDate('')
                 setFrequentFilter('all')
+                setShowConverted(false)
               }}
               variant="outline"
               size="sm"

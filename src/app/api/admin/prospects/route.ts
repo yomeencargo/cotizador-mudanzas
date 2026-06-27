@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Los convertidos viven en "Reservas" (trabajo por hacer); aquí solo leads por convertir.
-    const { data: prospects, error } = await supabaseAdmin
+    // Por defecto solo leads por convertir. Con ?includeConverted=1 también trae los
+    // convertidos (para consultarlos desde el panel sin perderlos de vista).
+    const includeConverted =
+      new URL(request.url).searchParams.get('includeConverted') === '1'
+
+    let query = supabaseAdmin
       .from('quote_prospects')
       .select('*')
-      .neq('status', 'converted')
       .order('created_at', { ascending: false })
+
+    if (!includeConverted) {
+      query = query.neq('status', 'converted')
+    }
+
+    const { data: prospects, error } = await query
 
     if (error) {
       console.error('[Admin Prospects] Error fetching:', error)

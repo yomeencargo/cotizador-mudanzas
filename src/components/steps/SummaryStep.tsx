@@ -103,11 +103,20 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   const prospectIdRef = useRef<string | null>(null)
   const pdfUrlRef = useRef<string | null>(null)
 
-  // ID único y ESTABLE de esta cotización (un solo booking por sesión).
+  // ID único y ESTABLE de esta cotización (un solo booking por cotización).
   // Lo comparten el envío por correo y los botones de pago en página => sin duplicados.
+  // Se persiste en sessionStorage para que sobreviva una recarga (F5): así no se generan
+  // múltiples pre-reservas provisionales "fantasma" para el mismo cliente.
   const quoteIdRef = useRef<string | null>(null)
   const getQuoteId = () => {
-    if (!quoteIdRef.current) quoteIdRef.current = `Q-${Date.now()}`
+    if (!quoteIdRef.current) {
+      const stored =
+        typeof window !== 'undefined' ? sessionStorage.getItem('yme_quote_id') : null
+      quoteIdRef.current = stored || `Q-${Date.now()}`
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('yme_quote_id', quoteIdRef.current)
+      }
+    }
     return quoteIdRef.current
   }
 
@@ -149,6 +158,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source,
+          quote_id: getQuoteId(),
           name: personalInfo?.name,
           email: personalInfo?.email,
           phone: personalInfo?.phone,

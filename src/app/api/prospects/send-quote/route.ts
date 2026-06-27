@@ -36,6 +36,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
+    if (prospectId) {
+      const { error: linkError } = await supabaseAdmin
+        .from('quote_prospects')
+        .update({
+          quote_id: quoteId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', prospectId)
+
+      if (linkError) {
+        console.error('[send-quote] Error vinculando prospecto con quote_id:', linkError)
+      }
+    }
+
     // 1) Pre-reserva idempotente (no consume cupo hasta que se pague)
     await ensureProvisionalBooking({
       quoteId,
