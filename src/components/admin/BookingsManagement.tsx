@@ -22,7 +22,8 @@ import {
   MapPin,
   DollarSign,
   Plus,
-  Download
+  Download,
+  Star
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -336,6 +337,32 @@ export default function BookingsManagement() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  // Marca/desmarca al cliente de la reserva como frecuente (se aplica por email a todas
+  // sus reservas y fichas de prospecto). Actualización optimista + revertir si falla.
+  const toggleFrequentCustomer = async (booking: Booking) => {
+    const next = !booking.is_frequent
+    const sameEmail = (b: Booking) =>
+      (b.client_email || '').toLowerCase().trim() === (booking.client_email || '').toLowerCase().trim()
+    setBookings((prev) => prev.map((b) => (sameEmail(b) ? { ...b, is_frequent: next } : b)))
+    try {
+      const res = await fetch('/api/admin/customers/toggle-frequent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: booking.client_email,
+          is_frequent: next,
+          name: booking.client_name,
+          phone: booking.client_phone,
+        }),
+      })
+      if (!res.ok) throw new Error('Error')
+      toast.success(next ? 'Cliente marcado como frecuente' : 'Cliente quitado de frecuentes')
+    } catch (e) {
+      setBookings((prev) => prev.map((b) => (sameEmail(b) ? { ...b, is_frequent: !next } : b)))
+      toast.error('No se pudo actualizar el cliente')
+    }
   }
 
   const addHoursToTime = (time: string, hoursToAdd: number) => {
@@ -703,8 +730,13 @@ export default function BookingsManagement() {
                   <tr key={booking.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {booking.client_name}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-gray-900">{booking.client_name}</span>
+                          {booking.is_frequent && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Cliente frecuente">
+                              <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Frecuente
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500">
                           ID: {booking.quote_id}
@@ -812,6 +844,17 @@ export default function BookingsManagement() {
                             title="Contactar por WhatsApp"
                           >
                             <MessageCircle className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => toggleFrequentCustomer(booking)}
+                            variant="outline"
+                            size="sm"
+                            className={booking.is_frequent
+                              ? 'text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100'
+                              : 'text-gray-400 border-gray-200 hover:bg-gray-50'}
+                            title={booking.is_frequent ? 'Quitar de clientes frecuentes' : 'Marcar como cliente frecuente'}
+                          >
+                            <Star className={`w-4 h-4 ${booking.is_frequent ? 'fill-amber-400 text-amber-500' : ''}`} />
                           </Button>
                           <Button
                             onClick={() => {

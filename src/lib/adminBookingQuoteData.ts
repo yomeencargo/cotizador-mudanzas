@@ -11,6 +11,7 @@ export interface BookingQuoteDetails {
   email?: string | null
   source?: string | null
   status?: string | null
+  is_frequent?: boolean | null
   scheduled_date?: string | null
   scheduled_time?: string | null
   converted_booking_id?: string | null
@@ -33,6 +34,8 @@ export interface AdminBookingQuoteSource {
   source?: string | null
   /** true si la reserva se enriqueció con un prospecto coincidente. */
   from_prospect?: boolean
+  /** true si el cliente está marcado como frecuente (vive en quote_prospects). */
+  is_frequent?: boolean | null
   is_company?: boolean | null
   company_name?: string | null
   company_rut?: string | null
@@ -156,6 +159,9 @@ function pickQuoteDetails(prospect?: BookingQuoteDetails): Partial<AdminBookingQ
     details.additional_services = prospect.additional_services
   }
   if (prospect.source) details.source = prospect.source
+  if (prospect.is_frequent !== undefined && prospect.is_frequent !== null) {
+    details.is_frequent = prospect.is_frequent
+  }
   // Solo se invoca cuando hubo match con un prospecto => marca el origen de la reserva.
   details.from_prospect = true
   return details

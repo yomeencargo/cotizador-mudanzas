@@ -8,6 +8,7 @@ const PROSPECT_QUOTE_FIELDS = `
   email,
   source,
   status,
+  is_frequent,
   scheduled_date,
   scheduled_time,
   converted_booking_id,
