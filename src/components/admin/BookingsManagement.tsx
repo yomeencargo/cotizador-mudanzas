@@ -140,7 +140,11 @@ export default function BookingsManagement() {
     // Filtrar por estado (incluye opción especial 'provisional' = pre-reservas sin pagar)
     if (statusFilter === 'provisional') {
       filtered = filtered.filter(booking => booking.is_provisional === true)
-    } else if (statusFilter !== 'all') {
+    } else if (statusFilter === 'all') {
+      // Por defecto ocultamos las pre-reservas provisionales sin pagar: son cotizaciones no
+      // concretadas (no ocupan cupo) y ensucian el panel. Se ven con el filtro "Sin pagar".
+      filtered = filtered.filter(booking => booking.is_provisional !== true)
+    } else {
       filtered = filtered.filter(booking => booking.status === statusFilter)
     }
 
