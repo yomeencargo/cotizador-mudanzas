@@ -15,7 +15,6 @@ import {
   Mail,
   Clock,
   ShieldCheck,
-  Download,
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { generateQuotePDF } from '@/lib/pdfGenerator'
@@ -583,7 +582,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 <p className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(pago100)}</p>
                 <p className="text-[11px] text-gray-500 mb-3">Ahorras {formatCurrency(descuento100)}</p>
                 <Button
-                  onPointerDown={() => pushDataLayerMonto(estimatedPrice)}
+                  onPointerDown={() => pushDataLayerMonto(pago100)}
                   onClick={() => handleConfirmReservation('completo')}
                   isLoading={isSubmitting}
                   variant="outline"
@@ -643,6 +642,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
               </label>
 
               <Button
+                onPointerDown={() => pushDataLayerMonto(estimatedPrice)}
                 onClick={handleSendQuote}
                 isLoading={isSendingQuote}
                 disabled={!acceptedTerms}
@@ -652,16 +652,6 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
               >
                 <Send className="w-5 h-5 mr-2" />
                 Enviarme la cotización por correo
-              </Button>
-
-              <Button
-                onPointerDown={() => pushDataLayerMonto(estimatedPrice)}
-                onClick={() => { void generateQuotePDF({ download: true }) }}
-                variant="ghost"
-                className="w-full mt-2 text-gray-600 hover:text-gray-900"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Descargar Cotización
               </Button>
             </Card>
 
