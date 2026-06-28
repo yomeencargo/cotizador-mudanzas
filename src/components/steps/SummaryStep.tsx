@@ -15,11 +15,12 @@ import {
   Mail,
   Clock,
   ShieldCheck,
+  Download,
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
 import { generateQuotePDF } from '@/lib/pdfGenerator'
 import { getPricingConfig } from '@/lib/pricingService'
-import { trackEvent } from '@/lib/tracking'
+import { trackEvent, pushDataLayerMonto } from '@/lib/tracking'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
@@ -356,6 +357,14 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- una pasada al cumplir datos; idempotencia en API
   }, [isConfirmed, summaryDataReadyForPdf])
 
+  // Empuja el monto al dataLayer al renderizar el resumen para que GTM nunca lea
+  // undefined (criterio: "DLV - monto" definido al cargar la pantalla de abono).
+  // Baseline = abono (la opción destacada). Los botones Pagar / Descargar Cotización
+  // ajustan el monto al TOTAL en su onPointerDown, justo antes del clic.
+  useEffect(() => {
+    if (estimatedPrice > 0) pushDataLayerMonto(Math.round(estimatedPrice * 0.5))
+  }, [estimatedPrice])
+
   // Pago EN LA PÁGINA. Reutiliza el mismo quoteId (un solo booking) y delega en
   // /api/quote/checkout, que crea/reutiliza la pre-reserva y genera la orden Flow.
   const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
@@ -548,6 +557,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                   + {formatCurrency(abono50)} al finalizar el traslado
                 </p>
                 <Button
+                  onPointerDown={() => pushDataLayerMonto(abono50)}
                   onClick={() => handleConfirmReservation('mitad')}
                   isLoading={isSubmitting}
                   size="lg"
@@ -573,6 +583,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 <p className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(pago100)}</p>
                 <p className="text-[11px] text-gray-500 mb-3">Ahorras {formatCurrency(descuento100)}</p>
                 <Button
+                  onPointerDown={() => pushDataLayerMonto(estimatedPrice)}
                   onClick={() => handleConfirmReservation('completo')}
                   isLoading={isSubmitting}
                   variant="outline"
@@ -641,6 +652,16 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
               >
                 <Send className="w-5 h-5 mr-2" />
                 Enviarme la cotización por correo
+              </Button>
+
+              <Button
+                onPointerDown={() => pushDataLayerMonto(estimatedPrice)}
+                onClick={() => { void generateQuotePDF({ download: true }) }}
+                variant="ghost"
+                className="w-full mt-2 text-gray-600 hover:text-gray-900"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Descargar Cotización
               </Button>
             </Card>
 

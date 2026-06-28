@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useHomeQuoteStore } from '@/store/homeQuoteStore'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { User, Mail, Phone, MapPin, DollarSign, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { pushDataLayerMonto } from '@/lib/tracking'
 
 interface HomeSummaryStepProps {
   onPrevious: () => void
@@ -19,6 +20,11 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
   const router = useRouter()
   const { personalInfo, visitAddress, setConfirmed } = useHomeQuoteStore()
   const [loading, setLoading] = useState(false)
+
+  // Monto de la visita a domicilio al dataLayer (para GTM: evento "Pagar")
+  useEffect(() => {
+    pushDataLayerMonto(FIXED_PRICE)
+  }, [])
 
   const handlePayment = async () => {
     if (!personalInfo || !visitAddress) {
@@ -253,6 +259,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
             ← Volver
           </Button>
           <Button
+            onPointerDown={() => pushDataLayerMonto(FIXED_PRICE)}
             onClick={handlePayment}
             disabled={loading}
             size="lg"

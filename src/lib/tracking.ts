@@ -25,6 +25,21 @@ export const trackEvent = (eventName: string, data: Record<string, any> = {}) =>
     })
 }
 
+/**
+ * Empuja el monto de conversión (CLP, entero) al dataLayer para que GTM lo lea como
+ * la variable "DLV - monto" y lo mande a GA4/Google Ads como `value`. GTM ya fija
+ * `currency = CLP`, por eso aquí SOLO se empuja la clave `monto`.
+ * Llamar ANTES del clic (al renderizar la vista o en onPointerDown del botón).
+ */
+export const pushDataLayerMonto = (amount: number | null | undefined) => {
+    if (typeof window === 'undefined') return
+    const n = Number(amount)
+    if (amount == null || isNaN(n) || n <= 0) return
+    const win = window as any
+    win.dataLayer = win.dataLayer || []
+    win.dataLayer.push({ monto: Math.round(n) })
+}
+
 // Type definitions to add to global scope
 declare global {
     interface Window {
