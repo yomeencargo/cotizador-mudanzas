@@ -12,6 +12,10 @@ export async function POST(request: NextRequest) {
     const commentInput = typeof body.comment === 'string' ? body.comment : undefined
     const dateInput = typeof body.date === 'string' && body.date ? body.date : undefined
     const timeInput = typeof body.time === 'string' && body.time ? body.time : undefined
+    // Cierre manual (WhatsApp/teléfono) con pago ya recibido fuera de Flow.
+    const alreadyPaid = body.paid === true
+    const paymentMethod =
+      typeof body.paymentMethod === 'string' && body.paymentMethod ? body.paymentMethod : 'manual'
 
     if (!prospectId) {
       return NextResponse.json({ error: 'prospectId requerido' }, { status: 400 })
@@ -74,6 +78,13 @@ export async function POST(request: NextRequest) {
           scheduled_time: effTime,
           total_price: effectivePrice,
           notes: comment || null,
+          ...(alreadyPaid
+            ? {
+                payment_status: 'approved',
+                payment_method: paymentMethod,
+                payment_date: new Date().toISOString(),
+              }
+            : {}),
         })
         .eq('id', existing.id)
         .select('id')
@@ -127,7 +138,9 @@ export async function POST(request: NextRequest) {
           scheduled_time: effTime,
           duration_hours: 4,
           status: 'confirmed',
-          payment_status: 'pending',
+          payment_status: alreadyPaid ? 'approved' : 'pending',
+          payment_method: alreadyPaid ? paymentMethod : null,
+          payment_date: alreadyPaid ? new Date().toISOString() : null,
           is_provisional: false,
           total_price: effectivePrice,
           original_price: prospect.total_price ?? effectivePrice,

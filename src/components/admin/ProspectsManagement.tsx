@@ -23,6 +23,7 @@ import {
   Send,
   Users,
   Star,
+  Banknote,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -118,6 +119,8 @@ export default function ProspectsManagement() {
   const [quoteComment, setQuoteComment] = useState('')
   const [quoteDate, setQuoteDate] = useState('')
   const [quoteTime, setQuoteTime] = useState('')
+  const [quoteAlreadyPaid, setQuoteAlreadyPaid] = useState(false)
+  const [quotePaymentMethod, setQuotePaymentMethod] = useState<'transferencia' | 'efectivo' | 'otro'>('transferencia')
   const [isSavingAdjust, setIsSavingAdjust] = useState(false)
   const [isSendingQuote, setIsSendingQuote] = useState(false)
   const [isCreatingBooking, setIsCreatingBooking] = useState(false)
@@ -324,6 +327,8 @@ export default function ProspectsManagement() {
     setQuoteComment(p.adjustment_comment || '')
     setQuoteDate(p.scheduled_date || '')
     setQuoteTime(p.scheduled_time ? p.scheduled_time.slice(0, 5) : '')
+    setQuoteAlreadyPaid(false)
+    setQuotePaymentMethod('transferencia')
     setShowQuoteModal(true)
   }
 
@@ -404,7 +409,8 @@ export default function ProspectsManagement() {
       toast.error('Agrega fecha y hora para crear la reserva')
       return
     }
-    if (!confirm(`¿Crear una reserva confirmada para ${selectedProspect.name} el ${quoteDate} a las ${quoteTime} por $${price.toLocaleString('es-CL')}? Esta reserva ocupará cupo.`)) return
+    const paidNote = quoteAlreadyPaid ? ` Se registrará como PAGADA (${quotePaymentMethod}).` : ''
+    if (!confirm(`¿Crear una reserva confirmada para ${selectedProspect.name} el ${quoteDate} a las ${quoteTime} por $${price.toLocaleString('es-CL')}? Esta reserva ocupará cupo.${paidNote}`)) return
     try {
       setIsCreatingBooking(true)
       const response = await fetch('/api/admin/prospects/create-booking', {
@@ -416,6 +422,8 @@ export default function ProspectsManagement() {
           comment: quoteComment,
           date: quoteDate,
           time: quoteTime,
+          paid: quoteAlreadyPaid,
+          paymentMethod: quoteAlreadyPaid ? quotePaymentMethod : undefined,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -847,6 +855,17 @@ export default function ProspectsManagement() {
                           >
                             <Send className="w-4 h-4" />
                           </Button>
+                          {prospect.status !== 'converted' && (
+                            <Button
+                              onClick={() => openQuoteModal(prospect)}
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                              title="Convertir en reserva (pago por transferencia o efectivo, sin pasar por Flow)"
+                            >
+                              <Banknote className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             onClick={() => {
                               setSelectedProspect(prospect)
@@ -1261,6 +1280,35 @@ export default function ProspectsManagement() {
               </p>
             )}
 
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={quoteAlreadyPaid}
+                  onChange={(e) => setQuoteAlreadyPaid(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Cliente ya pagó (transferencia / efectivo)
+              </label>
+              {quoteAlreadyPaid && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Medio de pago</label>
+                  <Select
+                    value={quotePaymentMethod}
+                    onChange={(e) => setQuotePaymentMethod(e.target.value as 'transferencia' | 'efectivo' | 'otro')}
+                    options={[
+                      { value: 'transferencia', label: 'Transferencia' },
+                      { value: 'efectivo', label: 'Efectivo' },
+                      { value: 'otro', label: 'Otro' },
+                    ]}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Al crear la reserva quedará marcada como pagada de inmediato (no aparecerá &ldquo;Pago pendiente&rdquo;).
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-wrap justify-between items-center gap-2 pt-2">
               <Button onClick={() => setShowQuoteModal(false)} variant="outline">
                 Cerrar
@@ -1273,9 +1321,13 @@ export default function ProspectsManagement() {
                   onClick={createBookingFromProspect}
                   isLoading={isCreatingBooking}
                   className="bg-secondary-600 hover:bg-secondary-700"
-                  title="Crear reserva confirmada (sin pago online)"
+                  title={
+                    quoteAlreadyPaid
+                      ? `Crear reserva confirmada y pagada (${quotePaymentMethod})`
+                      : 'Crear reserva confirmada, sin pago online (quedará "Pago pendiente")'
+                  }
                 >
-                  Crear reserva
+                  {quoteAlreadyPaid ? 'Crear reserva pagada' : 'Crear reserva'}
                 </Button>
                 <Button onClick={sendAdjustedQuote} isLoading={isSendingQuote}>
                   <Send className="w-4 h-4 mr-2" />
