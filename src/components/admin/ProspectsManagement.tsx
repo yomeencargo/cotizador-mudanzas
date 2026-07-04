@@ -122,10 +122,14 @@ export default function ProspectsManagement() {
   const [isSendingQuote, setIsSendingQuote] = useState(false)
   const [isCreatingBooking, setIsCreatingBooking] = useState(false)
 
-  const fetchProspects = async () => {
+  // Los convertidos también se necesitan cuando el filtro de estado es 'converted'
+  // (no solo con el checkbox "Ver convertidos").
+  const includeConverted = showConverted || statusFilter === 'converted'
+
+  const fetchProspects = async (options: { silent?: boolean } = {}) => {
     try {
-      setLoading(true)
-      const url = showConverted
+      if (!options.silent) setLoading(true)
+      const url = includeConverted
         ? '/api/admin/prospects?includeConverted=1'
         : '/api/admin/prospects'
       const response = await fetch(url)
@@ -133,9 +137,9 @@ export default function ProspectsManagement() {
       setProspects(data)
     } catch (error) {
       console.error('Error fetching prospects:', error)
-      toast.error('Error al cargar los prospectos')
+      if (!options.silent) toast.error('Error al cargar los prospectos')
     } finally {
-      setLoading(false)
+      if (!options.silent) setLoading(false)
     }
   }
 
@@ -203,8 +207,19 @@ export default function ProspectsManagement() {
 
   useEffect(() => {
     fetchProspects()
+    // Refresco silencioso al volver a la pestaña/ventana: así los prospectos que
+    // pagaron mientras el panel estaba abierto desaparecen sin refrescar a mano.
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'visible') fetchProspects({ silent: true })
+    }
+    window.addEventListener('focus', refreshOnFocus)
+    document.addEventListener('visibilitychange', refreshOnFocus)
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus)
+      document.removeEventListener('visibilitychange', refreshOnFocus)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showConverted])
+  }, [includeConverted])
 
   useEffect(() => {
     filterProspects()
@@ -525,7 +540,7 @@ export default function ProspectsManagement() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={fetchProspects} variant="outline" size="sm">
+          <Button onClick={() => fetchProspects()} variant="outline" size="sm">
             Actualizar
           </Button>
           <Button onClick={handleExportCSV} variant="outline" size="sm">
@@ -619,6 +634,7 @@ export default function ProspectsManagement() {
                 { value: 'contacted', label: 'Contactado' },
                 { value: 'no_response', label: 'Sin respuesta' },
                 { value: 'lost', label: 'Perdido' },
+                { value: 'converted', label: 'Convertido (pagado)' },
               ]}
             />
           </div>
@@ -779,6 +795,11 @@ export default function ProspectsManagement() {
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(prospect.status)}`}>
                         {getStatusLabel(prospect.status)}
                       </span>
+                      {prospect.status === 'converted' && prospect.converted_booking_id && (
+                        <div className="text-[11px] text-green-700 mt-1" title={`Reserva ${prospect.converted_booking_id}`}>
+                          → en Reservas
+                        </div>
+                      )}
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 align-top whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(prospect.created_at), 'dd/MM/yy HH:mm', { locale: es })}

@@ -35,6 +35,10 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
     try {
       setLoading(true)
 
+      // Un solo quote_id compartido entre prospecto y reserva: es la llave con la que
+      // el webhook de pago encuentra al prospecto y lo marca como convertido.
+      const quoteId = `DOMICILIO-${Date.now()}`
+
       // Guardar como prospecto
       const visitAddr = `${visitAddress.street} ${visitAddress.number}, ${visitAddress.commune}, ${visitAddress.region}${visitAddress.additionalInfo ? ` (${visitAddress.additionalInfo})` : ''}`
       fetch('/api/prospects/create', {
@@ -42,6 +46,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source: 'domicilio',
+          quote_id: quoteId,
           name: personalInfo.name,
           email: personalInfo.email,
           phone: personalInfo.phone,
@@ -53,7 +58,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
 
       // Crear la reserva de tipo domicilio
       const bookingData = {
-        quote_id: `DOMICILIO-${Date.now()}`,
+        quote_id: quoteId,
         client_name: personalInfo.name,
         client_email: personalInfo.email,
         client_phone: personalInfo.phone,

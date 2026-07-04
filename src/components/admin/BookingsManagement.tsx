@@ -109,9 +109,9 @@ export default function BookingsManagement() {
     notes: ''
   })
 
-  const fetchBookings = async () => {
+  const fetchBookings = async (options: { silent?: boolean } = {}) => {
     try {
-      setLoading(true)
+      if (!options.silent) setLoading(true)
       const response = await fetch('/api/admin/bookings')
       const data = await response.json()
       console.log('[Admin] Bookings cargadas:', data.length)
@@ -119,9 +119,9 @@ export default function BookingsManagement() {
       setBookings(data)
     } catch (error) {
       console.error('Error fetching bookings:', error)
-      toast.error('Error al cargar las reservas')
+      if (!options.silent) toast.error('Error al cargar las reservas')
     } finally {
-      setLoading(false)
+      if (!options.silent) setLoading(false)
     }
   }
 
@@ -141,12 +141,14 @@ export default function BookingsManagement() {
     // Filtrar por estado (incluye opción especial 'provisional' = pre-reservas sin pagar)
     if (statusFilter === 'provisional') {
       filtered = filtered.filter(booking => booking.is_provisional === true)
-    } else if (statusFilter === 'all') {
-      // Por defecto ocultamos las pre-reservas provisionales sin pagar: son cotizaciones no
-      // concretadas (no ocupan cupo) y ensucian el panel. Se ven con el filtro "Sin pagar".
-      filtered = filtered.filter(booking => booking.is_provisional !== true)
     } else {
-      filtered = filtered.filter(booking => booking.status === statusFilter)
+      // Las pre-reservas provisionales sin pagar son cotizaciones no concretadas (no
+      // ocupan cupo): solo se ven con el filtro "Sin pagar", nunca mezcladas con las
+      // reservas reales (antes se colaban al filtrar por "Pendiente").
+      filtered = filtered.filter(booking => booking.is_provisional !== true)
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter(booking => booking.status === statusFilter)
+      }
     }
 
     // Filtrar por tipo de reserva (soporta detección por prefijo si no hay campo booking_type)
@@ -210,6 +212,18 @@ export default function BookingsManagement() {
 
   useEffect(() => {
     fetchBookings()
+    // Refresco silencioso al volver a la pestaña/ventana: los pagos confirmados por el
+    // webhook aparecen sin necesidad de pulsar "Actualizar".
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'visible') fetchBookings({ silent: true })
+    }
+    window.addEventListener('focus', refreshOnFocus)
+    document.addEventListener('visibilitychange', refreshOnFocus)
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus)
+      document.removeEventListener('visibilitychange', refreshOnFocus)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -553,7 +567,7 @@ export default function BookingsManagement() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={fetchBookings} variant="outline" size="sm">
+          <Button onClick={() => fetchBookings()} variant="outline" size="sm">
             🔄 Actualizar
           </Button>
           <Button onClick={handleExportCSV} variant="outline" size="sm">

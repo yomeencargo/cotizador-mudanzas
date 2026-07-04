@@ -114,9 +114,15 @@ export async function applyFlowPaymentByToken(
 }
 
 /**
- * Marca el prospecto correspondiente como convertido cuando el pago se aprueba.
- * 1) Por quote_id (estable) => funciona aunque el lead ya esté 'contacted'.
- * 2) Fallback por email al lead más reciente sin convertir.
+ * Marca los prospectos correspondientes como convertidos cuando el pago se aprueba.
+ *
+ * El pago es la fuente de verdad: un lead pagado deja de ser prospecto sin importar
+ * el estado manual que tuviera (new/contacted/no_response/lost).
+ *
+ * 1) Por quote_id (estable) => cubre el caso normal del cotizador web.
+ * 2) Por email => la misma persona suele tener varias filas de lead (cada re-cotización
+ *    con otra fecha/dirección genera otro lead_key). Al pagar, TODAS sus filas abiertas
+ *    se cierran como 'converted' para que no queden huérfanas en el panel de Prospectos.
  */
 async function convertProspectForBooking(
   bookingRef: string,
@@ -124,46 +130,42 @@ async function convertProspectForBooking(
   clientEmail: string | null
 ): Promise<void> {
   try {
-    const nowIso = new Date().toISOString()
+    const convertedFields = {
+      status: 'converted',
+      converted_booking_id: bookingRowId,
+      updated_at: new Date().toISOString(),
+    }
 
     const { data: byQuote, error: byQuoteErr } = await supabaseAdmin
       .from('quote_prospects')
-      .update({
-        status: 'converted',
-        converted_booking_id: bookingRowId,
-        updated_at: nowIso,
-      })
+      .update(convertedFields)
       .eq('quote_id', bookingRef)
-      .in('status', ['new', 'contacted'])
+      .neq('status', 'converted')
       .select('id')
 
     if (byQuoteErr) {
       console.error('[paymentSync] Error converting prospect by quote_id:', byQuoteErr)
     }
 
-    if ((!byQuote || byQuote.length === 0) && clientEmail) {
-      const { data: latest } = await supabaseAdmin
+    let byEmailCount = 0
+    if (clientEmail) {
+      const { data: byEmail, error: byEmailErr } = await supabaseAdmin
         .from('quote_prospects')
+        .update(convertedFields)
+        .eq('email', clientEmail.toLowerCase().trim())
+        .neq('status', 'converted')
         .select('id')
-        .eq('email', clientEmail)
-        .in('status', ['new', 'contacted'])
-        .order('created_at', { ascending: false })
-        .limit(1)
 
-      const pid = latest?.[0]?.id
-      if (pid) {
-        await supabaseAdmin
-          .from('quote_prospects')
-          .update({
-            status: 'converted',
-            converted_booking_id: bookingRowId,
-            updated_at: nowIso,
-          })
-          .eq('id', pid)
+      if (byEmailErr) {
+        console.error('[paymentSync] Error converting prospects by email:', byEmailErr)
       }
+      byEmailCount = byEmail?.length || 0
     }
 
-    console.log(`[paymentSync] Prospect conversion processed for: ${clientEmail}`)
+    console.log(
+      `[paymentSync] Prospect conversion for ${bookingRef} (${clientEmail}): ` +
+        `${byQuote?.length || 0} by quote_id, ${byEmailCount} by email`
+    )
   } catch (prospectErr) {
     console.error('[paymentSync] Exception updating prospect:', prospectErr)
   }

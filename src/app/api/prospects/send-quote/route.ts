@@ -7,11 +7,7 @@ import {
   computeQuoteAmounts,
   SlotUnavailableError,
 } from '@/lib/quoteCheckout'
-
-// Webhook de n8n que se encarga del envío SMTP del correo de cotización.
-const N8N_QUOTE_WEBHOOK_URL =
-  process.env.N8N_QUOTE_WEBHOOK_URL ||
-  'https://core.zensus.cl/webhook/d4594da2-04fb-44b3-baa5-5301e8f49521'
+import { postQuoteWebhook } from '@/lib/n8nClient'
 
 // Envío REAL de la cotización por correo:
 //  1) garantiza la pre-reserva (sin consumir cupo)
@@ -130,15 +126,10 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    const res = await fetch(N8N_QUOTE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    const result = await postQuoteWebhook(payload, { label: 'cliente' })
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      console.error('[send-quote] n8n respondió error:', res.status, text)
+    if (!result.ok) {
+      // El motivo concreto ya quedó logueado en n8nClient (timeout/red/HTTP).
       return NextResponse.json(
         { error: 'No se pudo enviar la cotización por correo. Intenta de nuevo.' },
         { status: 502 }
