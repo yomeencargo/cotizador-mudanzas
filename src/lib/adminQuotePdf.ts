@@ -190,8 +190,8 @@ export async function generateAdminQuotePDF(
   originLines.forEach((l: string) => { ensureSpace(6); pdf.text(l, 20, y); y += 6 })
   const destLines = pdf.splitTextToSize(`Destino: ${data.destinationAddress || 'No especificada'}`, pageWidth - 40)
   destLines.forEach((l: string) => { ensureSpace(6); pdf.text(l, 20, y); y += 6 })
-  if (typeof data.totalDistance === 'number') {
-    pdf.text(`Distancia: ${data.totalDistance} km`, 20, y); y += 6
+  if (typeof data.totalDistance === 'number' && data.totalDistance > 0) {
+    pdf.text(`Distancia puerta a puerta: ${data.totalDistance} km`, 20, y); y += 6
   }
   y += 4
 

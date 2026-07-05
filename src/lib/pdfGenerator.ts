@@ -26,6 +26,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     additionalServices,
     totalVolume,
     totalWeight,
+    totalDistance,
     estimatedPrice,
     recommendedVehicle,
   } = useQuoteStore.getState()
@@ -163,6 +164,12 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
       pdf.text(`Tipo: ${destination.details.propertyType} - Piso ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 7
     }
+  }
+
+  // Distancia puerta a puerta (misma etiqueta que en los demás PDF)
+  if (totalDistance > 0) {
+    pdf.text(`Distancia puerta a puerta: ${totalDistance.toFixed(1)} km`, 20, yPosition)
+    yPosition += 7
   }
 
   yPosition += 10
@@ -524,7 +531,7 @@ export const generateBookingPDF = async (
   // Distancia
   if (totalDistance > 0) {
     pdf.setFont('helvetica', 'bold')
-    pdf.text(`Distancia total: ${totalDistance.toFixed(1)} km`, 20, yPosition)
+    pdf.text(`Distancia puerta a puerta: ${totalDistance.toFixed(1)} km`, 20, yPosition)
     pdf.setFont('helvetica', 'normal')
     yPosition += 7
   }
@@ -977,7 +984,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   // Distancia
   if (totalDistance > 0) {
     pdf.setFont('helvetica', 'bold')
-    pdf.text(`Distancia total: ${totalDistance.toFixed(1)} km`, 20, yPosition)
+    pdf.text(`Distancia puerta a puerta: ${totalDistance.toFixed(1)} km`, 20, yPosition)
     pdf.setFont('helvetica', 'normal')
     yPosition += 7
   }

@@ -24,6 +24,7 @@ import {
   Users,
   Star,
   Banknote,
+  Calendar,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -35,6 +36,7 @@ import {
   getSourceLabel,
   getSourceBadge,
 } from '@/lib/prospectSource'
+import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
 import type { AdminQuoteData } from '@/lib/adminQuotePdf'
 import { normalizeAdminPdfItems } from '@/lib/adminBookingQuoteData'
 
@@ -319,6 +321,38 @@ export default function ProspectsManagement() {
     if (p.status === 'new') {
       void updateProspectStatus(p.id, 'contacted')
     }
+  }
+
+  // Agenda tentativa del prospecto para exportar a calendario (misma lógica que Reservas).
+  // Usa el precio ajustado si existe. El .ics/Google marcan la fecha/hora cotizada como
+  // recordatorio; no implica que el cliente haya pagado.
+  const prospectToCalendar = (p: Prospect) => {
+    const isDomicilio = p.source === 'domicilio' || (!!p.visit_address && !p.origin_address)
+    return {
+      quote_id: p.quote_id || `PROSPECTO-${p.id}`,
+      client_name: p.name,
+      client_phone: p.phone,
+      scheduled_date: p.scheduled_date,
+      scheduled_time: p.scheduled_time,
+      origin_address: p.origin_address,
+      destination_address: p.destination_address,
+      visit_address: p.visit_address,
+      booking_type: isDomicilio ? 'domicilio' : 'online',
+      total_price: p.adjusted_price ?? p.total_price,
+    }
+  }
+
+  const downloadProspectIcs = (p: Prospect) => {
+    const cal = prospectToCalendar(p)
+    const blob = new Blob([buildIcsContent(cal)], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = icsFileName(cal)
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const openQuoteModal = (p: Prospect) => {
@@ -841,7 +875,7 @@ export default function ProspectsManagement() {
                             onClick={() => contactWhatsApp(prospect)}
                             variant="outline"
                             size="sm"
-                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
                             title="Contactar por WhatsApp (marca como contactado)"
                           >
                             <MessageCircle className="w-4 h-4" />
@@ -850,7 +884,7 @@ export default function ProspectsManagement() {
                             onClick={() => openQuoteModal(prospect)}
                             variant="outline"
                             size="sm"
-                            className="text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                            className="text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100"
                             title="Ajustar y enviar cotización por correo"
                           >
                             <Send className="w-4 h-4" />
@@ -860,7 +894,7 @@ export default function ProspectsManagement() {
                               onClick={() => openQuoteModal(prospect)}
                               variant="outline"
                               size="sm"
-                              className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                              className="text-blue-700 border-blue-300 bg-blue-50 hover:bg-blue-100"
                               title="Convertir en reserva (pago por transferencia o efectivo, sin pasar por Flow)"
                             >
                               <Banknote className="w-4 h-4" />
@@ -878,6 +912,28 @@ export default function ProspectsManagement() {
                           >
                             <MessageSquare className="w-4 h-4" />
                           </Button>
+                          {prospect.scheduled_date && (
+                            <Button
+                              onClick={() => window.open(buildGoogleCalendarUrl(prospectToCalendar(prospect)), '_blank')}
+                              variant="outline"
+                              size="sm"
+                              className="text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100"
+                              title="Agregar fecha tentativa a Google Calendar"
+                            >
+                              <Calendar className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {prospect.scheduled_date && (
+                            <Button
+                              onClick={() => downloadProspectIcs(prospect)}
+                              variant="outline"
+                              size="sm"
+                              className="text-gray-700 border-gray-300 bg-gray-50 hover:bg-gray-100"
+                              title="Descargar .ics (Apple / Outlook / Google)"
+                            >
+                              <span className="text-xs font-semibold">.ics</span>
+                            </Button>
+                          )}
                           <PdfDownloadMenu
                             data={prospectToQuoteData(prospect)}
                             compact
@@ -886,7 +942,7 @@ export default function ProspectsManagement() {
                             onClick={() => handleDelete(prospect.id)}
                             variant="outline"
                             size="sm"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            className="text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -897,7 +953,7 @@ export default function ProspectsManagement() {
                             onClick={() => updateProspectStatus(prospect.id, 'contacted')}
                             variant="outline"
                             size="sm"
-                            className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100"
+                            className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 font-medium"
                           >
                             Marcar contactado
                           </Button>
@@ -909,7 +965,7 @@ export default function ProspectsManagement() {
                                 onClick={() => updateProspectStatus(prospect.id, 'no_response')}
                                 variant="outline"
                                 size="sm"
-                                className="text-xs bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                                className="text-xs bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200 font-medium"
                               >
                                 Sin respuesta
                               </Button>
@@ -919,7 +975,7 @@ export default function ProspectsManagement() {
                                 onClick={() => updateProspectStatus(prospect.id, 'contacted')}
                                 variant="outline"
                                 size="sm"
-                                className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100"
+                                className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 font-medium"
                               >
                                 Reintentar
                               </Button>
@@ -928,7 +984,7 @@ export default function ProspectsManagement() {
                               onClick={() => updateProspectStatus(prospect.id, 'lost')}
                               variant="outline"
                               size="sm"
-                              className="text-xs bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                              className="text-xs bg-red-100 text-red-800 border-red-300 hover:bg-red-200 font-medium"
                             >
                               Perdido
                             </Button>

@@ -23,7 +23,8 @@ import {
   DollarSign,
   Plus,
   Download,
-  Star
+  Star,
+  UserX
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -45,7 +46,7 @@ interface Booking extends AdminBookingQuoteSource {
   scheduled_date: string
   scheduled_time: string
   duration_hours: number
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
   notes?: string
   payment_type?: string
   payment_status?: string
@@ -148,6 +149,10 @@ export default function BookingsManagement() {
       filtered = filtered.filter(booking => booking.is_provisional !== true)
       if (statusFilter !== 'all') {
         filtered = filtered.filter(booking => booking.status === statusFilter)
+      } else {
+        // En "Todos" ocultamos los "No atendido": son cierres sin servicio que
+        // ensucian la operación diaria. Se ven con su propio filtro.
+        filtered = filtered.filter(booking => booking.status !== 'no_show')
       }
     }
 
@@ -257,6 +262,28 @@ export default function BookingsManagement() {
     }
   }
 
+  // Guarda estado + notas juntos desde el modal Editar (antes las notas no se
+  // persistían: el botón solo mandaba el estado y el texto se perdía).
+  const saveBookingEdits = async (booking: Booking) => {
+    try {
+      const updateData: any = { status: booking.status, notes: booking.notes ?? '' }
+      if (booking.status === 'completed') {
+        updateData.service_completed_at = new Date().toISOString()
+      }
+      const response = await fetch(`/api/admin/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      })
+      if (!response.ok) throw new Error('Error al guardar')
+      toast.success('Reserva actualizada correctamente')
+      fetchBookings()
+    } catch (error) {
+      console.error('Error saving booking edits:', error)
+      toast.error('Error al guardar los cambios')
+    }
+  }
+
   const updatePaymentType = async (bookingId: string, newPaymentType: string) => {
     try {
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
@@ -299,11 +326,23 @@ export default function BookingsManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed': return 'text-green-600 bg-green-50 border-green-200'
-      case 'pending': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-      case 'completed': return 'text-blue-600 bg-blue-50 border-blue-200'
-      case 'cancelled': return 'text-red-600 bg-red-50 border-red-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
+      case 'confirmed': return 'text-green-700 bg-green-100 border-green-300'
+      case 'pending': return 'text-yellow-800 bg-yellow-100 border-yellow-300'
+      case 'completed': return 'text-blue-700 bg-blue-100 border-blue-300'
+      case 'cancelled': return 'text-red-700 bg-red-100 border-red-300'
+      case 'no_show': return 'text-orange-800 bg-orange-100 border-orange-300'
+      default: return 'text-gray-700 bg-gray-100 border-gray-300'
+    }
+  }
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'Confirmado'
+      case 'pending': return 'Pendiente'
+      case 'completed': return 'Completado'
+      case 'cancelled': return 'Cancelado'
+      case 'no_show': return 'No atendido'
+      default: return status
     }
   }
 
@@ -313,6 +352,7 @@ export default function BookingsManagement() {
       case 'pending': return <Clock className="w-4 h-4" />
       case 'completed': return <CheckCircle className="w-4 h-4" />
       case 'cancelled': return <XCircle className="w-4 h-4" />
+      case 'no_show': return <UserX className="w-4 h-4" />
       default: return <Clock className="w-4 h-4" />
     }
   }
@@ -626,6 +666,7 @@ export default function BookingsManagement() {
                 { value: 'pending', label: 'Pendiente' },
                 { value: 'confirmed', label: 'Confirmado' },
                 { value: 'completed', label: 'Completado' },
+                { value: 'no_show', label: 'No atendido' },
                 { value: 'cancelled', label: 'Cancelado' },
               ]}
             />
@@ -792,7 +833,7 @@ export default function BookingsManagement() {
                       <div className="flex flex-col gap-1">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status)}`}>
                           {getStatusIcon(booking.status)}
-                          {booking.status}
+                          {getStatusLabel(booking.status)}
                         </span>
                         {booking.is_provisional && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600 border border-gray-300" title="Pre-reserva: el cliente aún no paga. No ocupa cupo.">
@@ -854,7 +895,7 @@ export default function BookingsManagement() {
                             onClick={() => window.open(buildWhatsappLink(booking), 'whatsapp_yme')}
                             variant="outline"
                             size="sm"
-                            className="text-green-600 border-green-200 hover:bg-green-50"
+                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
                             title="Contactar por WhatsApp"
                           >
                             <MessageCircle className="w-4 h-4" />
@@ -889,7 +930,7 @@ export default function BookingsManagement() {
                             onClick={() => window.open(buildGoogleCalendarUrl(booking), '_blank')}
                             variant="outline"
                             size="sm"
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100"
                             title="Agregar a Google Calendar"
                           >
                             <Calendar className="w-4 h-4" />
@@ -898,7 +939,7 @@ export default function BookingsManagement() {
                             onClick={() => downloadIcs(booking)}
                             variant="outline"
                             size="sm"
-                            className="text-gray-600 hover:bg-gray-50"
+                            className="text-gray-700 border-gray-300 bg-gray-50 hover:bg-gray-100"
                             title="Descargar .ics (Apple / Outlook / Google)"
                           >
                             <span className="text-xs font-semibold">.ics</span>
@@ -907,7 +948,7 @@ export default function BookingsManagement() {
                             onClick={() => handleDelete(booking.id)}
                             variant="outline"
                             size="sm"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            className="text-red-700 border-red-300 bg-red-50 hover:bg-red-100"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -923,7 +964,7 @@ export default function BookingsManagement() {
                               }}
                               variant="outline"
                               size="sm"
-                              className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                              className="text-xs bg-green-100 text-green-800 border-green-300 hover:bg-green-200 font-medium"
                             >
                               ✓ Marcar como pagado
                             </Button>
@@ -938,7 +979,7 @@ export default function BookingsManagement() {
                               }}
                               variant="outline"
                               size="sm"
-                              className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                              className="text-xs bg-green-100 text-green-800 border-green-300 hover:bg-green-200 font-medium"
                             >
                               ✓ Marcar completo
                             </Button>
@@ -954,9 +995,26 @@ export default function BookingsManagement() {
                               }}
                               variant="outline"
                               size="sm"
-                              className="text-xs bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                              className="text-xs bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-200 font-medium"
                             >
                               ✓ Marcar visitado
+                            </Button>
+                          )}
+
+                          {/* No atendido / cliente perdido: cierra la reserva sin servicio */}
+                          {!['completed', 'cancelled', 'no_show'].includes(booking.status) && (
+                            <Button
+                              onClick={() => {
+                                if (confirm('¿Marcar como "No atendido"? Úsalo cuando el cliente no se presentó o no fue posible atenderlo. Saldrá de la vista principal.')) {
+                                  updateBookingStatus(booking.id, 'no_show')
+                                }
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200"
+                            >
+                              <UserX className="w-3.5 h-3.5 mr-1" />
+                              No atendido
                             </Button>
                           )}
                       </div>
@@ -1221,7 +1279,7 @@ export default function BookingsManagement() {
               <label className="block text-sm font-medium text-gray-700">Estado</label>
               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedBooking.status)}`}>
                 {getStatusIcon(selectedBooking.status)}
-                {selectedBooking.status}
+                {getStatusLabel(selectedBooking.status)}
               </span>
             </div>
 
@@ -1414,6 +1472,7 @@ export default function BookingsManagement() {
                   { value: 'pending', label: 'Pendiente' },
                   { value: 'confirmed', label: 'Confirmado' },
                   { value: 'completed', label: 'Completado' },
+                  { value: 'no_show', label: 'No atendido' },
                   { value: 'cancelled', label: 'Cancelado' },
                 ]}
               />
@@ -1446,7 +1505,7 @@ export default function BookingsManagement() {
               </Button>
               <Button
                 onClick={async () => {
-                  await updateBookingStatus(selectedBooking.id, selectedBooking.status)
+                  await saveBookingEdits(selectedBooking)
                   setShowEditModal(false)
                 }}
               >
