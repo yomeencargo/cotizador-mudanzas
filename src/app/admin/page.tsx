@@ -45,9 +45,10 @@ interface TodayBooking {
   id: string
   client_name: string
   client_phone: string
+  scheduled_date: string
   scheduled_time: string
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
-  estimated_price: number
+  estimated_price: number | null
 }
 
 export default function AdminDashboard() {
@@ -56,6 +57,8 @@ export default function AdminDashboard() {
   const [activeSettingsTab, setActiveSettingsTab] = useState('pricing')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([])
+  const [tomorrowBookings, setTomorrowBookings] = useState<TodayBooking[]>([])
+  const [weekBookings, setWeekBookings] = useState<TodayBooking[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -89,10 +92,18 @@ export default function AdminDashboard() {
       const statsData = await statsResponse.json()
       setStats(statsData)
 
-      // Fetch today's bookings
+      // Trae reservas de hoy hasta 6 días adelante y las separa en Hoy / Mañana / Esta semana
       const bookingsResponse = await fetch('/api/admin/today-bookings')
-      const bookingsData = await bookingsResponse.json()
-      setTodayBookings(bookingsData)
+      const bookingsData: TodayBooking[] = await bookingsResponse.json()
+
+      const todayStr = format(new Date(), 'yyyy-MM-dd')
+      const tomorrowDate = new Date()
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+      const tomorrowStr = format(tomorrowDate, 'yyyy-MM-dd')
+
+      setTodayBookings(bookingsData.filter((b) => b.scheduled_date === todayStr))
+      setTomorrowBookings(bookingsData.filter((b) => b.scheduled_date === tomorrowStr))
+      setWeekBookings(bookingsData.filter((b) => b.scheduled_date > tomorrowStr))
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -125,6 +136,77 @@ export default function AdminDashboard() {
       default: return 'text-gray-600 bg-gray-50'
     }
   }
+
+  // Agrupa una lista (ya viene ordenada por fecha/hora desde la API) por scheduled_date,
+  // para mostrar un encabezado de día en el bloque "Esta Semana".
+  const groupByDate = (bookings: TodayBooking[]) => {
+    const groups: Array<{ date: string; items: TodayBooking[] }> = []
+    bookings.forEach((b) => {
+      const last = groups[groups.length - 1]
+      if (last && last.date === b.scheduled_date) {
+        last.items.push(b)
+      } else {
+        groups.push({ date: b.scheduled_date, items: [b] })
+      }
+    })
+    return groups
+  }
+
+  const formatDateLabel = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return format(new Date(y, m - 1, d), "EEEE d 'de' MMMM", { locale: es })
+  }
+
+  const renderBookingRow = (booking: TodayBooking) => (
+    <div
+      key={booking.id}
+      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+    >
+      <div className="flex items-center gap-4">
+        <div className={`p-2 rounded-full ${getStatusColor(booking.status)}`}>
+          {getStatusIcon(booking.status)}
+        </div>
+        <div>
+          <p className="font-semibold text-gray-900">
+            {booking.client_name}
+          </p>
+          <p className="text-sm text-gray-600">
+            {booking.client_phone} • {booking.scheduled_time?.slice(0, 5)}
+          </p>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="font-semibold text-gray-900">
+          {booking.estimated_price ? `$${booking.estimated_price.toLocaleString()}` : 'N/A'}
+        </p>
+        <p className={`text-xs font-medium capitalize ${getStatusColor(booking.status)}`}>
+          {booking.status}
+        </p>
+      </div>
+    </div>
+  )
+
+  const renderBookingSection = (title: string, bookings: TodayBooking[], emptyText: string) => (
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {title} {bookings.length > 0 && <span className="text-gray-400 font-normal">({bookings.length})</span>}
+        </h3>
+        <Button onClick={() => setActiveTab('bookings')} variant="outline" size="sm">
+          Ver Todas
+        </Button>
+      </div>
+
+      {bookings.length === 0 ? (
+        <div className="text-center py-8">
+          <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">{emptyText}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">{bookings.map(renderBookingRow)}</div>
+      )}
+    </Card>
+  )
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -284,54 +366,40 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* Today's Bookings */}
+            {/* Reservas de Hoy */}
+            {renderBookingSection(
+              `Reservas de Hoy (${format(new Date(), 'dd/MM/yyyy', { locale: es })})`,
+              todayBookings,
+              'No hay reservas para hoy'
+            )}
+
+            {/* Reservas de Mañana */}
+            {renderBookingSection('Reservas de Mañana', tomorrowBookings, 'No hay reservas para mañana')}
+
+            {/* Resto de la semana, agrupado por día para más claridad */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Reservas de Hoy ({format(new Date(), 'dd/MM/yyyy', { locale: es })})
+                  Esta Semana {weekBookings.length > 0 && <span className="text-gray-400 font-normal">({weekBookings.length})</span>}
                 </h3>
-                <Button
-                  onClick={() => setActiveTab('bookings')}
-                  variant="outline"
-                  size="sm"
-                >
+                <Button onClick={() => setActiveTab('bookings')} variant="outline" size="sm">
                   Ver Todas
                 </Button>
               </div>
 
-              {todayBookings.length === 0 ? (
+              {weekBookings.length === 0 ? (
                 <div className="text-center py-8">
                   <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No hay reservas para hoy</p>
+                  <p className="text-gray-600">No hay más reservas el resto de la semana</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {todayBookings.map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${getStatusColor(booking.status)}`}>
-                          {getStatusIcon(booking.status)}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {booking.client_name}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {booking.client_phone} • {booking.scheduled_time}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">
-                          ${booking.estimated_price?.toLocaleString() || 'N/A'}
-                        </p>
-                        <p className={`text-xs font-medium capitalize ${getStatusColor(booking.status)}`}>
-                          {booking.status}
-                        </p>
-                      </div>
+                <div className="space-y-5">
+                  {groupByDate(weekBookings).map((group) => (
+                    <div key={group.date}>
+                      <p className="text-sm font-semibold text-gray-500 capitalize mb-2">
+                        {formatDateLabel(group.date)}
+                      </p>
+                      <div className="space-y-3">{group.items.map(renderBookingRow)}</div>
                     </div>
                   ))}
                 </div>

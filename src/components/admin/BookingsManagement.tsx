@@ -212,6 +212,20 @@ export default function BookingsManagement() {
       })
     }
 
+    // Orden por fecha del TRABAJO (no por cuándo se creó el registro): las próximas primero
+    // (la más cercana arriba), y más abajo las pasadas (la más reciente primero). Antes
+    // dependía del orden de llegada de la API (created_at), mezclando un trabajo de hoy con
+    // uno de dentro de un mes sin ningún criterio operativo.
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    filtered.sort((a, b) => {
+      const aFuture = a.scheduled_date >= todayStr
+      const bFuture = b.scheduled_date >= todayStr
+      if (aFuture !== bFuture) return aFuture ? -1 : 1
+      const aKey = `${a.scheduled_date}T${a.scheduled_time || ''}`
+      const bKey = `${b.scheduled_date}T${b.scheduled_time || ''}`
+      return aFuture ? aKey.localeCompare(bKey) : bKey.localeCompare(aKey)
+    })
+
     setFilteredBookings(filtered)
   }, [bookings, searchTerm, statusFilter, bookingTypeFilter, dateFilter, customStartDate, customEndDate])
 
