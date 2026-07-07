@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf'
-import { formatCurrency } from './utils'
+import { formatCurrency, formatDistanceKm } from './utils'
 
 /**
  * Generador de PDF para el panel admin, alimentado por DATOS (no por el store).
@@ -20,6 +20,10 @@ export interface AdminQuoteData {
   companyRut?: string | null
   originAddress?: string | null
   destinationAddress?: string | null
+  originFloor?: number | null
+  originHasElevator?: boolean | null
+  destinationFloor?: number | null
+  destinationHasElevator?: boolean | null
   scheduledDate?: string | null
   scheduledTime?: string | null
   totalPrice?: number | null
@@ -28,7 +32,7 @@ export interface AdminQuoteData {
   totalVolume?: number | null
   totalWeight?: number | null
   totalDistance?: number | null
-  items?: Array<{ name: string; quantity: number; volume: number }> | null
+  items?: Array<{ name: string; quantity: number; volume: number; packaging?: { type: string } }> | null
   additionalServices?: Record<string, any> | null
 }
 
@@ -55,6 +59,14 @@ function formatDateCL(dateStr?: string | null): string {
   }
   const d = new Date(dateStr)
   return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('es-CL')
+}
+
+/** Texto de piso/ascensor para una dirección. null si no hay piso relevante (planta baja o sin dato). */
+function floorInfo(floor?: number | null, hasElevator?: boolean | null): string | null {
+  if (typeof floor !== 'number' || floor <= 0) return null
+  if (hasElevator === false) return `Piso ${floor} - SIN ascensor (hay que subir por escaleras)`
+  if (hasElevator === true) return `Piso ${floor} - con ascensor`
+  return `Piso ${floor}`
 }
 
 export async function generateAdminQuotePDF(
@@ -188,10 +200,24 @@ export async function generateAdminQuotePDF(
   pdf.setFont('helvetica', 'normal')
   const originLines = pdf.splitTextToSize(`Origen: ${data.originAddress || 'No especificada'}`, pageWidth - 40)
   originLines.forEach((l: string) => { ensureSpace(6); pdf.text(l, 20, y); y += 6 })
+  const originFloorTxt = floorInfo(data.originFloor, data.originHasElevator)
+  if (originFloorTxt) {
+    ensureSpace(6)
+    if (data.originHasElevator === false) { pdf.setFont('helvetica', 'bold'); pdf.setTextColor(220, 38, 38) }
+    pdf.text(`  ${originFloorTxt}`, 20, y); y += 6
+    if (data.originHasElevator === false) { pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TEXT) }
+  }
   const destLines = pdf.splitTextToSize(`Destino: ${data.destinationAddress || 'No especificada'}`, pageWidth - 40)
   destLines.forEach((l: string) => { ensureSpace(6); pdf.text(l, 20, y); y += 6 })
+  const destFloorTxt = floorInfo(data.destinationFloor, data.destinationHasElevator)
+  if (destFloorTxt) {
+    ensureSpace(6)
+    if (data.destinationHasElevator === false) { pdf.setFont('helvetica', 'bold'); pdf.setTextColor(220, 38, 38) }
+    pdf.text(`  ${destFloorTxt}`, 20, y); y += 6
+    if (data.destinationHasElevator === false) { pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TEXT) }
+  }
   if (typeof data.totalDistance === 'number' && data.totalDistance > 0) {
-    pdf.text(`Distancia puerta a puerta: ${data.totalDistance} km`, 20, y); y += 6
+    pdf.text(`Distancia puerta a puerta: ${formatDistanceKm(data.totalDistance)}`, 20, y); y += 6
   }
   y += 4
 
@@ -220,6 +246,15 @@ export async function generateAdminQuotePDF(
       pdf.text(`x${item.quantity}`, col2, y)
       pdf.text(`${(item.volume * item.quantity).toFixed(2)} m3`, col3, y)
       y += 6
+      if (item.packaging?.type) {
+        ensureSpace(5)
+        pdf.setFontSize(9)
+        pdf.setTextColor(...PRIMARY)
+        pdf.text(`  Embalaje: ${item.packaging.type}`, col1, y)
+        pdf.setTextColor(...TEXT)
+        pdf.setFontSize(11)
+        y += 5
+      }
     })
   } else {
     pdf.setFont('helvetica', 'italic')

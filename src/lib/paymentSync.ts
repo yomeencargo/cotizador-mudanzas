@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { flowService, type FlowPaymentStatus } from '@/lib/flowService'
+import { postQuoteWebhook } from '@/lib/n8nClient'
 
 /**
  * Datos mínimos de la reserva que necesitan los endpoints de pago para redirigir
@@ -108,9 +109,44 @@ export async function applyFlowPaymentByToken(
 
   if (paymentStatus.status === 2 && !alreadyProcessed && bookingData?.id) {
     await convertProspectForBooking(bookingRef, bookingData.id, bookingData.client_email || null)
+    await notifyAdminPaymentApproved({
+      bookingRef,
+      clientName: bookingData.client_name || null,
+      amount: paymentStatus.amount || null,
+      paymentType: optionalPaymentType || null,
+    })
   }
 
   return { paymentStatus, bookingData, bookingRef, alreadyProcessed }
+}
+
+/**
+ * Avisa al dueño (por correo, vía el mismo webhook de n8n que manda las cotizaciones)
+ * que se aprobó un pago. Antes esto no existía: había que revisar Flow manualmente para
+ * notar que alguien pagó el abono del 50% y así poder coordinar la reserva.
+ * Best-effort: si n8n falla, no bloquea ni revierte el pago ya procesado.
+ */
+async function notifyAdminPaymentApproved(params: {
+  bookingRef: string
+  clientName: string | null
+  amount: number | null
+  paymentType: string | null
+}): Promise<void> {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+  if (!adminEmail) return
+
+  await postQuoteWebhook(
+    {
+      event: 'payment_approved',
+      to: adminEmail,
+      quote_id: params.bookingRef,
+      cliente: params.clientName,
+      monto: params.amount,
+      tipo_pago: params.paymentType === 'mitad' ? 'Abono 50%' : 'Pago completo',
+      fecha: new Date().toISOString(),
+    },
+    { label: 'admin-notify', timeoutMs: 8000 }
+  )
 }
 
 /**

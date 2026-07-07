@@ -16,7 +16,7 @@ import {
   Clock,
   ShieldCheck,
 } from 'lucide-react'
-import { formatCurrency, formatDate, formatTime } from '@/lib/utils'
+import { formatCurrency, formatDate, formatTime, formatDistanceKm } from '@/lib/utils'
 import { generateQuotePDF } from '@/lib/pdfGenerator'
 import { getPricingConfig } from '@/lib/pricingService'
 import { trackEvent, pushDataLayerMonto } from '@/lib/tracking'
@@ -138,6 +138,16 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
       origin: buildAddress(origin),
       destination: buildAddress(destination),
     },
+    // Piso y ascensor de origen/destino: se usan para calcular el precio pero antes se
+    // perdían al guardar — nunca llegaban a la reserva ni a la Orden de Trabajo.
+    propertyDetails: {
+      origin: origin.details
+        ? { floor: origin.details.floor, hasElevator: origin.details.hasElevator }
+        : null,
+      destination: destination.details
+        ? { floor: destination.details.floor, hasElevator: destination.details.hasElevator }
+        : null,
+    },
     estimatedPrice,
     photoUrls: additionalServices?.photos || [],
   })
@@ -151,6 +161,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         name: item.name,
         quantity: item.quantity,
         volume: parseFloat((item.volume * item.quantity).toFixed(2)),
+        packaging: item.packaging && item.packaging.type !== 'none' ? item.packaging : undefined,
       }))
 
       const res = await fetch('/api/prospects/create', {
@@ -167,6 +178,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           company_rut: personalInfo?.companyRut,
           origin_address: originFull,
           destination_address: destinationFull,
+          origin_floor: origin.details?.floor ?? null,
+          origin_has_elevator: origin.details?.hasElevator ?? null,
+          destination_floor: destination.details?.floor ?? null,
+          destination_has_elevator: destination.details?.hasElevator ?? null,
           scheduled_date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
           scheduled_time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
           total_price: estimatedPrice,
@@ -794,7 +809,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
               <div className="mt-4 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">📏 Distancia estimada:</span>
-                  <span className="font-semibold text-primary-600">{totalDistance} km</span>
+                  <span className="font-semibold text-primary-600">{formatDistanceKm(totalDistance)}</span>
                 </div>
                 {totalDistance > freeKilometers && (
                   <p className="text-xs text-gray-500 mt-1">

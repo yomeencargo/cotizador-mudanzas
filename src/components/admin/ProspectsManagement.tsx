@@ -37,6 +37,7 @@ import {
   getSourceBadge,
 } from '@/lib/prospectSource'
 import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
+import { formatDistanceKm } from '@/lib/utils'
 import type { AdminQuoteData } from '@/lib/adminQuotePdf'
 import { normalizeAdminPdfItems } from '@/lib/adminBookingQuoteData'
 
@@ -52,6 +53,10 @@ interface Prospect {
   company_rut?: string
   origin_address?: string
   destination_address?: string
+  origin_floor?: number | null
+  origin_has_elevator?: boolean | null
+  destination_floor?: number | null
+  destination_has_elevator?: boolean | null
   visit_address?: string
   scheduled_date?: string
   scheduled_time?: string
@@ -87,6 +92,10 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
     companyRut: p.company_rut,
     originAddress: p.origin_address,
     destinationAddress: p.destination_address,
+    originFloor: p.origin_floor,
+    originHasElevator: p.origin_has_elevator,
+    destinationFloor: p.destination_floor,
+    destinationHasElevator: p.destination_has_elevator,
     scheduledDate: p.scheduled_date,
     scheduledTime: p.scheduled_time,
     totalPrice: p.adjusted_price ?? p.total_price,
@@ -123,6 +132,7 @@ export default function ProspectsManagement() {
   const [quoteTime, setQuoteTime] = useState('')
   const [quoteAlreadyPaid, setQuoteAlreadyPaid] = useState(false)
   const [quotePaymentMethod, setQuotePaymentMethod] = useState<'transferencia' | 'efectivo' | 'otro'>('transferencia')
+  const [quotePaymentType, setQuotePaymentType] = useState<'mitad' | 'completo'>('completo')
   const [isSavingAdjust, setIsSavingAdjust] = useState(false)
   const [isSendingQuote, setIsSendingQuote] = useState(false)
   const [isCreatingBooking, setIsCreatingBooking] = useState(false)
@@ -323,6 +333,30 @@ export default function ProspectsManagement() {
     }
   }
 
+  // Email: arma un mailto: con asunto y mensaje prellenado (mismo criterio que WhatsApp).
+  const buildEmailLink = (p: Prospect) => {
+    const price = p.adjusted_price ?? p.total_price
+    const precioTxt = price ? ` por $${price.toLocaleString('es-CL')}` : ''
+    const firstName = p.name?.split(' ')[0] || ''
+    let cuando = ''
+    if (p.scheduled_date) {
+      const [y, m, d] = p.scheduled_date.split('-').map(Number)
+      const fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
+      cuando = ` para el ${fechaTxt}${p.scheduled_time ? ` a las ${p.scheduled_time.slice(0, 5)}` : ''}`
+    }
+    const subject = `Tu cotización de mudanza con Yo me Encargo${cuando}`
+    const body = `Hola ${firstName},\n\nTe contactamos de Yo me Encargo por tu cotización de mudanza${cuando}${precioTxt}. Quería coordinar contigo los detalles para asegurar tu fecha.\n\nSaludos,\nYo me Encargo`
+    return `mailto:${p.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
+  // Contacto por email: igual que WhatsApp, marca como "contactado" si estaba "nuevo".
+  const contactEmail = (p: Prospect) => {
+    window.open(buildEmailLink(p), '_self')
+    if (p.status === 'new') {
+      void updateProspectStatus(p.id, 'contacted')
+    }
+  }
+
   // Agenda tentativa del prospecto para exportar a calendario (misma lógica que Reservas).
   // Usa el precio ajustado si existe. El .ics/Google marcan la fecha/hora cotizada como
   // recordatorio; no implica que el cliente haya pagado.
@@ -363,6 +397,7 @@ export default function ProspectsManagement() {
     setQuoteTime(p.scheduled_time ? p.scheduled_time.slice(0, 5) : '')
     setQuoteAlreadyPaid(false)
     setQuotePaymentMethod('transferencia')
+    setQuotePaymentType('completo')
     setShowQuoteModal(true)
   }
 
@@ -443,7 +478,9 @@ export default function ProspectsManagement() {
       toast.error('Agrega fecha y hora para crear la reserva')
       return
     }
-    const paidNote = quoteAlreadyPaid ? ` Se registrará como PAGADA (${quotePaymentMethod}).` : ''
+    const paidNote = quoteAlreadyPaid
+      ? ` Se registrará como PAGADA (${quotePaymentMethod}, ${quotePaymentType === 'mitad' ? 'abono 50%' : 'pago completo'}).`
+      : ''
     if (!confirm(`¿Crear una reserva confirmada para ${selectedProspect.name} el ${quoteDate} a las ${quoteTime} por $${price.toLocaleString('es-CL')}? Esta reserva ocupará cupo.${paidNote}`)) return
     try {
       setIsCreatingBooking(true)
@@ -458,6 +495,7 @@ export default function ProspectsManagement() {
           time: quoteTime,
           paid: quoteAlreadyPaid,
           paymentMethod: quoteAlreadyPaid ? quotePaymentMethod : undefined,
+          paymentType: quoteAlreadyPaid ? quotePaymentType : undefined,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -881,6 +919,15 @@ export default function ProspectsManagement() {
                             <MessageCircle className="w-4 h-4" />
                           </Button>
                           <Button
+                            onClick={() => contactEmail(prospect)}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-700 border-blue-300 bg-blue-50 hover:bg-blue-100"
+                            title="Contactar por Email (marca como contactado)"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </Button>
+                          <Button
                             onClick={() => openQuoteModal(prospect)}
                             variant="outline"
                             size="sm"
@@ -1082,6 +1129,12 @@ export default function ProspectsManagement() {
                       <MapPin className="w-4 h-4 text-blue-600" /> Origen
                     </label>
                     <p className="text-sm text-gray-900">{selectedProspect.origin_address}</p>
+                    {typeof selectedProspect.origin_floor === 'number' && selectedProspect.origin_floor > 0 && (
+                      <p className={`text-xs mt-0.5 ${selectedProspect.origin_has_elevator === false ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                        Piso {selectedProspect.origin_floor}
+                        {selectedProspect.origin_has_elevator === false ? ' · SIN ascensor (escaleras)' : selectedProspect.origin_has_elevator === true ? ' · con ascensor' : ''}
+                      </p>
+                    )}
                   </div>
                 )}
                 {selectedProspect.destination_address && (
@@ -1090,6 +1143,12 @@ export default function ProspectsManagement() {
                       <MapPin className="w-4 h-4 text-green-600" /> Destino
                     </label>
                     <p className="text-sm text-gray-900">{selectedProspect.destination_address}</p>
+                    {typeof selectedProspect.destination_floor === 'number' && selectedProspect.destination_floor > 0 && (
+                      <p className={`text-xs mt-0.5 ${selectedProspect.destination_has_elevator === false ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                        Piso {selectedProspect.destination_floor}
+                        {selectedProspect.destination_has_elevator === false ? ' · SIN ascensor (escaleras)' : selectedProspect.destination_has_elevator === true ? ' · con ascensor' : ''}
+                      </p>
+                    )}
                   </div>
                 )}
                 {selectedProspect.visit_address && (
@@ -1132,7 +1191,7 @@ export default function ProspectsManagement() {
                 {selectedProspect.total_distance && (
                   <div className="text-center">
                     <p className="text-xs text-gray-500">Distancia</p>
-                    <p className="font-bold">{selectedProspect.total_distance} km</p>
+                    <p className="font-bold">{formatDistanceKm(selectedProspect.total_distance)}</p>
                   </div>
                 )}
                 {selectedProspect.recommended_vehicle && (
@@ -1347,19 +1406,32 @@ export default function ProspectsManagement() {
                 Cliente ya pagó (transferencia / efectivo)
               </label>
               {quoteAlreadyPaid && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Medio de pago</label>
-                  <Select
-                    value={quotePaymentMethod}
-                    onChange={(e) => setQuotePaymentMethod(e.target.value as 'transferencia' | 'efectivo' | 'otro')}
-                    options={[
-                      { value: 'transferencia', label: 'Transferencia' },
-                      { value: 'efectivo', label: 'Efectivo' },
-                      { value: 'otro', label: 'Otro' },
-                    ]}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Al crear la reserva quedará marcada como pagada de inmediato (no aparecerá &ldquo;Pago pendiente&rdquo;).
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Medio de pago</label>
+                    <Select
+                      value={quotePaymentMethod}
+                      onChange={(e) => setQuotePaymentMethod(e.target.value as 'transferencia' | 'efectivo' | 'otro')}
+                      options={[
+                        { value: 'transferencia', label: 'Transferencia' },
+                        { value: 'efectivo', label: 'Efectivo' },
+                        { value: 'otro', label: 'Otro' },
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Monto pagado</label>
+                    <Select
+                      value={quotePaymentType}
+                      onChange={(e) => setQuotePaymentType(e.target.value as 'mitad' | 'completo')}
+                      options={[
+                        { value: 'completo', label: 'Pago completo (100%)' },
+                        { value: 'mitad', label: 'Abono 50%' },
+                      ]}
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs text-gray-500 mt-1">
+                    Al crear la reserva quedará marcada como pagada de inmediato (no aparecerá &ldquo;Pago pendiente&rdquo;). Si es abono 50%, se mostrará como &ldquo;Pagado (50%)&rdquo; en vez de pendiente.
                   </p>
                 </div>
               )}

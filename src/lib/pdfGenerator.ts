@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import { useQuoteStore } from '@/store/quoteStore'
-import { formatDate, formatTime, formatCurrency } from './utils'
+import { formatDate, formatTime, formatCurrency, formatDistanceKm } from './utils'
 
 type QuotePdfOptions = {
   /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
@@ -168,7 +168,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
 
   // Distancia puerta a puerta (misma etiqueta que en los demás PDF)
   if (totalDistance > 0) {
-    pdf.text(`Distancia puerta a puerta: ${totalDistance.toFixed(1)} km`, 20, yPosition)
+    pdf.text(`Distancia puerta a puerta: ${formatDistanceKm(totalDistance)}`, 20, yPosition)
     yPosition += 7
   }
 
@@ -219,6 +219,16 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     pdf.text(`x${item.quantity}`, col2, yPosition)
     pdf.text(`${(item.volume * item.quantity).toFixed(2)} m³`, col3, yPosition)
     yPosition += itemHeight
+
+    // Packaging info
+    if (item.packaging && item.packaging.type !== 'none') {
+      pdf.setFontSize(9)
+      pdf.setTextColor(...primaryColor)
+      pdf.text(`  Embalaje: ${item.packaging.type}`, col1, yPosition)
+      pdf.setTextColor(...textColor)
+      pdf.setFontSize(11)
+      yPosition += 5
+    }
   })
 
   yPosition += 10
@@ -531,7 +541,7 @@ export const generateBookingPDF = async (
   // Distancia
   if (totalDistance > 0) {
     pdf.setFont('helvetica', 'bold')
-    pdf.text(`Distancia puerta a puerta: ${totalDistance.toFixed(1)} km`, 20, yPosition)
+    pdf.text(`Distancia puerta a puerta: ${formatDistanceKm(totalDistance)}`, 20, yPosition)
     pdf.setFont('helvetica', 'normal')
     yPosition += 7
   }
@@ -984,7 +994,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   // Distancia
   if (totalDistance > 0) {
     pdf.setFont('helvetica', 'bold')
-    pdf.text(`Distancia puerta a puerta: ${totalDistance.toFixed(1)} km`, 20, yPosition)
+    pdf.text(`Distancia puerta a puerta: ${formatDistanceKm(totalDistance)}`, 20, yPosition)
     pdf.setFont('helvetica', 'normal')
     yPosition += 7
   }

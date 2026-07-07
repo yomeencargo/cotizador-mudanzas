@@ -71,7 +71,9 @@ export async function POST(request: NextRequest) {
       const duration = properties.time // en segundos
 
       return NextResponse.json({
-        kilometers: Math.round(distance / 1000), // Convertir metros a km
+        // Se conservan 2 decimales (no se redondea a km entero): un traslado dentro de un
+        // mismo edificio/condominio puede ser de pocos metros y antes se perdía esa precisión.
+        kilometers: Math.round((distance / 1000) * 100) / 100,
         duration: Math.round(duration / 60), // Convertir segundos a minutos
       })
     }

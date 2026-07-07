@@ -86,29 +86,46 @@ export async function POST(request: NextRequest) {
       origin: prospect.origin_address || undefined,
       destination: prospect.destination_address || undefined,
     }
+    const propertyDetails = {
+      origin: { floor: prospect.origin_floor, hasElevator: prospect.origin_has_elevator },
+      destination: { floor: prospect.destination_floor, hasElevator: prospect.destination_has_elevator },
+    }
 
     // 2) Pre-reserva idempotente + actualizar precio al ajustado
-    await ensureProvisionalBooking({
+    const { locked } = await ensureProvisionalBooking({
       quoteId,
       client,
       schedule,
       addresses,
+      propertyDetails,
       estimatedPrice: effectivePrice,
       paymentType: 'mitad',
     })
 
-    await supabaseAdmin
-      .from('bookings')
-      .update({ total_price: effectivePrice })
-      .eq('quote_id', quoteId)
+    // Si la reserva ya fue pagada (locked), NO se toca total_price: antes esta línea lo
+    // sobreescribía sin condición, así que reenviar "cotización ajustada" a un cliente que
+    // YA pagó borraba el monto realmente cobrado y lo reemplazaba por el precio del modal
+    // (bug real: causó que una reserva mostrara un precio distinto al efectivamente pagado).
+    if (!locked) {
+      await supabaseAdmin
+        .from('bookings')
+        .update({ total_price: effectivePrice })
+        .eq('quote_id', quoteId)
+    } else {
+      console.warn(`[admin/send-quote] Reserva ${quoteId} ya está pagada: se envía el PDF de referencia sin modificar el precio ni generar nuevos links de pago.`)
+    }
 
     // 3) Dos órdenes de Flow (best-effort): el correo NO debe depender del pago.
     //    Si Flow no está configurado o falla, se envía igual sin links de pago.
+    //    Si la reserva ya está pagada (locked), no tiene sentido generar links nuevos —
+    //    evita que el cliente pague dos veces por error.
     const amounts = computeQuoteAmounts(effectivePrice)
     let paymentUrl50: string | null = null
     let paymentUrl100: string | null = null
     try {
-      if (flowService.isConfigured()) {
+      if (locked) {
+        // no-op: reserva ya pagada, sin links de pago nuevos
+      } else if (flowService.isConfigured()) {
         const order50 = await createQuoteFlowOrder({
           quoteId,
           paymentType: 'mitad',

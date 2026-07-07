@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     const alreadyPaid = body.paid === true
     const paymentMethod =
       typeof body.paymentMethod === 'string' && body.paymentMethod ? body.paymentMethod : 'manual'
+    const paymentType = body.paymentType === 'mitad' ? 'mitad' : 'completo'
 
     if (!prospectId) {
       return NextResponse.json({ error: 'prospectId requerido' }, { status: 400 })
@@ -78,10 +79,15 @@ export async function POST(request: NextRequest) {
           scheduled_time: effTime,
           total_price: effectivePrice,
           notes: comment || null,
+          origin_floor: prospect.origin_floor ?? null,
+          origin_has_elevator: prospect.origin_has_elevator ?? null,
+          destination_floor: prospect.destination_floor ?? null,
+          destination_has_elevator: prospect.destination_has_elevator ?? null,
           ...(alreadyPaid
             ? {
                 payment_status: 'approved',
                 payment_method: paymentMethod,
+                payment_type: paymentType,
                 payment_date: new Date().toISOString(),
               }
             : {}),
@@ -140,12 +146,17 @@ export async function POST(request: NextRequest) {
           status: 'confirmed',
           payment_status: alreadyPaid ? 'approved' : 'pending',
           payment_method: alreadyPaid ? paymentMethod : null,
+          payment_type: alreadyPaid ? paymentType : null,
           payment_date: alreadyPaid ? new Date().toISOString() : null,
           is_provisional: false,
           total_price: effectivePrice,
           original_price: prospect.total_price ?? effectivePrice,
           origin_address: prospect.origin_address || null,
           destination_address: prospect.destination_address || null,
+          origin_floor: prospect.origin_floor ?? null,
+          origin_has_elevator: prospect.origin_has_elevator ?? null,
+          destination_floor: prospect.destination_floor ?? null,
+          destination_has_elevator: prospect.destination_has_elevator ?? null,
           is_company: isCompany,
           company_name: isCompany ? prospect.company_name || null : null,
           company_rut: isCompany ? prospect.company_rut || null : null,

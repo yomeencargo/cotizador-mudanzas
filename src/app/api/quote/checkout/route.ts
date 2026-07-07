@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
       client,
       schedule,
       addresses,
+      propertyDetails,
       estimatedPrice,
       photoUrls,
     } = body as {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
       client: any
       schedule: any
       addresses: any
+      propertyDetails?: any
       estimatedPrice: number
       photoUrls?: string[]
     }
@@ -42,15 +44,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await ensureProvisionalBooking({
+    const { locked } = await ensureProvisionalBooking({
       quoteId,
       client,
       schedule,
       addresses,
+      propertyDetails,
       estimatedPrice,
       paymentType,
       photoUrls,
     })
+
+    // Si ya está pagada, no generamos otra orden de Flow: evita que el cliente pague dos
+    // veces (ej. reintenta el checkout con el mismo quote_id tras ya haber pagado).
+    if (locked) {
+      return NextResponse.json(
+        { error: 'Esta reserva ya fue pagada. Si crees que es un error, contáctanos.' },
+        { status: 409 }
+      )
+    }
 
     const amounts = computeQuoteAmounts(estimatedPrice)
     const amount = paymentType === 'completo' ? amounts.full95 : amounts.abono50

@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       client,
       schedule,
       addresses,
+      propertyDetails,
       estimatedPrice,
       details,
       photoUrls,
@@ -47,11 +48,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 1) Pre-reserva idempotente (no consume cupo hasta que se pague)
-    await ensureProvisionalBooking({
+    const { locked } = await ensureProvisionalBooking({
       quoteId,
       client,
       schedule,
       addresses,
+      propertyDetails,
       estimatedPrice,
       paymentType: 'mitad',
       photoUrls,
@@ -59,11 +61,14 @@ export async function POST(request: NextRequest) {
 
     // 2) Link de pago de Flow (best-effort): el correo con el PDF NO debe depender
     //    del pago. Si Flow no está configurado o falla, igual se envía el correo,
-    //    solo que sin link de pago (flow_payment_url = null).
+    //    solo que sin link de pago (flow_payment_url = null). Si ya está pagada, tampoco
+    //    se genera un link nuevo — evita que el cliente pague dos veces por error.
     const amounts = computeQuoteAmounts(estimatedPrice)
     let paymentUrl: string | null = null
     try {
-      if (flowService.isConfigured()) {
+      if (locked) {
+        console.warn(`[send-quote] Reserva ${quoteId} ya está pagada: se envía el correo sin link de pago.`)
+      } else if (flowService.isConfigured()) {
         const order = await createQuoteFlowOrder({
           quoteId,
           paymentType: 'mitad',

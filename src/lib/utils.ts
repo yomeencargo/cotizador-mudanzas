@@ -24,6 +24,19 @@ export function formatTime(date: Date): string {
   }).format(date)
 }
 
+/**
+ * Formatea una distancia guardada en km (puede venir con decimales, ej. mudanzas
+ * dentro de un mismo edificio/condominio) a metros si es menor a 1km, o a km con
+ * un decimal en caso contrario. Antes siempre se mostraba en km redondeados a
+ * entero, por lo que un traslado "puerta a puerta" de 80m aparecía como "0 km".
+ */
+export function formatDistanceKm(km: number): string {
+  if (km < 1) {
+    return `${Math.round(km * 1000)} m`
+  }
+  return `${km.toFixed(1)} km`
+}
+
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 9)
 }

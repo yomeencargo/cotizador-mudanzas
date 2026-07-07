@@ -380,6 +380,20 @@ export default function BookingsManagement() {
     return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
   }
 
+  // Email: arma un mailto: con asunto y mensaje prellenado (mismo criterio que WhatsApp).
+  const buildEmailLink = (b: Booking) => {
+    const firstName = b.client_name?.split(' ')[0] || ''
+    let fechaTxt = ''
+    if (b.scheduled_date) {
+      const [y, m, d] = b.scheduled_date.split('-').map(Number)
+      fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
+    }
+    const cuando = fechaTxt ? ` del ${fechaTxt}${b.scheduled_time ? ` a las ${b.scheduled_time.slice(0, 5)}` : ''}` : ''
+    const subject = `Tu reserva de mudanza con Yo me Encargo${cuando}`
+    const body = `Hola ${firstName},\n\nTe contactamos de Yo me Encargo por tu reserva de mudanza${cuando}. Quería coordinar contigo los detalles del traslado.\n\nSaludos,\nYo me Encargo`
+    return `mailto:${b.client_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
   // Descarga un archivo .ics (calendario) de la reserva, compatible con Apple/Outlook/Google.
   const downloadIcs = (b: Booking) => {
     const blob = new Blob([buildIcsContent(b)], { type: 'text/calendar;charset=utf-8' })
@@ -845,24 +859,40 @@ export default function BookingsManagement() {
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       {(booking.original_price || booking.total_price) ? (
                         <div>
-                          <div className="text-sm font-semibold text-green-700">
-                            ${(booking.original_price || booking.total_price)?.toLocaleString()}
-                          </div>
-                          {/* Mostrar estado del pago */}
-                          {booking.payment_status === 'approved' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                              ✓ Pagado {booking.payment_type === 'mitad' ? '(50%)' : '(100%)'}
-                            </span>
-                          )}
-                          {booking.payment_status === 'pending' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
-                              ⏳ Pago pendiente
-                            </span>
-                          )}
-                          {booking.payment_status === 'rejected' && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                              ✗ Pago rechazado
-                            </span>
+                          {booking.payment_status === 'approved' ? (
+                            <>
+                              <div className="text-sm font-semibold text-green-700">
+                                ${booking.total_price?.toLocaleString()}
+                              </div>
+                              {/* Si el precio cotizado difiere de lo pagado (hubo un reajuste
+                                  manual en el camino), se muestra aparte — antes solo se veía
+                                  el precio cotizado y parecía que el cliente pagó esa cifra,
+                                  aunque no fuera ni el 50% ni el 100% de ella. */}
+                              {booking.original_price != null && booking.original_price !== booking.total_price && (
+                                <div className="text-xs text-gray-500">
+                                  Cotizado: ${booking.original_price.toLocaleString()}
+                                </div>
+                              )}
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                ✓ Pagado {booking.payment_type === 'mitad' ? '(abono 50%)' : '(completo)'}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-sm font-semibold text-green-700">
+                                ${(booking.original_price || booking.total_price)?.toLocaleString()}
+                              </div>
+                              {booking.payment_status === 'pending' && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
+                                  ⏳ Pago pendiente
+                                </span>
+                              )}
+                              {booking.payment_status === 'rejected' && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                                  ✗ Pago rechazado
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       ) : (
@@ -899,6 +929,15 @@ export default function BookingsManagement() {
                             title="Contactar por WhatsApp"
                           >
                             <MessageCircle className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => window.open(buildEmailLink(booking), '_self')}
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-700 border-blue-300 bg-blue-50 hover:bg-blue-100"
+                            title="Contactar por Email"
+                          >
+                            <Mail className="w-4 h-4" />
                           </Button>
                           <Button
                             onClick={() => toggleFrequentCustomer(booking)}
@@ -1285,13 +1324,17 @@ export default function BookingsManagement() {
 
             {selectedBooking.original_price && (
               <div>
-                <label className="block text-sm font-medium text-gray-700">Precio Total</label>
+                <label className="block text-sm font-medium text-gray-700">Precio Cotizado</label>
                 <p className="text-sm font-semibold text-green-700">
                   ${selectedBooking.original_price.toLocaleString()}
                 </p>
-                {selectedBooking.payment_type === 'mitad' && (
+                {/* Se muestra el monto pagado siempre que difiera del cotizado (no solo
+                    cuando payment_type==='mitad'): un reajuste manual de precio también
+                    puede hacer que no coincidan sin que sea un abono del 50%. */}
+                {selectedBooking.total_price != null && selectedBooking.total_price !== selectedBooking.original_price && (
                   <p className="text-xs text-gray-600 mt-1">
-                    Pagado: ${selectedBooking.total_price?.toLocaleString()} (mitad)
+                    Pagado: ${selectedBooking.total_price.toLocaleString()}
+                    {selectedBooking.payment_type === 'mitad' ? ' (abono 50%)' : ''}
                   </p>
                 )}
               </div>
@@ -1311,6 +1354,12 @@ export default function BookingsManagement() {
                   Dirección Origen
                 </label>
                 <p className="text-sm text-gray-900">{selectedBooking.origin_address}</p>
+                {typeof selectedBooking.origin_floor === 'number' && selectedBooking.origin_floor > 0 && (
+                  <p className={`text-xs mt-0.5 ${selectedBooking.origin_has_elevator === false ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                    Piso {selectedBooking.origin_floor}
+                    {selectedBooking.origin_has_elevator === false ? ' · SIN ascensor (escaleras)' : selectedBooking.origin_has_elevator === true ? ' · con ascensor' : ''}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1321,6 +1370,12 @@ export default function BookingsManagement() {
                   Dirección Destino
                 </label>
                 <p className="text-sm text-gray-900">{selectedBooking.destination_address}</p>
+                {typeof selectedBooking.destination_floor === 'number' && selectedBooking.destination_floor > 0 && (
+                  <p className={`text-xs mt-0.5 ${selectedBooking.destination_has_elevator === false ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                    Piso {selectedBooking.destination_floor}
+                    {selectedBooking.destination_has_elevator === false ? ' · SIN ascensor (escaleras)' : selectedBooking.destination_has_elevator === true ? ' · con ascensor' : ''}
+                  </p>
+                )}
               </div>
             )}
 

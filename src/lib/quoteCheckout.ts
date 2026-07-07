@@ -22,11 +22,22 @@ export interface QuoteAddresses {
   destination?: string
 }
 
+export interface QuotePropertyDetail {
+  floor?: number | null
+  hasElevator?: boolean | null
+}
+
+export interface QuotePropertyDetails {
+  origin?: QuotePropertyDetail | null
+  destination?: QuotePropertyDetail | null
+}
+
 export interface EnsureBookingInput {
   quoteId: string
   client: QuoteClient
   schedule: QuoteSchedule
   addresses: QuoteAddresses
+  propertyDetails?: QuotePropertyDetails
   estimatedPrice: number
   paymentType: PaymentType
   photoUrls?: string[]
@@ -57,8 +68,8 @@ export function computeQuoteAmounts(estimatedPrice: number) {
  */
 export async function ensureProvisionalBooking(
   input: EnsureBookingInput
-): Promise<{ quoteId: string; bookingRowId: string; existed: boolean }> {
-  const { quoteId, client, schedule, addresses, estimatedPrice, paymentType, photoUrls } = input
+): Promise<{ quoteId: string; bookingRowId: string; existed: boolean; locked: boolean }> {
+  const { quoteId, client, schedule, addresses, propertyDetails, estimatedPrice, paymentType, photoUrls } = input
 
   if (!quoteId || !client?.name || !client?.email || !client?.phone) {
     throw new Error('Datos de cliente incompletos para crear la reserva')
@@ -70,7 +81,7 @@ export async function ensureProvisionalBooking(
   // Idempotencia: ¿ya existe el booking para este quoteId?
   const { data: existing, error: findError } = await supabaseAdmin
     .from('bookings')
-    .select('id')
+    .select('id, is_provisional, payment_status')
     .eq('quote_id', quoteId)
     .maybeSingle()
 
@@ -78,7 +89,34 @@ export async function ensureProvisionalBooking(
     console.error('[quoteCheckout] Error buscando booking existente:', findError)
   }
   if (existing) {
-    return { quoteId, bookingRowId: existing.id, existed: true }
+    // El quote_id es estable durante toda la sesión: si el cliente vuelve atrás y cambia
+    // fecha/precio/direcciones ANTES de pagar (o el admin reenvía la cotización ajustada),
+    // hay que refrescar la pre-reserva — si no, queda pegada en los valores originales para
+    // siempre, incluso después de pagar. Una vez que dejó de ser provisional o ya se aprobó
+    // el pago, no se toca aquí: cualquier cambio a esa reserva debe hacerse explícitamente
+    // desde el panel admin.
+    const stillEditable = existing.is_provisional !== false && existing.payment_status !== 'approved'
+    if (stillEditable) {
+      const { error: refreshError } = await supabaseAdmin
+        .from('bookings')
+        .update({
+          scheduled_date: schedule.date,
+          scheduled_time: schedule.time,
+          total_price: Math.round(estimatedPrice),
+          original_price: Math.round(estimatedPrice),
+          origin_address: addresses?.origin || null,
+          destination_address: addresses?.destination || null,
+          origin_floor: propertyDetails?.origin?.floor ?? null,
+          origin_has_elevator: propertyDetails?.origin?.hasElevator ?? null,
+          destination_floor: propertyDetails?.destination?.floor ?? null,
+          destination_has_elevator: propertyDetails?.destination?.hasElevator ?? null,
+        })
+        .eq('id', existing.id)
+      if (refreshError) {
+        console.error('[quoteCheckout] Error refrescando pre-reserva existente:', refreshError)
+      }
+    }
+    return { quoteId, bookingRowId: existing.id, existed: true, locked: !stillEditable }
   }
 
   // Verificar cupo real del horario (solo bookings no provisionales cuentan)
@@ -133,6 +171,10 @@ export async function ensureProvisionalBooking(
       original_price: Math.round(estimatedPrice),
       origin_address: addresses?.origin || null,
       destination_address: addresses?.destination || null,
+      origin_floor: propertyDetails?.origin?.floor ?? null,
+      origin_has_elevator: propertyDetails?.origin?.hasElevator ?? null,
+      destination_floor: propertyDetails?.destination?.floor ?? null,
+      destination_has_elevator: propertyDetails?.destination?.hasElevator ?? null,
       is_company: isCompany,
       company_name: isCompany ? client.companyName || null : null,
       company_rut: isCompany ? client.companyRut || null : null,
@@ -146,7 +188,7 @@ export async function ensureProvisionalBooking(
     throw new Error('Error al crear la reserva')
   }
 
-  return { quoteId, bookingRowId: booking.id, existed: false }
+  return { quoteId, bookingRowId: booking.id, existed: false, locked: false }
 }
 
 /**

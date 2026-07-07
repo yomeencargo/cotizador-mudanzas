@@ -4,6 +4,7 @@ export type AdminPdfItem = {
   name: string
   quantity: number
   volume: number
+  packaging: { type: string } | undefined
 }
 
 export interface BookingQuoteDetails {
@@ -20,6 +21,10 @@ export interface BookingQuoteDetails {
   total_volume?: number | string | null
   total_weight?: number | string | null
   total_distance?: number | string | null
+  origin_floor?: number | null
+  origin_has_elevator?: boolean | null
+  destination_floor?: number | null
+  destination_has_elevator?: boolean | null
   items_summary?: unknown
   additional_services?: unknown
 }
@@ -42,6 +47,10 @@ export interface AdminBookingQuoteSource {
   origin_address?: string | null
   destination_address?: string | null
   visit_address?: string | null
+  origin_floor?: number | null
+  origin_has_elevator?: boolean | null
+  destination_floor?: number | null
+  destination_has_elevator?: boolean | null
   scheduled_date?: string | null
   scheduled_time?: string | null
   total_price?: number | string | null
@@ -120,7 +129,10 @@ export function normalizeAdminPdfItems(
       const quantity = toNumber(record.quantity) || 0
       const volume = toNumber(record.volume) || 0
       if (!name || quantity <= 0 || volume < 0) return null
-      return { name, quantity, volume }
+      const packagingRecord = record.packaging as Record<string, unknown> | undefined
+      const packagingType = packagingRecord ? normalizeText(packagingRecord.type) : undefined
+      const packaging = packagingType && packagingType !== 'none' ? { type: packagingType } : undefined
+      return { name, quantity, volume, packaging }
     })
     .filter((item): item is AdminPdfItem => Boolean(item))
 
@@ -154,6 +166,10 @@ function pickQuoteDetails(prospect?: BookingQuoteDetails): Partial<AdminBookingQ
   if (prospect.total_volume !== undefined && prospect.total_volume !== null) details.total_volume = prospect.total_volume
   if (prospect.total_weight !== undefined && prospect.total_weight !== null) details.total_weight = prospect.total_weight
   if (prospect.total_distance !== undefined && prospect.total_distance !== null) details.total_distance = prospect.total_distance
+  if (prospect.origin_floor !== undefined && prospect.origin_floor !== null) details.origin_floor = prospect.origin_floor
+  if (prospect.origin_has_elevator !== undefined && prospect.origin_has_elevator !== null) details.origin_has_elevator = prospect.origin_has_elevator
+  if (prospect.destination_floor !== undefined && prospect.destination_floor !== null) details.destination_floor = prospect.destination_floor
+  if (prospect.destination_has_elevator !== undefined && prospect.destination_has_elevator !== null) details.destination_has_elevator = prospect.destination_has_elevator
   if (prospect.items_summary !== undefined && prospect.items_summary !== null) details.items_summary = prospect.items_summary
   if (prospect.additional_services !== undefined && prospect.additional_services !== null) {
     details.additional_services = prospect.additional_services
@@ -216,6 +232,10 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     companyRut: booking.company_rut,
     originAddress: booking.origin_address || booking.visit_address,
     destinationAddress: booking.destination_address,
+    originFloor: booking.origin_floor ?? undefined,
+    originHasElevator: booking.origin_has_elevator ?? undefined,
+    destinationFloor: booking.destination_floor ?? undefined,
+    destinationHasElevator: booking.destination_has_elevator ?? undefined,
     scheduledDate: booking.scheduled_date,
     scheduledTime: booking.scheduled_time,
     totalPrice: toNumber(booking.total_price),
