@@ -43,14 +43,45 @@ export async function applyFlowPaymentByToken(
   token: string
 ): Promise<ApplyFlowPaymentResult> {
   const paymentStatus = await flowService.getPaymentStatus(token)
+  return applyFlowPaymentStatus(paymentStatus, token)
+}
 
+/**
+ * Igual que `applyFlowPaymentByToken` pero resolviendo el pago por su `commerceOrder`
+ * (sin token). Lo usa el cron de limpieza como red de seguridad: cuando encuentra una
+ * pre-reserva provisional que en realidad tiene un pago aprobado en Flow, la rescata
+ * aplicando exactamente la misma lógica que el webhook, sin necesitar el token original.
+ */
+export async function applyFlowPaymentByCommerceOrder(
+  commerceOrder: string
+): Promise<ApplyFlowPaymentResult> {
+  const paymentStatus = await flowService.getStatusByCommerceId(commerceOrder)
+  return applyFlowPaymentStatus(paymentStatus, null)
+}
+
+/**
+ * Núcleo compartido: aplica un `FlowPaymentStatus` ya obtenido a la reserva.
+ * `token` puede ser null cuando el pago se resolvió por commerceOrder (rescate del cron):
+ * en ese caso no se sobreescribe `flow_token` para no borrar el que ya tuviera.
+ */
+async function applyFlowPaymentStatus(
+  paymentStatus: FlowPaymentStatus,
+  token: string | null
+): Promise<ApplyFlowPaymentResult> {
   // Referencia estable de la reserva: optional.bookingId siempre es el quote_id original,
   // sin importar cuántas órdenes (50% correo, 50% página, 100%) se hayan generado.
   let optionalBookingId: string | undefined
   let optionalPaymentType: string | undefined
   if (paymentStatus.optional) {
     try {
-      const optional = JSON.parse(paymentStatus.optional)
+      // Flow devuelve `optional` como STRING JSON vía getStatus (token), pero como OBJETO ya
+      // deserializado vía getStatusByCommerceId (rescate del cron). Soportamos ambos: sin esto,
+      // JSON.parse sobre un objeto lanzaba, bookingRef caía al commerceOrder con sufijo y el
+      // rescate no encontraba la reserva (se busca por quote_id, no por commerceOrder).
+      const optional =
+        typeof paymentStatus.optional === 'string'
+          ? JSON.parse(paymentStatus.optional)
+          : paymentStatus.optional
       optionalBookingId = optional.bookingId
       optionalPaymentType = optional.paymentType
     } catch (e) {
@@ -69,6 +100,18 @@ export async function applyFlowPaymentByToken(
   const bookingData = (existing as SyncedBookingData | null) || null
   const alreadyApproved = bookingData?.payment_status === 'approved'
 
+  // Anti-retroceso: cada cotización genera VARIAS órdenes en Flow (link del correo, pago en
+  // la página, reintentos). Si una reserva ya quedó aprobada, una notificación TARDÍA de otra
+  // de esas órdenes (rechazada/anulada/pendiente) NO debe pisar el pago bueno ni devolver la
+  // reserva a 'cancelled'. Solo un nuevo 'approved' puede seguir tocándola (es idempotente).
+  if (alreadyApproved && paymentStatus.status !== 2) {
+    console.warn(
+      `[paymentSync] Ignorada notificación tardía (status=${paymentStatus.status}) sobre ` +
+        `reserva ${bookingRef} ya aprobada. No se degrada.`
+    )
+    return { paymentStatus, bookingData, bookingRef, alreadyProcessed: true }
+  }
+
   // Flow status: 1 = pending, 2 = approved, 3 = rejected, 4 = cancelled
   let paymentStatusStr = 'pending'
   if (paymentStatus.status === 2) paymentStatusStr = 'approved'
@@ -76,18 +119,23 @@ export async function applyFlowPaymentByToken(
   else if (paymentStatus.status === 4) paymentStatusStr = 'cancelled'
 
   const updateData: Record<string, any> = {
-    flow_token: token,
     flow_order: paymentStatus.flowOrder,
     payment_status: paymentStatusStr,
     payment_date: paymentStatus.paymentData?.date || new Date().toISOString(),
     payment_method: paymentStatus.paymentData?.media || 'unknown',
   }
+  // Solo guardamos el token cuando lo tenemos (webhook/retorno). En el rescate por
+  // commerceOrder es null y no debemos pisar el flow_token previo con null.
+  if (token) updateData.flow_token = token
 
   if (paymentStatus.status === 2) {
     updateData.status = 'confirmed'
     // Deja de ser provisional => ahora SÍ consume cupo de flota.
     updateData.is_provisional = false
-    if (paymentStatus.amount) updateData.total_price = paymentStatus.amount
+    // NO sobreescribir total_price: es el precio del SERVICIO (fijado al crear la reserva),
+    // no el monto pagado. paymentStatus.amount es el 50% (abono) o el 95% (pago completo con
+    // descuento); pisarlo con ese valor dejaba la reserva registrada a mitad/95% de su precio
+    // real y descuadraba la contabilidad y los PDF regenerados.
     if (optionalPaymentType) updateData.payment_type = optionalPaymentType
   } else if (paymentStatus.status === 3 || paymentStatus.status === 4) {
     updateData.status = 'cancelled'

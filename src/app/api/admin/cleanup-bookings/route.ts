@@ -1,19 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { flowService } from '@/lib/flowService'
+import { applyFlowPaymentByCommerceOrder } from '@/lib/paymentSync'
 
 // Edad mínima (en horas) de una pre-reserva provisional para considerarla abandonada.
 const PROVISIONAL_MAX_AGE_HOURS = 24
 
+interface CleanupResult {
+  deleted: number
+  rescued: number
+}
+
+/** Fecha 'YYYY-MM-DD' en zona horaria de Chile (Flow indexa los pagos por día local). */
+function chileDateStr(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+/** ¿El commerceOrder de Flow corresponde a este quote_id? (online lleva sufijo, domicilio no). */
+function orderMatchesQuote(commerceOrder: string, quoteId: string): boolean {
+  return commerceOrder === quoteId || commerceOrder.startsWith(`${quoteId}-`)
+}
+
 // Limpia SOLO pre-reservas provisionales abandonadas: nunca pagadas y con más de 24h.
-// Nunca toca reservas con pago aprobado ni reservas confirmadas/reales.
-async function runCleanup(): Promise<number> {
+// RED DE SEGURIDAD: antes de borrar, consulta Flow por los pagos de esos días. Si una
+// pre-reserva tiene en realidad un pago APROBADO (p. ej. el webhook falló y el cliente no
+// volvió por el navegador), NO se borra: se rescata aplicando el pago como lo haría el
+// webhook. Si no se puede verificar contra Flow, NO se borra nada (ante la duda, no perder
+// una reserva pagada).
+async function runCleanup(): Promise<CleanupResult> {
   const cutoff = new Date(
     Date.now() - PROVISIONAL_MAX_AGE_HOURS * 60 * 60 * 1000
   ).toISOString()
 
   const { data: stale, error: fetchError } = await supabaseAdmin
     .from('bookings')
-    .select('id')
+    .select('id, quote_id, created_at')
     .eq('is_provisional', true)
     .eq('payment_status', 'pending')
     .eq('status', 'pending')
@@ -23,11 +49,67 @@ async function runCleanup(): Promise<number> {
     throw new Error(`Error al buscar reservas: ${fetchError.message}`)
   }
 
-  if (!stale || stale.length === 0) return 0
+  if (!stale || stale.length === 0) return { deleted: 0, rescued: 0 }
 
-  const idsToDelete = stale.map((b) => b.id)
+  // Sin Flow no podemos distinguir "abandonada" de "pagada pero no sincronizada":
+  // preferimos dejar basura provisional antes que borrar una reserva realmente pagada.
+  if (!flowService.isConfigured()) {
+    console.warn('[CLEANUP] Flow no configurado: se omite el borrado por seguridad.')
+    return { deleted: 0, rescued: 0 }
+  }
 
-  // Guarda de seguridad: jamás eliminar algo con pago aprobado.
+  // Días a consultar en Flow: el de creación de cada candidata y el siguiente (el pago pudo
+  // cruzar la medianoche respecto a la creación de la pre-reserva).
+  const days = new Set<string>()
+  for (const b of stale) {
+    const created = new Date(b.created_at)
+    days.add(chileDateStr(created))
+    days.add(chileDateStr(new Date(created.getTime() + 24 * 60 * 60 * 1000)))
+  }
+
+  const approvedOrders: string[] = []
+  try {
+    for (const day of days) {
+      const payments = await flowService.getPaymentsByDate(day)
+      for (const p of payments) {
+        if (p?.status === 2 && typeof p.commerceOrder === 'string') {
+          approvedOrders.push(p.commerceOrder)
+        }
+      }
+    }
+  } catch (flowErr) {
+    console.error('[CLEANUP] No se pudo verificar contra Flow; se aborta el borrado:', flowErr)
+    return { deleted: 0, rescued: 0 }
+  }
+
+  // Separa las que tienen pago aprobado (rescatar) de las realmente abandonadas (borrar).
+  const idsToDelete: string[] = []
+  const toRescue: string[] = [] // commerceOrders aprobados que matchean una candidata
+  for (const b of stale) {
+    const paidOrder = approvedOrders.find((co) => orderMatchesQuote(co, b.quote_id))
+    if (paidOrder) toRescue.push(paidOrder)
+    else idsToDelete.push(b.id)
+  }
+
+  // Rescatar: misma fuente de verdad que el webhook (approved/confirmed, no provisional,
+  // prospecto convertido). Cada fallo se registra pero NO provoca borrado.
+  let rescued = 0
+  for (const commerceOrder of toRescue) {
+    try {
+      await applyFlowPaymentByCommerceOrder(commerceOrder)
+      rescued++
+      console.log(`[CLEANUP] Reserva rescatada desde Flow (commerceOrder=${commerceOrder}).`)
+    } catch (rescueErr) {
+      console.error(`[CLEANUP] Error rescatando ${commerceOrder}; no se borra:`, rescueErr)
+    }
+  }
+
+  if (idsToDelete.length === 0) {
+    console.log(`[CLEANUP] 0 borradas, ${rescued} rescatadas.`)
+    return { deleted: 0, rescued }
+  }
+
+  // Guarda de seguridad final: jamás eliminar algo con pago aprobado.
   const { error: deleteError } = await supabaseAdmin
     .from('bookings')
     .delete()
@@ -39,18 +121,20 @@ async function runCleanup(): Promise<number> {
     throw new Error(`Error al eliminar reservas: ${deleteError.message}`)
   }
 
-  console.log(`[CLEANUP] ${stale.length} pre-reservas provisionales abandonadas eliminadas`)
-  return stale.length
+  console.log(`[CLEANUP] ${idsToDelete.length} pre-reservas abandonadas eliminadas, ${rescued} rescatadas.`)
+  return { deleted: idsToDelete.length, rescued }
 }
 
 // Disparo manual desde el admin.
 export async function POST() {
   try {
-    const deletedCount = await runCleanup()
+    const { deleted, rescued } = await runCleanup()
     return NextResponse.json({
       success: true,
-      deletedCount,
-      message: `Limpieza completada. ${deletedCount} pre-reservas provisionales abandonadas eliminadas.`,
+      deletedCount: deleted,
+      rescuedCount: rescued,
+      message: `Limpieza completada. ${deleted} pre-reservas abandonadas eliminadas` +
+        (rescued ? `, ${rescued} rescatadas (tenían pago aprobado en Flow).` : '.'),
     })
   } catch (error) {
     console.error('[CLEANUP] Exception:', error)
@@ -73,8 +157,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const deletedCount = await runCleanup()
-    return NextResponse.json({ success: true, deletedCount })
+    const { deleted, rescued } = await runCleanup()
+    return NextResponse.json({ success: true, deletedCount: deleted, rescuedCount: rescued })
   } catch (error) {
     console.error('[CLEANUP] Exception:', error)
     return NextResponse.json(

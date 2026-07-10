@@ -28,7 +28,8 @@ export interface FlowPaymentStatus {
     currency: string
     amount: number
     payer: string
-    optional?: string
+    // getStatus (por token) lo entrega como string JSON; getStatusByCommerceId como objeto.
+    optional?: string | Record<string, any>
     pending_info?: {
         media: string
         date: string
@@ -178,6 +179,67 @@ class FlowService {
             console.error('Error getting Flow payment status:', error)
             throw error
         }
+    }
+
+    /**
+     * Obtiene el estado de un pago por su commerceOrder (sin token). Devuelve el mismo
+     * objeto que `getPaymentStatus`. Lo usa el rescate del cron.
+     */
+    async getStatusByCommerceId(commerceId: string): Promise<FlowPaymentStatus> {
+        const params = {
+            apiKey: this.apiKey,
+            commerceId,
+        }
+        const signature = this.generateSignature(params)
+        const urlParams = new URLSearchParams({ ...params, s: signature })
+
+        const response = await fetch(
+            `${this.apiUrl}/payment/getStatusByCommerceId?${urlParams.toString()}`,
+            { method: 'GET' }
+        )
+
+        if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`Flow API error (getStatusByCommerceId): ${response.status} - ${errorText}`)
+        }
+
+        return await response.json()
+    }
+
+    /**
+     * Lista los pagos de un día (formato 'YYYY-MM-DD'), siguiendo la paginación de Flow.
+     * Se usa como red de seguridad del cron de limpieza: antes de borrar una pre-reserva
+     * provisional "abandonada", comprobamos en Flow si en realidad tiene un pago aprobado.
+     */
+    async getPaymentsByDate(date: string): Promise<any[]> {
+        const all: any[] = []
+        let start = 0
+        // Tope defensivo para no iterar de más si Flow devolviera algo inesperado.
+        for (let page = 0; page < 50; page++) {
+            const params: Record<string, any> = {
+                apiKey: this.apiKey,
+                date,
+                start,
+                limit: 100,
+            }
+            params.s = this.generateSignature(params)
+            const qs = new URLSearchParams(
+                Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
+            )
+            const response = await fetch(`${this.apiUrl}/payment/getPayments?${qs.toString()}`, {
+                method: 'GET',
+            })
+            if (!response.ok) {
+                const errorText = await response.text()
+                throw new Error(`Flow API error (getPayments): ${response.status} - ${errorText}`)
+            }
+            const result = await response.json()
+            const data: any[] = Array.isArray(result?.data) ? result.data : []
+            all.push(...data)
+            if (!result?.hasMore || data.length === 0) break
+            start += data.length
+        }
+        return all
     }
 
     /**
