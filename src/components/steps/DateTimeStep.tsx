@@ -438,8 +438,9 @@ export default function DateTimeStep({ onNext, onPrevious }: DateTimeStepProps) 
           >
             ← Volver
           </Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
+            variant="brand"
             className="flex-1"
             disabled={!selectedDate || !selectedTime}
           >

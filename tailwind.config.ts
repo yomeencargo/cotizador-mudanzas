@@ -28,17 +28,21 @@ const config: Config = {
           'gray-light': '#999999', // Gris claro (variante)
           'gray-dark': '#666666', // Gris oscuro (Footer)
         },
+        // primary es TEMEABLE por variables CSS: por defecto (:root en globals.css) es el
+        // azul del logo — así el panel admin y todo lo que no esté bajo .theme-cotizador
+        // no cambia. Dentro de .theme-cotizador se sobreescriben a verde para que el
+        // cotizador comparta la identidad de la landing sin tocar el resto del sistema.
         primary: {
-          50: '#E1F0FA',        // Azul Muy Claro
-          100: '#D0E7F7',
-          200: '#B8D9F0',
-          300: '#9FCBE9',
-          400: '#87BDE2',
-          500: '#6FA8DC',       // Azul Cielo (Color Principal)
-          600: '#5A8BC4',
-          700: '#456EAC',
-          800: '#305194',
-          900: '#1B347C',
+          50: 'rgb(var(--primary-50) / <alpha-value>)',
+          100: 'rgb(var(--primary-100) / <alpha-value>)',
+          200: 'rgb(var(--primary-200) / <alpha-value>)',
+          300: 'rgb(var(--primary-300) / <alpha-value>)',
+          400: 'rgb(var(--primary-400) / <alpha-value>)',
+          500: 'rgb(var(--primary-500) / <alpha-value>)',
+          600: 'rgb(var(--primary-600) / <alpha-value>)',
+          700: 'rgb(var(--primary-700) / <alpha-value>)',
+          800: 'rgb(var(--primary-800) / <alpha-value>)',
+          900: 'rgb(var(--primary-900) / <alpha-value>)',
         },
         secondary: {
           50: '#F0F8E8',

@@ -365,7 +365,7 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
         <Button type="button" onClick={onPrevious} variant="outline" className="flex-1">
           ← Volver
         </Button>
-        <Button onClick={handleSubmit} className="flex-1">
+        <Button onClick={handleSubmit} variant="brand" className="flex-1">
           Continuar →
         </Button>
       </div>

@@ -62,14 +62,17 @@ export default function CotizadorPage() {
 
   const isWelcome = currentStep === 0
 
+  // .theme-cotizador tiñe de VERDE (identidad de la landing) todos los tokens `primary`
+  // dentro del cotizador, sin afectar el resto del sistema. El Navbar y el Footer de la
+  // landing se muestran en TODOS los pasos para que el cotizador se sienta la misma web.
   return (
-    <>
-      {isWelcome && <Navbar />}
+    <div className="theme-cotizador">
+      <Navbar />
 
-      <main className="min-h-screen">
+      <main className="min-h-screen pt-20 md:pt-24">
         {currentStep > 0 && (
-          <ProgressBar 
-            currentStep={currentStep - 1} 
+          <ProgressBar
+            currentStep={currentStep - 1}
             totalSteps={steps.length - 1}
             isCompleted={isConfirmed}
             onStepClick={(step) => {
@@ -77,8 +80,8 @@ export default function CotizadorPage() {
             }}
           />
         )}
-        
-        <div ref={mainContentRef} className={`container mx-auto px-4 py-8 ${isWelcome ? 'pt-24 md:pt-32' : ''}`}>
+
+        <div ref={mainContentRef} className="max-w-[1180px] mx-auto px-6 py-8">
           <CurrentStepComponent
             onNext={handleNext}
             onPrevious={handlePrevious}
@@ -86,37 +89,10 @@ export default function CotizadorPage() {
             currentStep={currentStep}
           />
         </div>
-
-        {!isWelcome && (
-          <footer className="bg-gray-50 border-t border-gray-200 py-6 mt-12">
-            <div className="container mx-auto px-4 text-center">
-              <p className="text-xs text-gray-500">
-                ©2025 - Crafted by{' '}
-                <a 
-                  href="https://vanlookstudio.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
-                >
-                  vanlookstudio.com
-                </a>
-                {' '}· parte del sistema por{' '}
-                <a
-                  href="https://iaenblanco.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
-                >
-                  IAenBlanco
-                </a>
-              </p>
-            </div>
-          </footer>
-        )}
       </main>
 
-      {isWelcome && <Footer />}
-    </>
+      <Footer />
+    </div>
   )
 }
 

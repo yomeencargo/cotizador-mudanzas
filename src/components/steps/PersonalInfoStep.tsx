@@ -188,7 +188,7 @@ export default function PersonalInfoStep({ onNext, onPrevious }: PersonalInfoSte
             >
               ← Volver
             </Button>
-            <Button type="submit" className="flex-1">
+            <Button type="submit" variant="brand" className="flex-1">
               Continuar →
             </Button>
           </div>

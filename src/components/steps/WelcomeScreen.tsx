@@ -16,7 +16,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
     <div className="max-w-6xl mx-auto">
       {/* Hero Section */}
       <div className="text-center mb-12 animate-fade-in">
-        <h1 className="text-5xl font-bold text-gray-900 mb-4">
+        <h1 className="text-5xl md:text-6xl font-extrabold tracking-[-0.03em] text-gray-900 mb-4">
           Cotiza tu Mudanza en <span className="text-primary-600">Minutos</span>
         </h1>
         <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
@@ -55,7 +55,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
                   🛋️ <strong>Solo marca lo que vas a mover</strong> y nuestro sistema calcula el precio exacto en segundos. ¡Sin llamadas ni esperas!
                 </p>
               </div>
-              <Button onClick={onNext} size="lg" className="w-full mt-auto">
+              <Button onClick={onNext} variant="brand" size="lg" className="w-full mt-auto">
                 Comenzar Cotización Online
               </Button>
             </div>
@@ -176,7 +176,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
             { step: 4, title: 'Obtén tu Cotización', desc: 'Recibe precio instantáneo y confirma tu reserva' },
           ].map((item) => (
             <div key={item.step} className="text-center">
-              <div className="w-12 h-12 bg-primary-600 text-white rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+              <div className="w-12 h-12 bg-primary-600 text-[rgb(var(--primary-fg))] rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 {item.step}
               </div>
               <h3 className="font-semibold mb-1">{item.title}</h3>

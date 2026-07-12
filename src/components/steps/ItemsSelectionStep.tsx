@@ -812,7 +812,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
         <Button type="button" onClick={onPrevious} variant="outline" className="flex-1">
           ← Volver
         </Button>
-        <Button onClick={handleNext} className="flex-1">
+        <Button onClick={handleNext} variant="brand" className="flex-1">
           Continuar →
         </Button>
       </div>

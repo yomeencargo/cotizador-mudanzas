@@ -1,7 +1,5 @@
 import { Check } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
 
 interface ProgressBarProps {
   currentStep: number
@@ -53,24 +51,10 @@ export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCo
   }, [currentStep])
 
   return (
-    <div className="sticky top-0 z-50 bg-white shadow-md border-b">
-      <div className="container mx-auto px-4 py-4">
-        {/* Grid con logo a la izquierda y pasos centrados */}
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
-          {/* Logo */}
-          <Link href="/" className="flex-shrink-0">
-            <Image 
-              src="/logo.png" 
-              alt="Yo Me Encargo" 
-              width={120} 
-              height={40}
-              className="h-8 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
-              priority
-            />
-          </Link>
-
-          {/* Contenedor de pasos centrado */}
-          <div className="flex items-center justify-center">
+    <div className="sticky top-[68px] md:top-[76px] z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+      <div className="max-w-[1180px] mx-auto px-6 py-3">
+        {/* Pasos centrados (el logo ya vive en el Navbar superior de la landing) */}
+        <div className="flex items-center justify-center">
             <div 
               ref={scrollContainerRef}
               className="flex items-center overflow-x-auto scrollbar-hide w-full md:w-auto"
@@ -98,9 +82,9 @@ export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCo
                           transition-all duration-300 ease-in-out
                           ${
                             isCompleted
-                              ? 'bg-primary-600 text-white hover:bg-primary-700'
+                              ? 'bg-primary-600 text-[rgb(var(--primary-fg))] hover:bg-primary-700'
                               : isCurrent
-                              ? 'bg-primary-600 text-white'
+                              ? 'bg-primary-600 text-[rgb(var(--primary-fg))]'
                               : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                           }
                           ${onStepClick ? 'cursor-pointer' : 'cursor-default'}
@@ -156,10 +140,6 @@ export default function ProgressBar({ currentStep, totalSteps, onStepClick, isCo
             </div>
           </div>
 
-          {/* Espacio vacío para balance (oculto en móvil) */}
-          <div className="hidden md:block w-[120px]"></div>
-        </div>
-        
         {/* Progress Percentage */}
         <div className="text-center mt-3">
           <span className="text-xs text-gray-500">
