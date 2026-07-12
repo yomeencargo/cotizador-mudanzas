@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import { useQuoteStore } from '@/store/quoteStore'
-import { formatDate, formatTime, formatCurrency, formatDistanceKm } from './utils'
+import { formatDate, formatTime, formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
 
 type QuotePdfOptions = {
   /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
@@ -575,8 +575,9 @@ export const generateBookingPDF = async (
     if (origin.details) {
       pdf.text(`Tipo: ${origin.details.propertyType} | Piso: ${origin.details.floor} | Ascensor: ${origin.details.hasElevator ? 'Si' : 'No'}`, 20, yPosition)
       yPosition += 6
-      if (origin.details.parkingDistance > 0) {
-        pdf.text(`Distancia al estacionamiento: ${origin.details.parkingDistance}m`, 20, yPosition)
+      const originParking = formatParkingDistance(origin.details.parkingDistance)
+      if (originParking) {
+        pdf.text(`Acarreo estacionamiento a puerta: ${originParking}`, 20, yPosition)
         yPosition += 6
       }
     }
@@ -601,8 +602,9 @@ export const generateBookingPDF = async (
     if (destination.details) {
       pdf.text(`Tipo: ${destination.details.propertyType} | Piso: ${destination.details.floor} | Ascensor: ${destination.details.hasElevator ? 'Si' : 'No'}`, 20, yPosition)
       yPosition += 6
-      if (destination.details.parkingDistance > 0) {
-        pdf.text(`Distancia al estacionamiento: ${destination.details.parkingDistance}m`, 20, yPosition)
+      const destinationParking = formatParkingDistance(destination.details.parkingDistance)
+      if (destinationParking) {
+        pdf.text(`Acarreo estacionamiento a puerta: ${destinationParking}`, 20, yPosition)
         yPosition += 6
       }
     }

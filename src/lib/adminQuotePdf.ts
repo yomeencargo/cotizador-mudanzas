@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf'
-import { formatCurrency, formatDistanceKm } from './utils'
+import { formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
 
 /**
  * Generador de PDF para el panel admin, alimentado por DATOS (no por el store).
@@ -22,8 +22,10 @@ export interface AdminQuoteData {
   destinationAddress?: string | null
   originFloor?: number | null
   originHasElevator?: boolean | null
+  originParkingDistance?: number | null
   destinationFloor?: number | null
   destinationHasElevator?: boolean | null
+  destinationParkingDistance?: number | null
   scheduledDate?: string | null
   scheduledTime?: string | null
   totalPrice?: number | null
@@ -207,6 +209,11 @@ export async function generateAdminQuotePDF(
     pdf.text(`  ${originFloorTxt}`, 20, y); y += 6
     if (data.originHasElevator === false) { pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TEXT) }
   }
+  const originParkingTxt = formatParkingDistance(data.originParkingDistance)
+  if (originParkingTxt) {
+    ensureSpace(6)
+    pdf.text(`  Acarreo estacionamiento a puerta: ${originParkingTxt}`, 20, y); y += 6
+  }
   const destLines = pdf.splitTextToSize(`Destino: ${data.destinationAddress || 'No especificada'}`, pageWidth - 40)
   destLines.forEach((l: string) => { ensureSpace(6); pdf.text(l, 20, y); y += 6 })
   const destFloorTxt = floorInfo(data.destinationFloor, data.destinationHasElevator)
@@ -215,6 +222,11 @@ export async function generateAdminQuotePDF(
     if (data.destinationHasElevator === false) { pdf.setFont('helvetica', 'bold'); pdf.setTextColor(220, 38, 38) }
     pdf.text(`  ${destFloorTxt}`, 20, y); y += 6
     if (data.destinationHasElevator === false) { pdf.setFont('helvetica', 'normal'); pdf.setTextColor(...TEXT) }
+  }
+  const destParkingTxt = formatParkingDistance(data.destinationParkingDistance)
+  if (destParkingTxt) {
+    ensureSpace(6)
+    pdf.text(`  Acarreo estacionamiento a puerta: ${destParkingTxt}`, 20, y); y += 6
   }
   if (typeof data.totalDistance === 'number' && data.totalDistance > 0) {
     pdf.text(`Distancia puerta a puerta: ${formatDistanceKm(data.totalDistance)}`, 20, y); y += 6

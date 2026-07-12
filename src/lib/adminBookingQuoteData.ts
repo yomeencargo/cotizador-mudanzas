@@ -23,8 +23,10 @@ export interface BookingQuoteDetails {
   total_distance?: number | string | null
   origin_floor?: number | null
   origin_has_elevator?: boolean | null
+  origin_parking_distance?: number | null
   destination_floor?: number | null
   destination_has_elevator?: boolean | null
+  destination_parking_distance?: number | null
   items_summary?: unknown
   additional_services?: unknown
 }
@@ -49,8 +51,10 @@ export interface AdminBookingQuoteSource {
   visit_address?: string | null
   origin_floor?: number | null
   origin_has_elevator?: boolean | null
+  origin_parking_distance?: number | null
   destination_floor?: number | null
   destination_has_elevator?: boolean | null
+  destination_parking_distance?: number | null
   scheduled_date?: string | null
   scheduled_time?: string | null
   total_price?: number | string | null
@@ -168,8 +172,10 @@ function pickQuoteDetails(prospect?: BookingQuoteDetails): Partial<AdminBookingQ
   if (prospect.total_distance !== undefined && prospect.total_distance !== null) details.total_distance = prospect.total_distance
   if (prospect.origin_floor !== undefined && prospect.origin_floor !== null) details.origin_floor = prospect.origin_floor
   if (prospect.origin_has_elevator !== undefined && prospect.origin_has_elevator !== null) details.origin_has_elevator = prospect.origin_has_elevator
+  if (prospect.origin_parking_distance !== undefined && prospect.origin_parking_distance !== null) details.origin_parking_distance = prospect.origin_parking_distance
   if (prospect.destination_floor !== undefined && prospect.destination_floor !== null) details.destination_floor = prospect.destination_floor
   if (prospect.destination_has_elevator !== undefined && prospect.destination_has_elevator !== null) details.destination_has_elevator = prospect.destination_has_elevator
+  if (prospect.destination_parking_distance !== undefined && prospect.destination_parking_distance !== null) details.destination_parking_distance = prospect.destination_parking_distance
   if (prospect.items_summary !== undefined && prospect.items_summary !== null) details.items_summary = prospect.items_summary
   if (prospect.additional_services !== undefined && prospect.additional_services !== null) {
     details.additional_services = prospect.additional_services
@@ -234,8 +240,10 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     destinationAddress: booking.destination_address,
     originFloor: booking.origin_floor ?? undefined,
     originHasElevator: booking.origin_has_elevator ?? undefined,
+    originParkingDistance: booking.origin_parking_distance ?? undefined,
     destinationFloor: booking.destination_floor ?? undefined,
     destinationHasElevator: booking.destination_has_elevator ?? undefined,
+    destinationParkingDistance: booking.destination_parking_distance ?? undefined,
     scheduledDate: booking.scheduled_date,
     scheduledTime: booking.scheduled_time,
     totalPrice: toNumber(booking.total_price),

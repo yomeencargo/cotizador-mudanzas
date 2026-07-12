@@ -25,6 +25,7 @@ export interface QuoteAddresses {
 export interface QuotePropertyDetail {
   floor?: number | null
   hasElevator?: boolean | null
+  parkingDistance?: number | null
 }
 
 export interface QuotePropertyDetails {
@@ -108,8 +109,10 @@ export async function ensureProvisionalBooking(
           destination_address: addresses?.destination || null,
           origin_floor: propertyDetails?.origin?.floor ?? null,
           origin_has_elevator: propertyDetails?.origin?.hasElevator ?? null,
+          origin_parking_distance: propertyDetails?.origin?.parkingDistance ?? null,
           destination_floor: propertyDetails?.destination?.floor ?? null,
           destination_has_elevator: propertyDetails?.destination?.hasElevator ?? null,
+          destination_parking_distance: propertyDetails?.destination?.parkingDistance ?? null,
         })
         .eq('id', existing.id)
       if (refreshError) {
@@ -173,8 +176,10 @@ export async function ensureProvisionalBooking(
       destination_address: addresses?.destination || null,
       origin_floor: propertyDetails?.origin?.floor ?? null,
       origin_has_elevator: propertyDetails?.origin?.hasElevator ?? null,
+      origin_parking_distance: propertyDetails?.origin?.parkingDistance ?? null,
       destination_floor: propertyDetails?.destination?.floor ?? null,
       destination_has_elevator: propertyDetails?.destination?.hasElevator ?? null,
+      destination_parking_distance: propertyDetails?.destination?.parkingDistance ?? null,
       is_company: isCompany,
       company_name: isCompany ? client.companyName || null : null,
       company_rut: isCompany ? client.companyRut || null : null,

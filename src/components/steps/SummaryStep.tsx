@@ -138,14 +138,23 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
       origin: buildAddress(origin),
       destination: buildAddress(destination),
     },
-    // Piso y ascensor de origen/destino: se usan para calcular el precio pero antes se
-    // perdían al guardar — nunca llegaban a la reserva ni a la Orden de Trabajo.
+    // Piso, ascensor y distancia estacionamiento->puerta de origen/destino: se capturan
+    // en el cotizador pero antes se perdían al guardar — nunca llegaban a la reserva ni a
+    // la Orden de Trabajo que reciben los trabajadores.
     propertyDetails: {
       origin: origin.details
-        ? { floor: origin.details.floor, hasElevator: origin.details.hasElevator }
+        ? {
+            floor: origin.details.floor,
+            hasElevator: origin.details.hasElevator,
+            parkingDistance: origin.details.parkingDistance,
+          }
         : null,
       destination: destination.details
-        ? { floor: destination.details.floor, hasElevator: destination.details.hasElevator }
+        ? {
+            floor: destination.details.floor,
+            hasElevator: destination.details.hasElevator,
+            parkingDistance: destination.details.parkingDistance,
+          }
         : null,
     },
     estimatedPrice,
@@ -180,8 +189,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           destination_address: destinationFull,
           origin_floor: origin.details?.floor ?? null,
           origin_has_elevator: origin.details?.hasElevator ?? null,
+          origin_parking_distance: origin.details?.parkingDistance ?? null,
           destination_floor: destination.details?.floor ?? null,
           destination_has_elevator: destination.details?.hasElevator ?? null,
+          destination_parking_distance: destination.details?.parkingDistance ?? null,
           scheduled_date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
           scheduled_time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
           total_price: estimatedPrice,

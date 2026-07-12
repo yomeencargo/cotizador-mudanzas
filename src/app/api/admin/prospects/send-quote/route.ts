@@ -87,8 +87,16 @@ export async function POST(request: NextRequest) {
       destination: prospect.destination_address || undefined,
     }
     const propertyDetails = {
-      origin: { floor: prospect.origin_floor, hasElevator: prospect.origin_has_elevator },
-      destination: { floor: prospect.destination_floor, hasElevator: prospect.destination_has_elevator },
+      origin: {
+        floor: prospect.origin_floor,
+        hasElevator: prospect.origin_has_elevator,
+        parkingDistance: prospect.origin_parking_distance,
+      },
+      destination: {
+        floor: prospect.destination_floor,
+        hasElevator: prospect.destination_has_elevator,
+        parkingDistance: prospect.destination_parking_distance,
+      },
     }
 
     // 2) Pre-reserva idempotente + actualizar precio al ajustado

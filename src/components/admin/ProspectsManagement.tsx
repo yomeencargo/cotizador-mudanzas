@@ -55,8 +55,10 @@ interface Prospect {
   destination_address?: string
   origin_floor?: number | null
   origin_has_elevator?: boolean | null
+  origin_parking_distance?: number | null
   destination_floor?: number | null
   destination_has_elevator?: boolean | null
+  destination_parking_distance?: number | null
   visit_address?: string
   scheduled_date?: string
   scheduled_time?: string
@@ -94,8 +96,10 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
     destinationAddress: p.destination_address,
     originFloor: p.origin_floor,
     originHasElevator: p.origin_has_elevator,
+    originParkingDistance: p.origin_parking_distance,
     destinationFloor: p.destination_floor,
     destinationHasElevator: p.destination_has_elevator,
+    destinationParkingDistance: p.destination_parking_distance,
     scheduledDate: p.scheduled_date,
     scheduledTime: p.scheduled_time,
     totalPrice: p.adjusted_price ?? p.total_price,

@@ -37,6 +37,20 @@ export function formatDistanceKm(km: number): string {
   return `${km.toFixed(1)} km`
 }
 
+/**
+ * Convierte la "distancia del estacionamiento a la puerta" (valor representativo del
+ * cotizador: 0, 20, 40, 60) a un rango legible para los PDF. Es cuánto tienen que
+ * acarrear los trabajadores entre el camión y la puerta, así que interesa el rango,
+ * no un número exacto. Devuelve null cuando es 0/sin dato ("en la puerta", sin acarreo
+ * extra) para no ensuciar el PDF con la información irrelevante del caso normal.
+ */
+export function formatParkingDistance(value?: number | null): string | null {
+  if (typeof value !== 'number' || value <= 0) return null
+  if (value <= 20) return 'menos de 20 m'
+  if (value <= 40) return 'entre 20 y 40 m'
+  return 'más de 40 m'
+}
+
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 9)
 }
