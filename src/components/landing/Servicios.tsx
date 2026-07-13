@@ -61,7 +61,7 @@ export default function Servicios() {
               transition={{ duration: 0.5, delay: i * 0.08 }}
             >
               <Link
-                href="/cotizador"
+                href="/cotizador?start=online"
                 className="block h-full p-10 border-b border-r border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors group relative"
               >
                 <div className="font-archivo font-black text-[18px] text-[#6B7280] tracking-[0.02em]">

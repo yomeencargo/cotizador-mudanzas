@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, MessageCircle, Check } from 'lucide-react'
+import { ArrowRight, Home, Check } from 'lucide-react'
 import { trackEvent } from '@/lib/tracking'
 import LogisticsPaths from './LogisticsPaths'
 
@@ -53,7 +53,7 @@ export default function Hero() {
             {/* CTAs */}
             <div className="mt-9 flex flex-col sm:flex-row sm:items-center gap-3.5">
               <Link
-                href="/cotizador"
+                href="/cotizador?start=online"
                 onClick={() => trackEvent('Click', { element: 'hero_cta', location: 'hero' })}
                 className="inline-flex items-center justify-center gap-2.5 px-7 bg-[#8CC63F] hover:bg-[#6FA52E] text-[#0E1A05] font-bold rounded-xl shadow-[0_8px_24px_-8px_rgba(140,198,63,0.7)] transition-all group"
                 style={{ height: '58px', fontSize: '18px' }}
@@ -62,17 +62,18 @@ export default function Hero() {
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </Link>
 
-              <a
-                href="https://wa.me/56954390267?text=Hola,%20necesito%20información%20sobre%20sus%20servicios"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'hero' })}
+              {/* Va directo a /domicilio (no a la página base del cotizador): así cada CTA
+                  lleva a su modalidad en un solo clic. El único CTA que abre la página base
+                  del cotizador (con el selector Online/Domicilio) es el del Navbar. */}
+              <Link
+                href="/domicilio"
+                onClick={() => trackEvent('Click', { element: 'hero_cta_domicilio', location: 'hero' })}
                 className="inline-flex items-center justify-center gap-2.5 px-6 bg-white hover:bg-[#F9FAFB] text-[#101828] font-bold rounded-xl border border-[#D0D5DD] hover:border-[#98A2B3] transition-colors"
                 style={{ height: '58px', fontSize: '17px' }}
               >
-                <MessageCircle size={20} style={{ color: '#25D366' }} />
-                WhatsApp
-              </a>
+                <Home size={20} style={{ color: '#2C5282' }} />
+                Cotizar a domicilio
+              </Link>
             </div>
 
             {/* Benefits — compact row */}

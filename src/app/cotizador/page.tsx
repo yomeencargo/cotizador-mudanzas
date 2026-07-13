@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { Suspense, useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import WelcomeScreen from '@/components/steps/WelcomeScreen'
 import PersonalInfoStep from '@/components/steps/PersonalInfoStep'
 import DateTimeStep from '@/components/steps/DateTimeStep'
@@ -25,8 +26,15 @@ const steps = [
   { id: 7, name: 'Resumen', component: SummaryStep },
 ]
 
-export default function CotizadorPage() {
-  const [currentStep, setCurrentStep] = useState(0)
+function CotizadorPageInner() {
+  const searchParams = useSearchParams()
+  // Los CTA de la home que ya dicen "online" (Hero, CtaFinal, Servicios) enlazan a
+  // /cotizador?start=online para saltar directo al paso 1 y evitar el selector de
+  // modalidad (Bienvenida). Solo el CTA del Navbar ("Cotizar Ahora", sin este parámetro)
+  // debe mostrar el selector Online/Domicilio.
+  const [currentStep, setCurrentStep] = useState(() =>
+    searchParams.get('start') === 'online' ? 1 : 0
+  )
   const { resetQuote, isConfirmed } = useQuoteStore()
   const mainContentRef = useRef<HTMLDivElement>(null)
 
@@ -93,6 +101,14 @@ export default function CotizadorPage() {
 
       <Footer />
     </div>
+  )
+}
+
+export default function CotizadorPage() {
+  return (
+    <Suspense fallback={null}>
+      <CotizadorPageInner />
+    </Suspense>
   )
 }
 

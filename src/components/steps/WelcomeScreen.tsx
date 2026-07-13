@@ -93,7 +93,7 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
               <Button
                 onClick={() => router.push('/domicilio')}
                 size="lg"
-                className="w-full mt-auto bg-secondary-600 hover:bg-secondary-700"
+                className="w-full mt-auto bg-[#2C5282] hover:bg-[#1E3A5F]"
               >
                 Solicitar Visita a Domicilio
               </Button>

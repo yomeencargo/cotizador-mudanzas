@@ -38,7 +38,7 @@ export default function CtaFinal() {
           className="mt-10 flex justify-center flex-wrap gap-4"
         >
           <Link
-            href="/cotizador"
+            href="/cotizador?start=online"
             onClick={() => trackEvent('Click', { element: 'cta_final', location: 'cta_section' })}
             className="inline-flex items-center gap-2.5 h-[56px] px-7 bg-[#8CC63F] hover:bg-[#6FA52E] text-[#0E1A05] font-bold text-[18px] rounded-xl transition-colors group"
           >
