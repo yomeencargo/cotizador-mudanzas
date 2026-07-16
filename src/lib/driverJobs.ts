@@ -3,6 +3,13 @@ import { supabaseAdmin } from '@/lib/supabase'
 // Datos para el panel público de choferes: SIN precios. Nunca seleccionamos
 // total_price / original_price aquí para que no puedan filtrarse al link público.
 
+// "Hoy" en hora de Chile: el server (Vercel) corre en UTC, así que un new Date() naive
+// puede caer en el día siguiente durante la noche chilena (mismo criterio que
+// /api/admin/today-bookings).
+function chileTodayString(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(new Date())
+}
+
 export interface DriverJobItem {
   name: string
   quantity: number
@@ -35,15 +42,19 @@ export async function getDriverAccessToken(): Promise<string | null> {
 }
 
 export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = chileTodayString()
 
+  // Mismo criterio que el dashboard admin ("Reservas de Hoy/Mañana"): no restringir
+  // por status confirmed/pending, porque una reserva de hoy puede ya estar marcada
+  // 'completed' en el sistema (pago aprobado) y sigue siendo un trabajo real que el
+  // chofer necesita ver. Solo excluimos canceladas / no atendidas.
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
     .select(
       'id, quote_id, scheduled_date, scheduled_time, client_name, client_phone, booking_type, visit_address, origin_address, origin_floor, origin_has_elevator, origin_parking_distance, destination_address, destination_floor, destination_has_elevator, destination_parking_distance, notes, is_provisional, status'
     )
     .gte('scheduled_date', today)
-    .in('status', ['confirmed', 'pending'])
+    .not('status', 'in', '(cancelled,no_show)')
     .order('scheduled_date', { ascending: true })
     .order('scheduled_time', { ascending: true })
 

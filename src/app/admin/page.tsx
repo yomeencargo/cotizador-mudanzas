@@ -370,9 +370,6 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            {/* Gráficos analíticos (mensual) */}
-            <DashboardCharts />
-
             {/* Reservas de Hoy */}
             {renderBookingSection(
               `Reservas de Hoy (${format(new Date(), 'dd/MM/yyyy', { locale: es })})`,
@@ -412,6 +409,9 @@ export default function AdminDashboard() {
                 </div>
               )}
             </Card>
+
+            {/* Gráficos analíticos (mensual) — debajo de lo operativo (hoy/mañana/semana) */}
+            <DashboardCharts />
 
             {/* Quick Actions */}
             <Card className="p-6">

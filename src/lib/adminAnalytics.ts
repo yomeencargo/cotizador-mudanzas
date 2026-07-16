@@ -41,6 +41,16 @@ export interface BookingLike {
   is_company?: boolean | null
   company_name?: string | null
   company_rut?: string | null
+  payment_status?: string | null
+  payment_type?: string | null
+}
+
+// Un booking cuenta como "cliente atendido" si el servicio se marcó completado,
+// o si ya pagó el 100% (aunque el admin no haya movido el estado a 'completed').
+export function isAttendedBooking(b: BookingLike): boolean {
+  if (b.status === 'cancelled') return false
+  if (b.status === 'completed') return true
+  return b.payment_status === 'approved' && b.payment_type === 'completo'
 }
 
 export interface ProspectLike {
@@ -173,7 +183,7 @@ export function aggregateAttendedCustomers(bookings: BookingLike[]): AttendedCus
   }>()
 
   for (const booking of bookings) {
-    if (booking.status !== 'completed') continue
+    if (!isAttendedBooking(booking)) continue
 
     const email = (booking.client_email || '').trim().toLowerCase()
     
