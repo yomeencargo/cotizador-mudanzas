@@ -8,7 +8,16 @@ Basado en exploración del código al 2026-07-16 (HEAD `aaf1f33`). 8 pedidos + 1
   - **1 paso manual obligatorio:** aplicar `database/migrations/add_fleet_vehicles.sql` en Supabase prod. Sin esa columna, el toggle de mantenimiento no persiste (el resto degrada a `num_vehicles`, sin romperse).
   - **Env opcional:** `ADMIN_SESSION_SECRET` para firmar la sesión; si falta, se deriva de `ADMIN_PASSWORD`.
   - **Efecto en deploy:** el admin logueado se redirige a login una vez (la cookie vieja `'true'` deja de ser válida).
-- **Fases 2, 3, 4 — pendientes** (ver abajo).
+- **Fase 2 — HECHA** (2026-07-16, sin commit). Build OK. Cubre pedidos 6 (cambios masivos) y 4 (empresa/persona visible).
+  - Selección múltiple (checkbox por fila + "seleccionar todo") con barra de acciones en Leads (Contactado / Sin respuesta / Perdido) y Reservas (Confirmado / Completado / No atendido / Cancelado). Aplica vía los endpoints PATCH existentes (loop `Promise.allSettled`, un toast con conteo ok/error). Sin endpoint nuevo ni migración.
+  - Badge Empresa/Persona en ambas listas (RUT/razón social en tooltip), filtro "Tipo de cliente", y columnas Tipo/Razón social/RUT en ambos CSV. El dato `is_company` ya existía; no se adivina por email.
+  - Nota: fragmento inicial de `clientTypeFilter` en Leads lo dejó el intern de LM Studio; el resto (UI, badges, bulk, bookings) se completó directo (el intern no converge en edición multi-paso sobre TSX grandes → descartado por regla del 70%).
+- **Fase 3 — HECHA** (2026-07-16, sin commit). Build OK. Cubre pedidos 5 (gráficos dashboard) y 7 (clientes atendidos).
+  - Dashboard con gráficos (recharts): reservas+ingresos por mes (últimos 6, ComposedChart), leads por origen, embudo Leads→Reservas→Completadas. Endpoint `/api/admin/analytics`.
+  - Sección "Clientes Atendidos" (nueva tab): cartera desde reservas `completed` agrupadas por email (nº mudanzas, primera/última, total gastado, empresa/persona, frecuente), buscador y export CSV. Endpoint `/api/admin/customers/attended`.
+  - `occupancyRate` del dashboard ya no es `6*30` hardcodeado: usa vehículos activos × franjas configuradas × días del mes.
+  - Helpers puros `src/lib/adminAnalytics.ts` los generó el intern de LM Studio (qwen3-coder-30b) en una sola escritura — buen encaje esta vez. Le corregí 2 bugs de lógica (identidad del cliente no tomaba el booking más reciente; source vacío sin label) + tipos.
+- **Fase 4 — pendiente** (link choferes con token + WhatsApp; ver abajo).
 
 ## Hallazgos clave (cambian el enfoque de varios pedidos)
 

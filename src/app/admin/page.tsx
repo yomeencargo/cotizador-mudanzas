@@ -11,6 +11,8 @@ import PricingConfiguration from '@/components/admin/PricingConfiguration'
 import ScheduleConfiguration from '@/components/admin/ScheduleConfiguration'
 import ItemsManagement from '@/components/admin/ItemsManagement'
 import ProspectsManagement from '@/components/admin/ProspectsManagement'
+import DashboardCharts from '@/components/admin/DashboardCharts'
+import AttendedCustomers from '@/components/admin/AttendedCustomers'
 import { 
   Calendar, 
   Truck, 
@@ -116,6 +118,7 @@ export default function AdminDashboard() {
     { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
     { id: 'bookings', name: 'Reservas', icon: Calendar },
     { id: 'prospects', name: 'Prospectos', icon: UserPlus },
+    { id: 'customers', name: 'Clientes', icon: Users },
     { id: 'fleet', name: 'Flota', icon: Truck },
     { id: 'schedule', name: 'Horarios', icon: Clock },
     { id: 'settings', name: 'Configuración', icon: Settings },
@@ -366,6 +369,9 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
+            {/* Gráficos analíticos (mensual) */}
+            <DashboardCharts />
+
             {/* Reservas de Hoy */}
             {renderBookingSection(
               `Reservas de Hoy (${format(new Date(), 'dd/MM/yyyy', { locale: es })})`,
@@ -438,6 +444,8 @@ export default function AdminDashboard() {
 
         {/* Prospects Tab */}
         {activeTab === 'prospects' && <ProspectsManagement />}
+
+        {activeTab === 'customers' && <AttendedCustomers />}
 
         {/* Fleet Tab */}
         {activeTab === 'fleet' && <FleetManagement />}

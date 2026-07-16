@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActiveCapacity } from '@/lib/fleetCapacity'
 
 // Lee datos en vivo: no debe prerenderizarse/cachearse en build.
 export const dynamic = 'force-dynamic'
@@ -37,7 +38,7 @@ export async function GET() {
     // 3. Configuración de flota
     const { data: fleetConfig, error: fleetError } = await supabaseAdmin
       .from('fleet_config')
-      .select('num_vehicles')
+      .select('*')
       .single()
 
     if (fleetError) {
@@ -62,10 +63,24 @@ export async function GET() {
       return sum + (typeof price === 'number' ? price : 0)
     }, 0) || 0
 
-    // 5. Calcular ocupación promedio (simulado)
-    const totalSlots = 6 * 30 // 6 horarios por día * 30 días
+    // 5. Ocupación del mes = reservas del mes / cupos reales.
+    //    Cupos = vehículos ACTIVOS * franjas horarias configuradas * días del mes
+    //    (antes era un 6*30 hardcodeado que ignoraba flota y horarios reales).
+    const { data: scheduleConfig } = await supabaseAdmin
+      .from('schedule_config')
+      .select('time_slots')
+      .single()
+
+    const slotsPerDay = Array.isArray(scheduleConfig?.time_slots)
+      ? scheduleConfig!.time_slots.length
+      : 6
+    const activeVehicles = getActiveCapacity(fleetConfig)
+    const now = new Date()
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+
+    const totalSlots = Math.max(1, activeVehicles * slotsPerDay * daysInMonth)
     const occupiedSlots = monthlyBookings?.length || 0
-    const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0
+    const occupancyRate = Math.min(100, Math.round((occupiedSlots / totalSlots) * 100))
 
     // 6. Ticket promedio
     const averageTicket = occupiedSlots > 0 ? Math.round(monthlyRevenue / occupiedSlots) : 0
