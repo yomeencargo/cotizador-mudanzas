@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActiveCapacity } from '@/lib/fleetCapacity'
 
 // Marcar esta ruta como dinámica porque usa searchParams
 export const dynamic = 'force-dynamic'
@@ -15,10 +16,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 1. Obtener capacidad de vehículos
+    // 1. Obtener capacidad de vehículos (vehículos activos, no total).
+    // select('*') para ser resiliente si la columna `vehicles` aún no existe
+    // (migración add_fleet_vehicles.sql no aplicada todavía).
     const { data: configData, error: configError } = await supabaseAdmin
       .from('fleet_config')
-      .select('num_vehicles')
+      .select('*')
       .single()
 
     if (configError) {
@@ -36,7 +39,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const capacity = configData.num_vehicles
+    const capacity = getActiveCapacity(configData)
 
     // 2. Obtener horarios configurados desde schedule_config
     const { data: scheduleConfig, error: scheduleError } = await supabaseAdmin

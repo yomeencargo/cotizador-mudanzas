@@ -4,22 +4,42 @@ import { useState, useEffect } from 'react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { Truck, Plus, Minus, Save, AlertCircle, CheckCircle } from 'lucide-react'
+import { Truck, Plus, Minus, AlertCircle, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface FleetConfig {
   id: string
   num_vehicles: number
+  vehicles?: Vehicle[]
   updated_at: string
 }
+
+type VehicleStatus = 'active' | 'maintenance'
 
 interface Vehicle {
   id: number
   name: string
   capacity: number
-  status: 'active' | 'maintenance' | 'inactive'
+  status: VehicleStatus
   driver?: string
   phone?: string
+}
+
+// Vehículos por defecto derivados de num_vehicles, usados solo cuando la BD aún no
+// tiene la lista materializada (antes de aplicar la migración add_fleet_vehicles.sql).
+function buildDefaultVehicles(count: number): Vehicle[] {
+  return Array.from({ length: Math.max(count, 1) }, (_, i) => ({
+    id: i + 1,
+    name: `Camión ${i + 1}`,
+    capacity: 1,
+    status: 'active' as const,
+    driver: '',
+    phone: ''
+  }))
+}
+
+function nextVehicleId(vehicles: Vehicle[]): number {
+  return vehicles.reduce((max, v) => Math.max(max, v.id), 0) + 1
 }
 
 export default function FleetManagement() {
@@ -42,28 +62,60 @@ export default function FleetManagement() {
   const fetchFleetData = async () => {
     try {
       setLoading(true)
-      
-      // Obtener configuración de flota
+
       const configResponse = await fetch('/api/admin/fleet-config')
       const configData = await configResponse.json()
       setFleetConfig(configData)
 
-      // Obtener vehículos (simulado por ahora)
-      const mockVehicles: Vehicle[] = Array.from({ length: configData.num_vehicles }, (_, i) => ({
-        id: i + 1,
-        name: `Camión ${i + 1}`,
-        capacity: 1,
-        status: 'active' as const,
-        driver: `Conductor ${i + 1}`,
-        phone: `+5691234567${i}`
-      }))
-      setVehicles(mockVehicles)
-
+      // Usar los vehículos persistidos; si no existen, derivarlos de num_vehicles.
+      const persisted: Vehicle[] = Array.isArray(configData?.vehicles)
+        ? configData.vehicles
+        : []
+      setVehicles(
+        persisted.length > 0
+          ? persisted
+          : buildDefaultVehicles(configData?.num_vehicles || 1)
+      )
     } catch (error) {
       console.error('Error fetching fleet data:', error)
       toast.error('Error al cargar la configuración de flota')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Persiste la lista completa de vehículos en la BD y sincroniza el estado local.
+  // Hace update optimista y revierte si el servidor falla.
+  const persistVehicles = async (next: Vehicle[], successMsg?: string) => {
+    const previous = vehicles
+    setVehicles(next)
+    setSaving(true)
+    try {
+      const response = await fetch('/api/admin/fleet-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicles: next })
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar la flota')
+      }
+
+      const updatedConfig = await response.json()
+      const config = updatedConfig?.config ?? updatedConfig
+      setFleetConfig(config)
+      if (Array.isArray(config?.vehicles)) {
+        setVehicles(config.vehicles)
+      }
+      if (successMsg) toast.success(successMsg)
+      return true
+    } catch (error) {
+      console.error('Error persisting vehicles:', error)
+      setVehicles(previous)
+      toast.error('No se pudo guardar el cambio de flota')
+      return false
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -73,42 +125,23 @@ export default function FleetManagement() {
       return
     }
 
-    try {
-      setSaving(true)
-      const response = await fetch('/api/admin/fleet-config', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_vehicles: newSize })
-      })
-
-      if (!response.ok) {
-        throw new Error('Error al actualizar la configuración')
-      }
-
-      const updatedConfig = await response.json()
-      setFleetConfig(updatedConfig)
-
-      // Actualizar lista de vehículos
-      const updatedVehicles = Array.from({ length: newSize }, (_, i) => {
-        const existingVehicle = vehicles[i]
-        return existingVehicle || {
-          id: i + 1,
-          name: `Camión ${i + 1}`,
-          capacity: 1,
-          status: 'active' as const,
-          driver: `Conductor ${i + 1}`,
-          phone: `+5691234567${i}`
-        }
-      })
-      setVehicles(updatedVehicles)
-
-      toast.success('Configuración de flota actualizada')
-    } catch (error) {
-      console.error('Error updating fleet config:', error)
-      toast.error('Error al actualizar la configuración')
-    } finally {
-      setSaving(false)
+    let next: Vehicle[]
+    if (newSize > vehicles.length) {
+      const toAdd = newSize - vehicles.length
+      const additions = Array.from({ length: toAdd }, (_, i) => ({
+        id: nextVehicleId(vehicles) + i,
+        name: `Camión ${vehicles.length + i + 1}`,
+        capacity: 1,
+        status: 'active' as const,
+        driver: '',
+        phone: ''
+      }))
+      next = [...vehicles, ...additions]
+    } else {
+      next = vehicles.slice(0, newSize)
     }
+
+    await persistVehicles(next, 'Tamaño de la flota actualizado')
   }
 
   const addVehicle = async () => {
@@ -117,37 +150,22 @@ export default function FleetManagement() {
       return
     }
 
-    // Actualizar la configuración de flota en la BD
-    const newFleetSize = vehicles.length + 1
-    try {
-      const response = await fetch('/api/admin/fleet-config', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_vehicles: newFleetSize })
-      })
+    const vehicle: Vehicle = {
+      id: nextVehicleId(vehicles),
+      name: newVehicle.name.trim(),
+      capacity: newVehicle.capacity,
+      status: 'active',
+      driver: newVehicle.driver,
+      phone: newVehicle.phone
+    }
 
-      if (!response.ok) {
-        throw new Error('Error al actualizar la configuración')
-      }
-
-      // Actualizar estado local
-      const vehicle: Vehicle = {
-        id: vehicles.length + 1,
-        name: newVehicle.name,
-        capacity: newVehicle.capacity,
-        status: 'active',
-        driver: newVehicle.driver,
-        phone: newVehicle.phone
-      }
-
-      setVehicles([...vehicles, vehicle])
-      setFleetConfig(prev => prev ? { ...prev, num_vehicles: newFleetSize } : null)
+    const ok = await persistVehicles(
+      [...vehicles, vehicle],
+      'Vehículo agregado'
+    )
+    if (ok) {
       setNewVehicle({ name: '', capacity: 1, driver: '', phone: '' })
       setShowAddVehicle(false)
-      toast.success('Vehículo agregado y configuración actualizada')
-    } catch (error) {
-      console.error('Error adding vehicle:', error)
-      toast.error('Error al agregar el vehículo')
     }
   }
 
@@ -156,52 +174,47 @@ export default function FleetManagement() {
       toast.error('Debe tener al menos 1 vehículo')
       return
     }
-
-    const newFleetSize = vehicles.length - 1
-    try {
-      const response = await fetch('/api/admin/fleet-config', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_vehicles: newFleetSize })
-      })
-
-      if (!response.ok) {
-        throw new Error('Error al actualizar la configuración')
-      }
-
-      setVehicles(vehicles.filter(v => v.id !== vehicleId))
-      setFleetConfig(prev => prev ? { ...prev, num_vehicles: newFleetSize } : null)
-      toast.success('Vehículo eliminado y configuración actualizada')
-    } catch (error) {
-      console.error('Error removing vehicle:', error)
-      toast.error('Error al eliminar el vehículo')
-    }
+    await persistVehicles(
+      vehicles.filter((v) => v.id !== vehicleId),
+      'Vehículo eliminado'
+    )
   }
 
-  const updateVehicleStatus = (vehicleId: number, status: Vehicle['status']) => {
-    setVehicles(vehicles.map(v => 
+  const updateVehicleStatus = async (vehicleId: number, status: VehicleStatus) => {
+    const next = vehicles.map((v) =>
       v.id === vehicleId ? { ...v, status } : v
-    ))
-    toast.success('Estado del vehículo actualizado')
+    )
+    await persistVehicles(
+      next,
+      status === 'maintenance'
+        ? 'Vehículo en mantenimiento'
+        : 'Vehículo activado'
+    )
   }
 
-  const getStatusColor = (status: Vehicle['status']) => {
+  const getStatusColor = (status: VehicleStatus) => {
     switch (status) {
-      case 'active': return 'text-green-600 bg-green-50 border-green-200'
-      case 'maintenance': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-      case 'inactive': return 'text-red-600 bg-red-50 border-red-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
+      case 'active':
+        return 'text-green-600 bg-green-50 border-green-200'
+      case 'maintenance':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200'
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200'
     }
   }
 
-  const getStatusIcon = (status: Vehicle['status']) => {
-    switch (status) {
-      case 'active': return <CheckCircle className="w-4 h-4" />
-      case 'maintenance': return <AlertCircle className="w-4 h-4" />
-      case 'inactive': return <AlertCircle className="w-4 h-4" />
-      default: return <AlertCircle className="w-4 h-4" />
-    }
-  }
+  const getStatusLabel = (status: VehicleStatus) =>
+    status === 'active' ? 'Activo' : 'Mantenimiento'
+
+  const getStatusIcon = (status: VehicleStatus) =>
+    status === 'active' ? (
+      <CheckCircle className="w-4 h-4" />
+    ) : (
+      <AlertCircle className="w-4 h-4" />
+    )
+
+  const activeCount = vehicles.filter((v) => v.status === 'active').length
+  const maintenanceCount = vehicles.length - activeCount
 
   if (loading) {
     return (
@@ -239,18 +252,18 @@ export default function FleetManagement() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => updateFleetSize((fleetConfig?.num_vehicles || 1) - 1)}
+                onClick={() => updateFleetSize(vehicles.length - 1)}
                 variant="outline"
                 size="sm"
-                disabled={saving || (fleetConfig?.num_vehicles || 1) <= 1}
+                disabled={saving || vehicles.length <= 1}
               >
                 <Minus className="w-4 h-4" />
               </Button>
               <span className="text-2xl font-bold text-gray-900 min-w-[3rem] text-center">
-                {fleetConfig?.num_vehicles || 1}
+                {vehicles.length}
               </span>
               <Button
-                onClick={() => updateFleetSize((fleetConfig?.num_vehicles || 1) + 1)}
+                onClick={() => updateFleetSize(vehicles.length + 1)}
                 variant="outline"
                 size="sm"
                 disabled={saving}
@@ -270,8 +283,14 @@ export default function FleetManagement() {
             <div className="text-sm text-blue-800">
               <p className="font-semibold mb-1">💡 Importante:</p>
               <p>
-                Al cambiar el tamaño de la flota, se ajustará automáticamente la disponibilidad 
-                de horarios. Más vehículos = más reservas simultáneas posibles.
+                La disponibilidad del cotizador usa los vehículos{' '}
+                <strong>activos</strong>. Poner un camión en mantenimiento reduce los
+                cupos simultáneos. Ahora mismo: <strong>{activeCount} activo
+                {activeCount !== 1 ? 's' : ''}</strong>
+                {maintenanceCount > 0 && (
+                  <> · {maintenanceCount} en mantenimiento</>
+                )}
+                .
               </p>
             </div>
           </div>
@@ -284,7 +303,9 @@ export default function FleetManagement() {
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Vehículos</h3>
             <p className="text-sm text-gray-600">
-              {vehicles.length} vehículo{vehicles.length !== 1 ? 's' : ''} configurado{vehicles.length !== 1 ? 's' : ''}
+              {vehicles.length} vehículo{vehicles.length !== 1 ? 's' : ''} configurado
+              {vehicles.length !== 1 ? 's' : ''} · {activeCount} disponible
+              {activeCount !== 1 ? 's' : ''} para operar
             </p>
           </div>
           <Button
@@ -308,16 +329,22 @@ export default function FleetManagement() {
                   <Truck className="w-5 h-5 text-gray-600" />
                   <h4 className="font-semibold text-gray-900">{vehicle.name}</h4>
                 </div>
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(vehicle.status)}`}>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                    vehicle.status
+                  )}`}
+                >
                   {getStatusIcon(vehicle.status)}
-                  {vehicle.status}
+                  {getStatusLabel(vehicle.status)}
                 </span>
               </div>
 
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex justify-between">
                   <span>Capacidad:</span>
-                  <span className="font-medium">{vehicle.capacity} mudanza{vehicle.capacity !== 1 ? 's' : ''}</span>
+                  <span className="font-medium">
+                    {vehicle.capacity} mudanza{vehicle.capacity !== 1 ? 's' : ''}
+                  </span>
                 </div>
                 {vehicle.driver && (
                   <div className="flex justify-between">
@@ -339,7 +366,7 @@ export default function FleetManagement() {
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  disabled={vehicle.status === 'active'}
+                  disabled={saving || vehicle.status === 'active'}
                 >
                   Activo
                 </Button>
@@ -348,7 +375,7 @@ export default function FleetManagement() {
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  disabled={vehicle.status === 'maintenance'}
+                  disabled={saving || vehicle.status === 'maintenance'}
                 >
                   Mantenimiento
                 </Button>
@@ -357,6 +384,7 @@ export default function FleetManagement() {
                   variant="outline"
                   size="sm"
                   className="text-red-600 hover:text-red-700"
+                  disabled={saving}
                 >
                   <Minus className="w-4 h-4" />
                 </Button>
@@ -373,7 +401,7 @@ export default function FleetManagement() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Agregar Nuevo Vehículo
             </h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -382,7 +410,9 @@ export default function FleetManagement() {
                 <Input
                   type="text"
                   value={newVehicle.name}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewVehicle({ ...newVehicle, name: e.target.value })
+                  }
                   placeholder="Ej: Camión 3"
                 />
               </div>
@@ -395,7 +425,12 @@ export default function FleetManagement() {
                   type="number"
                   min="1"
                   value={newVehicle.capacity}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, capacity: parseInt(e.target.value) || 1 })}
+                  onChange={(e) =>
+                    setNewVehicle({
+                      ...newVehicle,
+                      capacity: parseInt(e.target.value) || 1
+                    })
+                  }
                 />
               </div>
 
@@ -406,7 +441,9 @@ export default function FleetManagement() {
                 <Input
                   type="text"
                   value={newVehicle.driver}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, driver: e.target.value })}
+                  onChange={(e) =>
+                    setNewVehicle({ ...newVehicle, driver: e.target.value })
+                  }
                   placeholder="Nombre del conductor"
                 />
               </div>
@@ -418,20 +455,19 @@ export default function FleetManagement() {
                 <Input
                   type="tel"
                   value={newVehicle.phone}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, phone: e.target.value })}
+                  onChange={(e) =>
+                    setNewVehicle({ ...newVehicle, phone: e.target.value })
+                  }
                   placeholder="+56912345678"
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
-              <Button
-                onClick={() => setShowAddVehicle(false)}
-                variant="outline"
-              >
+              <Button onClick={() => setShowAddVehicle(false)} variant="outline">
                 Cancelar
               </Button>
-              <Button onClick={addVehicle}>
+              <Button onClick={addVehicle} disabled={saving}>
                 Agregar Vehículo
               </Button>
             </div>

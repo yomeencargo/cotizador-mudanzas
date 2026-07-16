@@ -30,11 +30,48 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { num_vehicles } = body
+    const { num_vehicles, vehicles } = body
 
-    if (!num_vehicles || num_vehicles < 1) {
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (Array.isArray(vehicles)) {
+      // Persistir la lista de vehículos con su estado (activo/mantenimiento).
+      const sanitized = vehicles.map((v, i) => ({
+        id: typeof v?.id === 'number' ? v.id : i + 1,
+        name:
+          typeof v?.name === 'string' && v.name.trim()
+            ? v.name.trim()
+            : `Camión ${i + 1}`,
+        capacity:
+          typeof v?.capacity === 'number' && v.capacity > 0 ? v.capacity : 1,
+        driver: typeof v?.driver === 'string' ? v.driver : '',
+        phone: typeof v?.phone === 'string' ? v.phone : '',
+        status: v?.status === 'maintenance' ? 'maintenance' : 'active'
+      }))
+
+      if (sanitized.length < 1) {
+        return NextResponse.json(
+          { error: 'Debe haber al menos 1 vehículo' },
+          { status: 400 }
+        )
+      }
+
+      updates.vehicles = sanitized
+      // num_vehicles refleja el total de vehículos (activos + en mantenimiento).
+      updates.num_vehicles = sanitized.length
+    } else if (num_vehicles !== undefined) {
+      if (!num_vehicles || num_vehicles < 1) {
+        return NextResponse.json(
+          { error: 'Número de vehículos debe ser mayor a 0' },
+          { status: 400 }
+        )
+      }
+      updates.num_vehicles = num_vehicles
+    } else {
       return NextResponse.json(
-        { error: 'Número de vehículos debe ser mayor a 0' },
+        { error: 'Nada que actualizar' },
         { status: 400 }
       )
     }
@@ -55,10 +92,7 @@ export async function PATCH(request: NextRequest) {
     // Actualizar configuración de flota
     const { data: config, error } = await supabaseAdmin
       .from('fleet_config')
-      .update({ 
-        num_vehicles,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq('id', existingConfig.id)
       .select()
       .single()

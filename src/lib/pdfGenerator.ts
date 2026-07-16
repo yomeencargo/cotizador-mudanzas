@@ -154,15 +154,25 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     if (origin.details) {
       pdf.text(`Tipo: ${origin.details.propertyType} - Piso ${origin.details.floor}${origin.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 7
+      const originParking = formatParkingDistance(origin.details.parkingDistance)
+      if (originParking) {
+        pdf.text(`Acarreo estacionamiento a puerta: ${originParking}`, 20, yPosition)
+        yPosition += 7
+      }
     }
   }
-  
+
   if (destination.address) {
     pdf.text(`Destino: ${destination.address.street} ${destination.address.number}, ${destination.address.commune}`, 20, yPosition)
     yPosition += 7
     if (destination.details) {
       pdf.text(`Tipo: ${destination.details.propertyType} - Piso ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 7
+      const destinationParking = formatParkingDistance(destination.details.parkingDistance)
+      if (destinationParking) {
+        pdf.text(`Acarreo estacionamiento a puerta: ${destinationParking}`, 20, yPosition)
+        yPosition += 7
+      }
     }
   }
 
@@ -1030,6 +1040,11 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     if (origin.details) {
       pdf.text(`Tipo: ${origin.details.propertyType} | Piso: ${origin.details.floor}${origin.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 6
+      const originParking = formatParkingDistance(origin.details.parkingDistance)
+      if (originParking) {
+        pdf.text(`Acarreo estacionamiento a puerta: ${originParking}`, 20, yPosition)
+        yPosition += 6
+      }
     }
   }
 
@@ -1053,6 +1068,11 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     if (destination.details) {
       pdf.text(`Tipo: ${destination.details.propertyType} | Piso: ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 6
+      const destinationParking = formatParkingDistance(destination.details.parkingDistance)
+      if (destinationParking) {
+        pdf.text(`Acarreo estacionamiento a puerta: ${destinationParking}`, 20, yPosition)
+        yPosition += 6
+      }
     }
   }
 

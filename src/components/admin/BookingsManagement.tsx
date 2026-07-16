@@ -557,30 +557,75 @@ export default function BookingsManagement() {
   }
 
   const handleExportCSV = () => {
-    const headers = [
-      'id',
-      'quote_id',
-      'client_name',
-      'client_email',
-      'client_phone',
-      'scheduled_date',
-      'scheduled_time',
-      'duration_hours',
-      'status',
-      'notes',
-      'payment_type',
-      'total_price',
-      'original_price',
-      'origin_address',
-      'destination_address',
-      'created_at',
-      'confirmed_at',
-      'completed_at',
-      'cancelled_at'
+    // Timestamps ISO (created_at, confirmed_at, ...) -> fecha/hora legibles en hora de Chile.
+    const fmtDateCL = (value: any) => {
+      if (!value) return ''
+      const dt = new Date(value)
+      if (Number.isNaN(dt.getTime())) return ''
+      return new Intl.DateTimeFormat('es-CL', {
+        timeZone: 'America/Santiago',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(dt)
+    }
+    const fmtTimeCL = (value: any) => {
+      if (!value) return ''
+      const dt = new Date(value)
+      if (Number.isNaN(dt.getTime())) return ''
+      return new Intl.DateTimeFormat('es-CL', {
+        timeZone: 'America/Santiago',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(dt)
+    }
+    // scheduled_date es 'YYYY-MM-DD' (fecha sin hora): se reformatea como string para
+    // evitar el corrimiento de día que produciría new Date() al interpretarla en UTC.
+    const fmtSchedDate = (value: any) => {
+      if (!value) return ''
+      const [y, m, d] = String(value).slice(0, 10).split('-')
+      return y && m && d ? `${d}-${m}-${y}` : String(value)
+    }
+    const fmtSchedTime = (value: any) => (value ? String(value).slice(0, 5) : '')
+
+    const columns: { header: string; value: (b: any) => any }[] = [
+      { header: 'ID', value: (b) => b.id },
+      { header: 'Reserva', value: (b) => b.quote_id },
+      { header: 'Cliente', value: (b) => b.client_name },
+      { header: 'Email', value: (b) => b.client_email },
+      { header: 'Teléfono', value: (b) => b.client_phone },
+      {
+        header: 'Tipo',
+        value: (b) =>
+          b.booking_type ||
+          (String(b.quote_id || '').startsWith('DOMICILIO-') ? 'domicilio' : 'online'),
+      },
+      { header: 'Fecha mudanza', value: (b) => fmtSchedDate(b.scheduled_date) },
+      { header: 'Hora mudanza', value: (b) => fmtSchedTime(b.scheduled_time) },
+      { header: 'Duración (horas)', value: (b) => b.duration_hours },
+      { header: 'Estado', value: (b) => b.status },
+      { header: 'Estado de pago', value: (b) => b.payment_status },
+      { header: 'Tipo de pago', value: (b) => b.payment_type },
+      { header: 'Precio total', value: (b) => b.total_price },
+      { header: 'Precio original', value: (b) => b.original_price },
+      { header: 'Dirección origen', value: (b) => b.origin_address },
+      { header: 'Dirección destino', value: (b) => b.destination_address },
+      { header: 'Notas', value: (b) => b.notes },
+      { header: 'Fecha creación', value: (b) => fmtDateCL(b.created_at) },
+      { header: 'Hora creación', value: (b) => fmtTimeCL(b.created_at) },
+      { header: 'Fecha confirmación', value: (b) => fmtDateCL(b.confirmed_at) },
+      { header: 'Hora confirmación', value: (b) => fmtTimeCL(b.confirmed_at) },
+      { header: 'Fecha completada', value: (b) => fmtDateCL(b.completed_at) },
+      { header: 'Hora completada', value: (b) => fmtTimeCL(b.completed_at) },
+      { header: 'Fecha cancelación', value: (b) => fmtDateCL(b.cancelled_at) },
+      { header: 'Hora cancelación', value: (b) => fmtTimeCL(b.cancelled_at) },
     ]
 
-    const rows = filteredBookings.map((b) => headers.map((h) => escapeCsvValue((b as any)[h])).join(','))
-    const csv = [headers.join(','), ...rows].join('\n')
+    const headerRow = columns.map((c) => escapeCsvValue(c.header)).join(',')
+    const rows = filteredBookings.map((b) => columns.map((c) => escapeCsvValue(c.value(b))).join(','))
+    // BOM para que Excel interprete bien los acentos de los encabezados.
+    const csv = '\uFEFF' + [headerRow, ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
+import { getActiveCapacity } from '@/lib/fleetCapacity'
 
 const PROSPECT_QUOTE_FIELDS = `
   id,
@@ -205,10 +206,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Obtener capacidad de flota
+    // Obtener capacidad de flota (vehículos activos, no total)
     const { data: configData, error: configError } = await supabaseAdmin
       .from('fleet_config')
-      .select('num_vehicles')
+      .select('*')
       .single()
 
     if (configError || !configData) {
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const capacity = configData.num_vehicles
+    const capacity = getActiveCapacity(configData)
 
     // Contar reservas activas para ese horario
     const { count: bookingCount } = await supabaseAdmin

@@ -581,9 +581,59 @@ export default function ProspectsManagement() {
   }
 
   const handleExportCSV = () => {
-    const headers = ['name', 'email', 'phone', 'source', 'status', 'total_price', 'origin_address', 'destination_address', 'visit_address', 'notes', 'created_at']
-    const rows = filteredProspects.map(p => headers.map(h => escapeCsvValue((p as any)[h])).join(','))
-    const csv = [headers.join(','), ...rows].join('\n')
+    // created_at es un timestamp ISO -> fecha/hora legibles en hora de Chile.
+    const fmtDateCL = (value: any) => {
+      if (!value) return ''
+      const dt = new Date(value)
+      if (Number.isNaN(dt.getTime())) return ''
+      return new Intl.DateTimeFormat('es-CL', {
+        timeZone: 'America/Santiago',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(dt)
+    }
+    const fmtTimeCL = (value: any) => {
+      if (!value) return ''
+      const dt = new Date(value)
+      if (Number.isNaN(dt.getTime())) return ''
+      return new Intl.DateTimeFormat('es-CL', {
+        timeZone: 'America/Santiago',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(dt)
+    }
+    // scheduled_date es 'YYYY-MM-DD' (fecha sin hora): se reformatea como string para
+    // evitar el corrimiento de día que produciría new Date() al interpretarla en UTC.
+    const fmtSchedDate = (value: any) => {
+      if (!value) return ''
+      const [y, m, d] = String(value).slice(0, 10).split('-')
+      return y && m && d ? `${d}-${m}-${y}` : String(value)
+    }
+    const fmtSchedTime = (value: any) => (value ? String(value).slice(0, 5) : '')
+
+    const columns: { header: string; value: (p: any) => any }[] = [
+      { header: 'Nombre', value: (p) => p.name },
+      { header: 'Email', value: (p) => p.email },
+      { header: 'Teléfono', value: (p) => p.phone },
+      { header: 'Origen', value: (p) => p.source },
+      { header: 'Estado', value: (p) => p.status },
+      { header: 'Precio total', value: (p) => p.total_price },
+      { header: 'Fecha mudanza', value: (p) => fmtSchedDate(p.scheduled_date) },
+      { header: 'Hora mudanza', value: (p) => fmtSchedTime(p.scheduled_time) },
+      { header: 'Dirección origen', value: (p) => p.origin_address },
+      { header: 'Dirección destino', value: (p) => p.destination_address },
+      { header: 'Dirección visita', value: (p) => p.visit_address },
+      { header: 'Notas', value: (p) => p.notes },
+      { header: 'Fecha creación', value: (p) => fmtDateCL(p.created_at) },
+      { header: 'Hora creación', value: (p) => fmtTimeCL(p.created_at) },
+    ]
+
+    const headerRow = columns.map((c) => escapeCsvValue(c.header)).join(',')
+    const rows = filteredProspects.map((p) => columns.map((c) => escapeCsvValue(c.value(p))).join(','))
+    // BOM para que Excel interprete bien los acentos de los encabezados.
+    const csv = '\uFEFF' + [headerRow, ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

@@ -3,6 +3,7 @@ import {
   isAdminAuthConfigured,
   validateAdminCredentials
 } from '@/lib/adminAuth'
+import { createSessionToken } from '@/lib/adminSession'
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +44,10 @@ export async function POST(request: NextRequest) {
 
     const isSecure = request.url.startsWith('https://')
 
-    response.cookies.set('admin_authenticated', 'true', {
+    // Cookie de sesión firmada (HMAC), no un 'true' forjable.
+    const sessionToken = await createSessionToken()
+
+    response.cookies.set('admin_authenticated', sessionToken, {
       httpOnly: true,
       secure: isSecure,
       sameSite: 'lax',
