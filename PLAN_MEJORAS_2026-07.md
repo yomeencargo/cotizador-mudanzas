@@ -17,7 +17,10 @@ Basado en exploración del código al 2026-07-16 (HEAD `aaf1f33`). 8 pedidos + 1
   - Sección "Clientes Atendidos" (nueva tab): cartera desde reservas `completed` agrupadas por email (nº mudanzas, primera/última, total gastado, empresa/persona, frecuente), buscador y export CSV. Endpoint `/api/admin/customers/attended`.
   - `occupancyRate` del dashboard ya no es `6*30` hardcodeado: usa vehículos activos × franjas configuradas × días del mes.
   - Helpers puros `src/lib/adminAnalytics.ts` los generó el intern de LM Studio (qwen3-coder-30b) en una sola escritura — buen encaje esta vez. Le corregí 2 bugs de lógica (identidad del cliente no tomaba el booking más reciente; source vacío sin label) + tipos.
-- **Fase 4 — pendiente** (link choferes con token + WhatsApp; ver abajo).
+- **Fase 4 — HECHA** (2026-07-16, sin commit). Build OK. Cubre pedido 2 (acceso choferes).
+  - Link público **común** `/trabajos/<token>` (decisión de Francisco: común, porque a veces 2 camiones por trabajo). Solo lectura, **sin precios**: fecha/hora, cliente + teléfono (tel:), origen/destino con piso/ascensor/acarreo, items a mover, notas, y links a Google Maps. Mobile-first. Server component en `src/app/trabajos/[token]/page.tsx` + lib `src/lib/driverJobs.ts` (nunca selecciona precios).
+  - Admin: tarjeta "Acceso Choferes" en la pestaña Flota (`DriverAccessCard`): generar/ver/copiar link, **enviar por WhatsApp** (wa.me), y **regenerar** (invalida el anterior). API `/api/admin/driver-link` (protegida por el middleware admin).
+  - **Migración nueva:** `database/migrations/add_driver_access_token.sql` (columna `driver_access_token` en fleet_config). El código degrada sin romperse si no está aplicada (link inválido hasta generarlo).
 
 ## Hallazgos clave (cambian el enfoque de varios pedidos)
 

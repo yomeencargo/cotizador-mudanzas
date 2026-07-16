@@ -13,6 +13,7 @@ import ItemsManagement from '@/components/admin/ItemsManagement'
 import ProspectsManagement from '@/components/admin/ProspectsManagement'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import AttendedCustomers from '@/components/admin/AttendedCustomers'
+import DriverAccessCard from '@/components/admin/DriverAccessCard'
 import { 
   Calendar, 
   Truck, 
@@ -448,7 +449,12 @@ export default function AdminDashboard() {
         {activeTab === 'customers' && <AttendedCustomers />}
 
         {/* Fleet Tab */}
-        {activeTab === 'fleet' && <FleetManagement />}
+        {activeTab === 'fleet' && (
+          <div className="space-y-6">
+            <DriverAccessCard />
+            <FleetManagement />
+          </div>
+        )}
 
         {/* Schedule Tab */}
         {activeTab === 'schedule' && <ScheduleManagement />}
