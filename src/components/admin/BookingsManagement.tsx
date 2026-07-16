@@ -84,6 +84,9 @@ export default function BookingsManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [bookingTypeFilter, setBookingTypeFilter] = useState('all') // Nuevo filtro
+  const [clientTypeFilter, setClientTypeFilter] = useState('') // '' | company | person
+  const [selectedBookingIds, setSelectedBookingIds] = useState<Set<string>>(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
   const [dateFilter, setDateFilter] = useState('all')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -212,6 +215,13 @@ export default function BookingsManagement() {
       })
     }
 
+    // Filtrar por tipo de cliente (empresa vs persona natural)
+    if (clientTypeFilter === 'company') {
+      filtered = filtered.filter(b => b.is_company === true)
+    } else if (clientTypeFilter === 'person') {
+      filtered = filtered.filter(b => b.is_company !== true)
+    }
+
     // Orden por fecha del TRABAJO (no por cuándo se creó el registro): las próximas primero
     // (la más cercana arriba), y más abajo las pasadas (la más reciente primero). Antes
     // dependía del orden de llegada de la API (created_at), mezclando un trabajo de hoy con
@@ -227,7 +237,7 @@ export default function BookingsManagement() {
     })
 
     setFilteredBookings(filtered)
-  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, dateFilter, customStartDate, customEndDate])
+  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, clientTypeFilter, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchBookings()
@@ -274,6 +284,50 @@ export default function BookingsManagement() {
       console.error('Error updating booking status:', error)
       toast.error('Error al actualizar el estado')
     }
+  }
+
+  const toggleBookingSelection = (id: string) => {
+    setSelectedBookingIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAllBookings = () => {
+    setSelectedBookingIds(prev => {
+      const allSelected =
+        filteredBookings.length > 0 && filteredBookings.every(b => prev.has(b.id))
+      return allSelected ? new Set() : new Set(filteredBookings.map(b => b.id))
+    })
+  }
+
+  // Cambio masivo de estado para las reservas seleccionadas.
+  const bulkUpdateBookingStatus = async (newStatus: string) => {
+    const ids = Array.from(selectedBookingIds)
+    if (ids.length === 0) return
+    setBulkUpdating(true)
+    const results = await Promise.allSettled(
+      ids.map(id => {
+        const updateData: any = { status: newStatus }
+        if (newStatus === 'completed') updateData.service_completed_at = new Date().toISOString()
+        return fetch(`/api/admin/bookings/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData),
+        }).then(r => {
+          if (!r.ok) throw new Error('fail')
+        })
+      })
+    )
+    const ok = results.filter(r => r.status === 'fulfilled').length
+    const fail = results.length - ok
+    if (ok) toast.success(`${ok} reserva${ok !== 1 ? 's' : ''} actualizada${ok !== 1 ? 's' : ''}`)
+    if (fail) toast.error(`${fail} con error`)
+    setSelectedBookingIds(new Set())
+    setBulkUpdating(false)
+    fetchBookings()
   }
 
   // Guarda estado + notas juntos desde el modal Editar (antes las notas no se
@@ -595,6 +649,9 @@ export default function BookingsManagement() {
       { header: 'Cliente', value: (b) => b.client_name },
       { header: 'Email', value: (b) => b.client_email },
       { header: 'Teléfono', value: (b) => b.client_phone },
+      { header: 'Tipo cliente', value: (b) => (b.is_company ? 'Empresa' : 'Persona') },
+      { header: 'Razón social', value: (b) => b.company_name || '' },
+      { header: 'RUT empresa', value: (b) => b.company_rut || '' },
       {
         header: 'Tipo',
         value: (b) =>
@@ -745,6 +802,21 @@ export default function BookingsManagement() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de cliente
+            </label>
+            <Select
+              value={clientTypeFilter}
+              onChange={(e) => setClientTypeFilter(e.target.value)}
+              options={[
+                { value: '', label: 'Todos' },
+                { value: 'company', label: 'Empresa' },
+                { value: 'person', label: 'Persona' },
+              ]}
+            />
+          </div>
+
           <div className={dateFilter === 'range' ? 'md:col-span-2' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha
@@ -797,6 +869,7 @@ export default function BookingsManagement() {
                 setSearchTerm('')
                 setStatusFilter('all')
                 setBookingTypeFilter('all')
+                setClientTypeFilter('')
                 setDateFilter('all')
                 setCustomStartDate('')
                 setCustomEndDate('')
@@ -812,6 +885,34 @@ export default function BookingsManagement() {
         </div>
       </Card>
 
+      {selectedBookingIds.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2">
+          <span className="text-sm font-medium text-gray-700">
+            {selectedBookingIds.size} seleccionada{selectedBookingIds.size !== 1 ? 's' : ''}
+          </span>
+          <span className="text-xs text-gray-500">Cambiar estado a:</span>
+          <Button onClick={() => bulkUpdateBookingStatus('confirmed')} variant="outline" size="sm" disabled={bulkUpdating}>
+            Confirmado
+          </Button>
+          <Button onClick={() => bulkUpdateBookingStatus('completed')} variant="outline" size="sm" disabled={bulkUpdating}>
+            Completado
+          </Button>
+          <Button onClick={() => bulkUpdateBookingStatus('no_show')} variant="outline" size="sm" disabled={bulkUpdating}>
+            No atendido
+          </Button>
+          <Button onClick={() => bulkUpdateBookingStatus('cancelled')} variant="outline" size="sm" disabled={bulkUpdating}>
+            Cancelado
+          </Button>
+          <button
+            onClick={() => setSelectedBookingIds(new Set())}
+            className="ml-auto text-xs text-gray-500 hover:text-gray-700 underline"
+            disabled={bulkUpdating}
+          >
+            Limpiar selección
+          </button>
+        </div>
+      )}
+
       {/* Bookings Table */}
       <Card className="overflow-hidden">
         {filteredBookings.length === 0 ? (
@@ -824,6 +925,15 @@ export default function BookingsManagement() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Seleccionar todas"
+                      className="w-4 h-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                      checked={filteredBookings.length > 0 && filteredBookings.every(b => selectedBookingIds.has(b.id))}
+                      onChange={toggleSelectAllBookings}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cliente
                   </th>
@@ -856,6 +966,15 @@ export default function BookingsManagement() {
                   
                   return (
                   <tr key={booking.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 align-top">
+                      <input
+                        type="checkbox"
+                        aria-label={`Seleccionar ${booking.client_name}`}
+                        className="w-4 h-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                        checked={selectedBookingIds.has(booking.id)}
+                        onChange={() => toggleBookingSelection(booking.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div>
                         <div className="flex items-center gap-1.5">
@@ -863,6 +982,18 @@ export default function BookingsManagement() {
                           {booking.is_frequent && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Cliente frecuente">
                               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Frecuente
+                            </span>
+                          )}
+                          {booking.is_company ? (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 border border-purple-200"
+                              title={`${booking.company_name || ''} ${booking.company_rut ? `(${booking.company_rut})` : ''}`.trim()}
+                            >
+                              Empresa
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                              Persona
                             </span>
                           )}
                         </div>

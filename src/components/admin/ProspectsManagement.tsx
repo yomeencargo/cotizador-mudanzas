@@ -125,6 +125,9 @@ export default function ProspectsManagement() {
   const [customEndDate, setCustomEndDate] = useState('')
   const [frequentFilter, setFrequentFilter] = useState('all') // all | yes | no
   const [showConverted, setShowConverted] = useState(false) // incluir prospectos ya convertidos
+  const [clientTypeFilter, setClientTypeFilter] = useState('') // all | company | person
+  const [selectedProspectIds, setSelectedProspectIds] = useState<Set<string>>(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showNotesModal, setShowNotesModal] = useState(false)
@@ -221,8 +224,15 @@ export default function ProspectsManagement() {
       )
     }
 
+    // Filtrar por tipo de cliente (empresa vs persona natural)
+    if (clientTypeFilter === 'company') {
+      filtered = filtered.filter(p => p.is_company === true)
+    } else if (clientTypeFilter === 'person') {
+      filtered = filtered.filter(p => p.is_company !== true)
+    }
+
     setFilteredProspects(filtered)
-  }, [prospects, searchTerm, statusFilter, sourceFilter, dateFilter, customStartDate, customEndDate, frequentFilter])
+  }, [prospects, searchTerm, statusFilter, sourceFilter, dateFilter, customStartDate, customEndDate, frequentFilter, clientTypeFilter])
 
   useEffect(() => {
     fetchProspects()
@@ -259,6 +269,48 @@ export default function ProspectsManagement() {
       console.error('Error updating prospect:', error)
       toast.error('Error al actualizar el estado')
     }
+  }
+
+  const toggleProspectSelection = (id: string) => {
+    setSelectedProspectIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAllProspects = () => {
+    setSelectedProspectIds(prev => {
+      const allSelected =
+        filteredProspects.length > 0 && filteredProspects.every(p => prev.has(p.id))
+      return allSelected ? new Set() : new Set(filteredProspects.map(p => p.id))
+    })
+  }
+
+  // Cambio masivo de estado: aplica el mismo status a todos los seleccionados.
+  const bulkUpdateProspectStatus = async (newStatus: string) => {
+    const ids = Array.from(selectedProspectIds)
+    if (ids.length === 0) return
+    setBulkUpdating(true)
+    const results = await Promise.allSettled(
+      ids.map(id =>
+        fetch('/api/admin/prospects', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status: newStatus }),
+        }).then(r => {
+          if (!r.ok) throw new Error('fail')
+        })
+      )
+    )
+    const ok = results.filter(r => r.status === 'fulfilled').length
+    const fail = results.length - ok
+    if (ok) toast.success(`${ok} prospecto${ok !== 1 ? 's' : ''} actualizado${ok !== 1 ? 's' : ''}`)
+    if (fail) toast.error(`${fail} con error`)
+    setSelectedProspectIds(new Set())
+    setBulkUpdating(false)
+    fetchProspects()
   }
 
   const toggleFrequent = async (p: Prospect) => {
@@ -619,6 +671,9 @@ export default function ProspectsManagement() {
       { header: 'Teléfono', value: (p) => p.phone },
       { header: 'Origen', value: (p) => p.source },
       { header: 'Estado', value: (p) => p.status },
+      { header: 'Tipo cliente', value: (p) => (p.is_company ? 'Empresa' : 'Persona') },
+      { header: 'Razón social', value: (p) => p.company_name || '' },
+      { header: 'RUT empresa', value: (p) => p.company_rut || '' },
       { header: 'Precio total', value: (p) => p.total_price },
       { header: 'Fecha mudanza', value: (p) => fmtSchedDate(p.scheduled_date) },
       { header: 'Hora mudanza', value: (p) => fmtSchedTime(p.scheduled_time) },
@@ -829,6 +884,19 @@ export default function ProspectsManagement() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de cliente</label>
+            <Select
+              value={clientTypeFilter}
+              onChange={(e) => setClientTypeFilter(e.target.value)}
+              options={[
+                { value: '', label: 'Todos' },
+                { value: 'company', label: 'Empresa' },
+                { value: 'person', label: 'Persona' },
+              ]}
+            />
+          </div>
+
           <div className="flex items-end">
             <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 pb-2" title="Incluir prospectos ya convertidos en reserva">
               <input
@@ -852,6 +920,7 @@ export default function ProspectsManagement() {
                 setCustomEndDate('')
                 setFrequentFilter('all')
                 setShowConverted(false)
+                setClientTypeFilter('')
               }}
               variant="outline"
               size="sm"
@@ -863,6 +932,31 @@ export default function ProspectsManagement() {
           </div>
         </div>
       </Card>
+
+      {selectedProspectIds.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2">
+          <span className="text-sm font-medium text-gray-700">
+            {selectedProspectIds.size} seleccionado{selectedProspectIds.size !== 1 ? 's' : ''}
+          </span>
+          <span className="text-xs text-gray-500">Cambiar estado a:</span>
+          <Button onClick={() => bulkUpdateProspectStatus('contacted')} variant="outline" size="sm" disabled={bulkUpdating}>
+            Contactado
+          </Button>
+          <Button onClick={() => bulkUpdateProspectStatus('no_response')} variant="outline" size="sm" disabled={bulkUpdating}>
+            Sin respuesta
+          </Button>
+          <Button onClick={() => bulkUpdateProspectStatus('lost')} variant="outline" size="sm" disabled={bulkUpdating}>
+            Perdido
+          </Button>
+          <button
+            onClick={() => setSelectedProspectIds(new Set())}
+            className="ml-auto text-xs text-gray-500 hover:text-gray-700 underline"
+            disabled={bulkUpdating}
+          >
+            Limpiar selección
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <Card className="overflow-hidden">
@@ -876,6 +970,15 @@ export default function ProspectsManagement() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Seleccionar todos"
+                      className="w-4 h-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                      checked={filteredProspects.length > 0 && filteredProspects.every(p => selectedProspectIds.has(p.id))}
+                      onChange={toggleSelectAllProspects}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contacto
                   </th>
@@ -899,12 +1002,33 @@ export default function ProspectsManagement() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProspects.map((prospect) => (
                   <tr key={prospect.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 align-top">
+                      <input
+                        type="checkbox"
+                        aria-label={`Seleccionar ${prospect.name}`}
+                        className="w-4 h-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                        checked={selectedProspectIds.has(prospect.id)}
+                        onChange={() => toggleProspectSelection(prospect.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-medium text-gray-900">{prospect.name}</span>
                         {prospect.is_frequent && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                             <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Frecuente
+                          </span>
+                        )}
+                        {prospect.is_company ? (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 border border-purple-200"
+                            title={`${prospect.company_name || ''} ${prospect.company_rut ? `(${prospect.company_rut})` : ''}`.trim()}
+                          >
+                            Empresa
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                            Persona
                           </span>
                         )}
                       </div>
