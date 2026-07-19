@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { GoogleTagManager } from '@next/third-parties/google'
 import { MetaPixel } from '@/components/tracking/MetaPixel'
+import AttributionCapture from '@/components/tracking/AttributionCapture'
 import WhatsAppFloatingButton from '@/components/ui/WhatsAppFloatingButton'
 
 const archivo = Archivo({
@@ -135,6 +136,7 @@ export default function RootLayout({
         <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID || ''} />
       </head>
       <body className={`${archivo.variable} ${hankenGrotesk.variable}`}>
+        <AttributionCapture />
         {children}
         <Toaster position="top-right" />
         <WhatsAppFloatingButton />

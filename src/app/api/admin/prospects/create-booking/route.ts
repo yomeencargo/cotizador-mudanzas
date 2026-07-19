@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { pickAttribution, hasAttribution, backfillAttribution } from '@/lib/attributionServer'
 
 // Crea (o confirma) una RESERVA real a partir de un prospecto, sin pasar por pago online.
 // Útil cuando el admin cierra el trato por WhatsApp/teléfono. La reserva queda confirmada
@@ -62,9 +63,12 @@ export async function POST(request: NextRequest) {
     // ¿Ya existe un booking para este quote_id? (p.ej. una pre-reserva provisional previa)
     const { data: existing } = await supabaseAdmin
       .from('bookings')
-      .select('id')
+      .select('id, gclid, gbraid, wbraid, utm_source, utm_campaign')
       .eq('quote_id', quoteId)
       .maybeSingle()
+
+    // Reserva creada desde una cotizacion previa: hereda la atribucion del prospecto.
+    const prospectAttribution = pickAttribution(prospect)
 
     let bookingId: string
 
@@ -101,6 +105,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Error al confirmar la reserva' }, { status: 500 })
       }
       bookingId = updated.id
+      // Rellenar la atribucion solo donde falte (nunca sobrescribe un gclid ya guardado).
+      await backfillAttribution('bookings', existing.id, prospectAttribution, existing)
     } else {
       // Verificar cupo real (solo reservas no provisionales cuentan)
       const { data: configData, error: configError } = await supabaseAdmin
@@ -161,6 +167,7 @@ export async function POST(request: NextRequest) {
           company_name: isCompany ? prospect.company_name || null : null,
           company_rut: isCompany ? prospect.company_rut || null : null,
           notes: comment || null,
+          ...(hasAttribution(prospectAttribution) ? prospectAttribution : {}),
         })
         .select('id')
         .single()

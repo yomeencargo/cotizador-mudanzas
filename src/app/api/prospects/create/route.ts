@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { pickAttribution, backfillAttribution } from '@/lib/attributionServer'
 import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
@@ -98,6 +99,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Atribucion de Google Ads: se guarda aparte del upsert para NO sobrescribir un
+    // gclid ya guardado en re-guardados del mismo prospecto (first-touch por fila).
+    await backfillAttribution('quote_prospects', prospect.id, pickAttribution(body), prospect)
 
     return NextResponse.json(
       {

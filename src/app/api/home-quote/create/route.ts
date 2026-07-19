@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { resolveBookingAttribution } from '@/lib/attributionServer'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Atribucion de Google Ads: la del cliente o, si no trae, la heredada del prospecto
+    // con el mismo quote_id.
+    const attribution = await resolveBookingAttribution(body, quote_id)
+
     // Crear la reserva de tipo domicilio
     const { data: booking, error: createError } = await supabaseAdmin
       .from('bookings')
@@ -52,6 +57,7 @@ export async function POST(request: NextRequest) {
         scheduled_date: scheduled_date || new Date().toISOString().split('T')[0],
         scheduled_time: scheduled_time || '09:00',
         duration_hours: duration_hours || 1,
+        ...attribution,
       })
       .select()
       .single()

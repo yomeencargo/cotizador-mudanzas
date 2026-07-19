@@ -7,6 +7,7 @@ import {
   SlotUnavailableError,
   type PaymentType,
 } from '@/lib/quoteCheckout'
+import { resolveBookingAttribution } from '@/lib/attributionServer'
 
 // Crea (o reutiliza) la pre-reserva y genera la orden Flow para pagar EN LA PÁGINA.
 // Comparte la misma lógica que /api/prospects/send-quote => un solo booking por cotización.
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const attribution = await resolveBookingAttribution(body, quoteId)
+
     const { locked } = await ensureProvisionalBooking({
       quoteId,
       client,
@@ -53,6 +56,7 @@ export async function POST(request: NextRequest) {
       estimatedPrice,
       paymentType,
       photoUrls,
+      attribution,
     })
 
     // Si ya está pagada, no generamos otra orden de Flow: evita que el cliente pague dos

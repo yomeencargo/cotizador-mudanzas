@@ -20,6 +20,7 @@ import { formatCurrency, formatDate, formatTime, formatDistanceKm } from '@/lib/
 import { generateQuotePDF } from '@/lib/pdfGenerator'
 import { getPricingConfig } from '@/lib/pricingService'
 import { trackEvent, pushDataLayerMonto } from '@/lib/tracking'
+import { attributionForSubmit } from '@/lib/attribution'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
@@ -159,6 +160,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     },
     estimatedPrice,
     photoUrls: additionalServices?.photos || [],
+    // gclid/UTMs capturados de la URL: para el pago en pagina y el envio por correo.
+    attribution: attributionForSubmit(),
   })
 
   const saveProspect = async (source: string): Promise<string | null> => {
@@ -210,6 +213,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             unpacking: additionalServices.unpacking,
             observations: additionalServices.observations,
           },
+          // gclid/UTMs capturados de la URL (Google Ads).
+          attribution: attributionForSubmit(),
         }),
       })
       const data = await res.json().catch(() => ({}))

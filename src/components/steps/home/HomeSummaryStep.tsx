@@ -8,6 +8,7 @@ import { User, Mail, Phone, MapPin, DollarSign, CheckCircle } from 'lucide-react
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { pushDataLayerMonto } from '@/lib/tracking'
+import { attributionForSubmit } from '@/lib/attribution'
 
 interface HomeSummaryStepProps {
   onPrevious: () => void
@@ -53,6 +54,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
           visit_address: visitAddr,
           total_price: FIXED_PRICE,
           original_price: FIXED_PRICE,
+          attribution: attributionForSubmit(),
         }),
       }).catch(err => console.error('Error saving domicilio prospect:', err))
 
@@ -70,6 +72,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
         scheduled_date: new Date().toISOString().split('T')[0],
         scheduled_time: '09:00',
         duration_hours: 1,
+        attribution: attributionForSubmit(),
       }
 
       const bookingResponse = await fetch('/api/home-quote/create', {

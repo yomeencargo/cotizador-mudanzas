@@ -1,5 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { flowService, type FlowPaymentResponse } from '@/lib/flowService'
+import {
+  backfillAttribution,
+  hasAttribution,
+  type AttributionFields,
+} from '@/lib/attributionServer'
 
 export type PaymentType = 'completo' | 'mitad'
 
@@ -42,6 +47,8 @@ export interface EnsureBookingInput {
   estimatedPrice: number
   paymentType: PaymentType
   photoUrls?: string[]
+  /** Atribucion de Google Ads resuelta (cliente o heredada del prospecto por quoteId). */
+  attribution?: AttributionFields
 }
 
 /** Error tipado para que las rutas devuelvan 409 cuando el horario ya no tiene cupo. */
@@ -70,7 +77,7 @@ export function computeQuoteAmounts(estimatedPrice: number) {
 export async function ensureProvisionalBooking(
   input: EnsureBookingInput
 ): Promise<{ quoteId: string; bookingRowId: string; existed: boolean; locked: boolean }> {
-  const { quoteId, client, schedule, addresses, propertyDetails, estimatedPrice, paymentType, photoUrls } = input
+  const { quoteId, client, schedule, addresses, propertyDetails, estimatedPrice, paymentType, photoUrls, attribution } = input
 
   if (!quoteId || !client?.name || !client?.email || !client?.phone) {
     throw new Error('Datos de cliente incompletos para crear la reserva')
@@ -82,7 +89,7 @@ export async function ensureProvisionalBooking(
   // Idempotencia: ¿ya existe el booking para este quoteId?
   const { data: existing, error: findError } = await supabaseAdmin
     .from('bookings')
-    .select('id, is_provisional, payment_status')
+    .select('id, is_provisional, payment_status, gclid, gbraid, wbraid, utm_source, utm_campaign')
     .eq('quote_id', quoteId)
     .maybeSingle()
 
@@ -118,6 +125,10 @@ export async function ensureProvisionalBooking(
       if (refreshError) {
         console.error('[quoteCheckout] Error refrescando pre-reserva existente:', refreshError)
       }
+    }
+    // Backfill de atribucion SOLO donde falte: nunca sobrescribe un gclid ya guardado.
+    if (attribution && hasAttribution(attribution)) {
+      await backfillAttribution('bookings', existing.id, attribution, existing)
     }
     return { quoteId, bookingRowId: existing.id, existed: true, locked: !stillEditable }
   }
@@ -184,6 +195,7 @@ export async function ensureProvisionalBooking(
       company_name: isCompany ? client.companyName || null : null,
       company_rut: isCompany ? client.companyRut || null : null,
       photo_urls: Array.isArray(photoUrls) && photoUrls.length > 0 ? photoUrls : [],
+      ...(attribution && hasAttribution(attribution) ? attribution : {}),
     })
     .select('id')
     .single()

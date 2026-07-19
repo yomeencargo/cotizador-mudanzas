@@ -7,6 +7,7 @@ import {
   computeQuoteAmounts,
   SlotUnavailableError,
 } from '@/lib/quoteCheckout'
+import { resolveBookingAttribution } from '@/lib/attributionServer'
 import { postQuoteWebhook } from '@/lib/n8nClient'
 
 // Envío REAL de la cotización por correo:
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1) Pre-reserva idempotente (no consume cupo hasta que se pague)
+    const attribution = await resolveBookingAttribution(body, quoteId)
     const { locked } = await ensureProvisionalBooking({
       quoteId,
       client,
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
       estimatedPrice,
       paymentType: 'mitad',
       photoUrls,
+      attribution,
     })
 
     // 2) Link de pago de Flow (best-effort): el correo con el PDF NO debe depender
