@@ -8,6 +8,19 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
   try {
     console.log('[upload-photos] Iniciando proceso de subida de fotos...')
+
+    // Cortar peticiones gigantes ANTES de recibir el body completo (endpoint público
+    // sin auth): 10 fotos x 5MB + margen para overhead de multipart.
+    const MAX_TOTAL_BYTES = 60 * 1024 * 1024
+    const contentLength = Number(request.headers.get('content-length') || 0)
+    if (contentLength > MAX_TOTAL_BYTES) {
+      console.error('[upload-photos] ERROR: Petición demasiado grande:', contentLength)
+      return NextResponse.json(
+        { error: 'La petición excede el tamaño máximo permitido' },
+        { status: 413 }
+      )
+    }
+
     const formData = await request.formData()
     const files = formData.getAll('photos') as File[]
 
@@ -17,6 +30,17 @@ export async function POST(request: NextRequest) {
       console.error('[upload-photos] ERROR: No se recibieron archivos')
       return NextResponse.json(
         { error: 'No se recibieron archivos' },
+        { status: 400 }
+      )
+    }
+
+    // Tope de archivos por petición: endpoint público sin auth, sin este límite
+    // una sola petición puede mandar cientos de archivos de 5MB cada uno.
+    const MAX_FILES_PER_REQUEST = 10
+    if (files.length > MAX_FILES_PER_REQUEST) {
+      console.error('[upload-photos] ERROR: Demasiados archivos en una petición:', files.length)
+      return NextResponse.json(
+        { error: `Máximo ${MAX_FILES_PER_REQUEST} fotos por vez` },
         { status: 400 }
       )
     }
