@@ -189,6 +189,10 @@ export async function POST(request: NextRequest) {
       duration_hours = 4,
       status = 'pending',
       payment_type,
+      // Cómo se cobra: 'flow' (link de pago), 'transfer' (transferencia) o 'cash'
+      // (efectivo). Para 'flow' el estado lo confirma después el webhook de Flow.
+      payment_method,
+      payment_status,
       total_price,
       original_price,
       origin_address,
@@ -261,6 +265,8 @@ export async function POST(request: NextRequest) {
         duration_hours,
         status,
         payment_type,
+        payment_method: payment_method || null,
+        payment_status: payment_status || 'pending',
         total_price,
         original_price,
         origin_address,

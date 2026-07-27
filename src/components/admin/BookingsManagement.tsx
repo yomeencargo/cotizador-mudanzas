@@ -24,7 +24,9 @@ import {
   Plus,
   Download,
   Star,
-  UserX
+  UserX,
+  Copy,
+  Link2
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -77,6 +79,37 @@ interface Booking extends AdminBookingQuoteSource {
   cancelled_at?: string
 }
 
+// Estado inicial del formulario de nueva reserva. Centralizado para que al resetear no
+// se olvide ningún campo nuevo.
+const EMPTY_NEW_BOOKING = {
+  quote_id: '',
+  client_name: '',
+  client_email: '',
+  client_phone: '',
+  scheduled_date: '',
+  scheduled_time: '',
+  duration_hours: 4,
+  status: 'pending',
+  payment_type: '',
+  payment_method: 'flow',
+  payment_paid: false,
+  total_price: '',
+  original_price: '',
+  origin_address: '',
+  destination_address: '',
+  notes: '',
+}
+
+/** Normaliza un teléfono chileno a formato wa.me (569XXXXXXXX). */
+function toWhatsAppNumber(phone: string): string {
+  const digits = (phone || '').replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('56')) return digits
+  // 9 dígitos locales (9XXXXXXXX) => prefijo país
+  if (digits.length === 9) return `56${digits}`
+  return digits
+}
+
 export default function BookingsManagement() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
@@ -96,22 +129,14 @@ export default function BookingsManagement() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [creating, setCreating] = useState(false)
   const [blockOnly, setBlockOnly] = useState(false)
-  const [newBooking, setNewBooking] = useState({
-    quote_id: '',
-    client_name: '',
-    client_email: '',
-    client_phone: '',
-    scheduled_date: '',
-    scheduled_time: '',
-    duration_hours: 4,
-    status: 'pending',
-    payment_type: '',
-    total_price: '',
-    original_price: '',
-    origin_address: '',
-    destination_address: '',
-    notes: ''
-  })
+  const [newBooking, setNewBooking] = useState({ ...EMPTY_NEW_BOOKING })
+  // Link de pago recién generado, para copiarlo o mandarlo por WhatsApp.
+  const [paymentLink, setPaymentLink] = useState<{
+    url: string
+    clientName: string
+    clientPhone: string
+    amount: number
+  } | null>(null)
 
   const fetchBookings = async (options: { silent?: boolean } = {}) => {
     try {
@@ -546,18 +571,16 @@ export default function BookingsManagement() {
         toast.success('Cupo reservado correctamente (1 camión)')
         setShowAddModal(false)
         setBlockOnly(false)
-        setNewBooking({
-          quote_id: '', client_name: '', client_email: '', client_phone: '',
-          scheduled_date: '', scheduled_time: '', duration_hours: 4, status: 'pending',
-          payment_type: '', total_price: '', original_price: '', origin_address: '',
-          destination_address: '', notes: ''
-        })
+        setNewBooking({ ...EMPTY_NEW_BOOKING })
         fetchBookings()
         return
       }
 
       // Crear reserva normal
       const timestamp = Date.now()
+      const method = newBooking.payment_method || 'flow'
+      const amount = newBooking.total_price ? Number(newBooking.total_price) : 0
+
       const payload: any = {
         quote_id: newBooking.quote_id || `ADMIN-${timestamp}`,
         client_name: newBooking.client_name,
@@ -568,6 +591,10 @@ export default function BookingsManagement() {
         duration_hours: Number(newBooking.duration_hours) || 4,
         status: newBooking.status,
         payment_type: newBooking.payment_type || null,
+        payment_method: method,
+        // Con link de pago, Flow confirma después por webhook: siempre nace pendiente.
+        // Con transferencia/efectivo el admin declara si ya se pagó.
+        payment_status: method === 'flow' ? 'pending' : (newBooking.payment_paid ? 'approved' : 'pending'),
         total_price: newBooking.total_price ? Number(newBooking.total_price) : null,
         original_price: newBooking.original_price ? Number(newBooking.original_price) : null,
         origin_address: newBooking.origin_address || null,
@@ -584,14 +611,60 @@ export default function BookingsManagement() {
         const err = await response.json().catch(() => ({}))
         throw new Error(err?.error || 'Error al crear la reserva')
       }
-      toast.success('Reserva creada correctamente')
+
+      const created = await response.json().catch(() => ({}))
+      const createdQuoteId: string = created?.booking?.quote_id || payload.quote_id
+
+      // Con link de pago: generamos la orden en Flow y mostramos el link para enviarlo.
+      // IMPORTANTE: a Flow se le pasa el quote_id (no el id), porque el webhook de
+      // confirmación resuelve la reserva por quote_id.
+      if (method === 'flow') {
+        if (!amount || amount <= 0) {
+          toast.success('Reserva creada. Sin monto no se pudo generar el link de pago.')
+        } else {
+          try {
+            const payRes = await fetch('/api/payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                bookingId: createdQuoteId,
+                amount,
+                email: newBooking.client_email,
+                subject: `Mudanza ${createdQuoteId} - Yo Me Encargo`,
+                paymentType: newBooking.payment_type || 'completo',
+              })
+            })
+            const payData = await payRes.json().catch(() => ({}))
+            if (!payRes.ok || !payData?.paymentUrl) {
+              throw new Error(payData?.error || 'No se pudo generar el link de pago')
+            }
+            setPaymentLink({
+              url: payData.paymentUrl,
+              clientName: newBooking.client_name,
+              clientPhone: newBooking.client_phone,
+              amount,
+            })
+            toast.success('Reserva creada y link de pago generado')
+          } catch (payErr) {
+            console.error('Error generando link de pago:', payErr)
+            toast.error(
+              payErr instanceof Error
+                ? `Reserva creada, pero el link falló: ${payErr.message}`
+                : 'Reserva creada, pero falló el link de pago'
+            )
+          }
+        }
+      } else {
+        const label = method === 'transfer' ? 'transferencia' : 'efectivo'
+        toast.success(
+          newBooking.payment_paid
+            ? `Reserva creada y marcada como pagada (${label})`
+            : `Reserva creada, pago pendiente por ${label}`
+        )
+      }
+
       setShowAddModal(false)
-      setNewBooking({
-        quote_id: '', client_name: '', client_email: '', client_phone: '',
-        scheduled_date: '', scheduled_time: '', duration_hours: 4, status: 'pending',
-        payment_type: '', total_price: '', original_price: '', origin_address: '',
-        destination_address: '', notes: ''
-      })
+      setNewBooking({ ...EMPTY_NEW_BOOKING })
       fetchBookings()
     } catch (error) {
       console.error('Error creating booking:', error)
@@ -1376,6 +1449,53 @@ export default function BookingsManagement() {
             </div>
           )}
 
+          {!blockOnly && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Método de cobro
+                  </label>
+                  <Select
+                    value={newBooking.payment_method}
+                    onChange={(e) =>
+                      setNewBooking({ ...newBooking, payment_method: e.target.value })
+                    }
+                    options={[
+                      { value: 'flow', label: '💳 Link de pago (Flow)' },
+                      { value: 'transfer', label: '🏦 Transferencia' },
+                      { value: 'cash', label: '💵 Efectivo' },
+                    ]}
+                  />
+                </div>
+
+                {newBooking.payment_method !== 'flow' && (
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 pb-2">
+                      <input
+                        type="checkbox"
+                        checked={newBooking.payment_paid}
+                        onChange={(e) =>
+                          setNewBooking({ ...newBooking, payment_paid: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                      />
+                      El cliente ya pagó
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {newBooking.payment_method === 'flow' && (
+                <p className="text-xs text-gray-600">
+                  Al crear la reserva se genera el link de pago con el monto de{' '}
+                  <strong>Total Pagado</strong> y podrás copiarlo o enviarlo por WhatsApp.
+                  El pago se confirma solo cuando el cliente paga.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Pago</label>
@@ -1423,6 +1543,81 @@ export default function BookingsManagement() {
             <Button onClick={handleCreate} disabled={creating}>{creating ? 'Guardando...' : (blockOnly ? 'Bloquear' : 'Crear Reserva')}</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Link de pago recién generado */}
+      <Modal
+        isOpen={!!paymentLink}
+        onClose={() => setPaymentLink(null)}
+        title="Link de pago generado"
+      >
+        {paymentLink && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="flex items-start gap-3">
+                <Link2 className="w-5 h-5 text-green-700 mt-0.5" />
+                <div className="text-sm text-green-900">
+                  Reserva creada para <strong>{paymentLink.clientName || 'el cliente'}</strong> por{' '}
+                  <strong>${paymentLink.amount.toLocaleString('es-CL')}</strong>. Envíale este link
+                  para que pague. La reserva queda <strong>pendiente</strong> hasta que Flow
+                  confirme el pago.
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Link</label>
+              <input
+                type="text"
+                readOnly
+                value={paymentLink.url}
+                onFocus={(e) => e.target.select()}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(paymentLink.url)
+                    toast.success('Link copiado')
+                  } catch {
+                    toast.error('No se pudo copiar')
+                  }
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar link
+              </Button>
+
+              {toWhatsAppNumber(paymentLink.clientPhone) && (
+                <a
+                  href={`https://wa.me/${toWhatsAppNumber(paymentLink.clientPhone)}?text=${encodeURIComponent(
+                    `Hola ${paymentLink.clientName}, aquí está el link para pagar tu mudanza con Yo Me Encargo por $${paymentLink.amount.toLocaleString('es-CL')}:\n${paymentLink.url}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-green-700 border-green-300 hover:bg-green-50"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Enviar por WhatsApp
+                  </Button>
+                </a>
+              )}
+
+              <Button onClick={() => setPaymentLink(null)} size="sm" className="ml-auto">
+                Listo
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Details Modal */}
