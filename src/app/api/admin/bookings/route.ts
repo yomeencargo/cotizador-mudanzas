@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 const PROSPECT_QUOTE_FIELDS = `
   id,
@@ -286,6 +287,39 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    const methodLabels: Record<string, string> = {
+      flow: 'link de pago',
+      transfer: 'transferencia',
+      cash: 'efectivo',
+    }
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'booking.created',
+      entityType: 'booking',
+      entityId: booking.id,
+      entityLabel: [booking.client_name, booking.scheduled_date].filter(Boolean).join(' · '),
+      summary: `Creó una reserva manual para ${booking.scheduled_date} ${String(
+        booking.scheduled_time || ''
+      ).slice(0, 5)}${
+        payment_method ? ` (cobro: ${methodLabels[payment_method] || payment_method})` : ''
+      }`,
+      changes: {
+        created: {
+          from: null,
+          to: {
+            quote_id: booking.quote_id,
+            client_name: booking.client_name,
+            scheduled_date: booking.scheduled_date,
+            scheduled_time: booking.scheduled_time,
+            total_price: booking.total_price,
+            payment_method: booking.payment_method,
+            status: booking.status,
+          },
+        },
+      },
+      request,
+    })
 
     return NextResponse.json(
       {

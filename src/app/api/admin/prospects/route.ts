@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import {
+  getActorFromRequest,
+  logAdminAction,
+  statusLabel,
+  type FieldChange,
+} from '@/lib/activityLog'
+
+/** Etiqueta legible del lead, duplicada en el log para poder leerlo si se borra. */
+function prospectLabel(p: { name?: string | null; email?: string | null }) {
+  return p?.name || p?.email || 'Lead'
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,6 +76,13 @@ export async function PATCH(request: NextRequest) {
     if (scheduled_time !== undefined) updateData.scheduled_time = scheduled_time || null
     if (is_frequent !== undefined) updateData.is_frequent = Boolean(is_frequent)
 
+    // Estado previo para el log (antes → después).
+    const { data: before } = await supabaseAdmin
+      .from('quote_prospects')
+      .select('name, email, status, source, adjusted_price, is_frequent')
+      .eq('id', id)
+      .maybeSingle()
+
     const { data, error } = await supabaseAdmin
       .from('quote_prospects')
       .update(updateData)
@@ -78,6 +96,54 @@ export async function PATCH(request: NextRequest) {
         { error: 'Error al actualizar prospecto' },
         { status: 500 }
       )
+    }
+
+    const actor = getActorFromRequest(request)
+    const label = prospectLabel(data || before || {})
+    const logBase = {
+      actor,
+      entityType: 'prospect',
+      entityId: id,
+      entityLabel: label,
+      request,
+    }
+
+    if (status !== undefined && before?.status !== data?.status) {
+      await logAdminAction({
+        ...logBase,
+        action: 'prospect.status_changed',
+        summary: `Cambió el estado del lead de ${statusLabel(before?.status)} a ${statusLabel(data?.status)}`,
+        changes: { status: { from: before?.status, to: data?.status } },
+      })
+    }
+
+    if (is_frequent !== undefined && before?.is_frequent !== data?.is_frequent) {
+      await logAdminAction({
+        ...logBase,
+        action: 'customer.frequent_toggled',
+        summary: data?.is_frequent
+          ? 'Marcó al cliente como frecuente'
+          : 'Quitó al cliente de frecuentes',
+        changes: { is_frequent: { from: before?.is_frequent, to: data?.is_frequent } },
+      })
+    }
+
+    const otherChanges: Record<string, FieldChange> = {}
+    if (source !== undefined && before?.source !== data?.source) {
+      otherChanges.source = { from: before?.source, to: data?.source }
+    }
+    if (adjusted_price !== undefined && before?.adjusted_price !== data?.adjusted_price) {
+      otherChanges.adjusted_price = { from: before?.adjusted_price, to: data?.adjusted_price }
+    }
+    if (Object.keys(otherChanges).length) {
+      await logAdminAction({
+        ...logBase,
+        action: 'prospect.updated',
+        summary: otherChanges.adjusted_price
+          ? `Ajustó el precio del lead a ${data?.adjusted_price ?? '—'}`
+          : 'Actualizó datos del lead',
+        changes: otherChanges,
+      })
     }
 
     return NextResponse.json({ success: true, prospect: data })
@@ -102,6 +168,13 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Se leen los datos ANTES de borrar: es la única copia que quedará en el log.
+    const { data: before } = await supabaseAdmin
+      .from('quote_prospects')
+      .select('name, email, phone, status, source, total_price')
+      .eq('id', id)
+      .maybeSingle()
+
     const { error } = await supabaseAdmin
       .from('quote_prospects')
       .delete()
@@ -114,6 +187,17 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'prospect.deleted',
+      entityType: 'prospect',
+      entityId: id,
+      entityLabel: prospectLabel(before || {}),
+      summary: `Eliminó el lead ${prospectLabel(before || {})}`,
+      changes: before ? { deleted_prospect: { from: before, to: null } } : null,
+      request,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

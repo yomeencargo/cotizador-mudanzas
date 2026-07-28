@@ -32,6 +32,39 @@ function orderMatchesQuote(commerceOrder: string, quoteId: string): boolean {
 // volvió por el navegador), NO se borra: se rescata aplicando el pago como lo haría el
 // webhook. Si no se puede verificar contra Flow, NO se borra nada (ante la duda, no perder
 // una reserva pagada).
+/** Retención del log de actividad: 12 meses (ver docs/DISENO_USUARIOS_Y_AUDITORIA.md). */
+const ACTIVITY_LOG_RETENTION_DAYS = 365
+
+/**
+ * Borra registros de auditoría más viejos que la retención acordada.
+ * Nunca lanza: si falla, la limpieza de reservas debe seguir su curso igual.
+ */
+async function purgeOldActivityLog(): Promise<number> {
+  try {
+    const cutoff = new Date(
+      Date.now() - ACTIVITY_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString()
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_activity_log')
+      .delete()
+      .lt('created_at', cutoff)
+      .select('id')
+
+    if (error) {
+      console.error('[CLEANUP] Error purgando el log de actividad:', error)
+      return 0
+    }
+
+    const purged = data?.length || 0
+    if (purged) console.log(`[CLEANUP] ${purged} registros de actividad purgados (>12 meses).`)
+    return purged
+  } catch (err) {
+    console.error('[CLEANUP] Excepción purgando el log de actividad:', err)
+    return 0
+  }
+}
+
 async function runCleanup(): Promise<CleanupResult> {
   const cutoff = new Date(
     Date.now() - PROVISIONAL_MAX_AGE_HOURS * 60 * 60 * 1000
@@ -158,7 +191,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const { deleted, rescued } = await runCleanup()
-    return NextResponse.json({ success: true, deletedCount: deleted, rescuedCount: rescued })
+    const purgedLogs = await purgeOldActivityLog()
+    return NextResponse.json({
+      success: true,
+      deletedCount: deleted,
+      rescuedCount: rescued,
+      purgedActivityLogs: purgedLogs,
+    })
   } catch (error) {
     console.error('[CLEANUP] Exception:', error)
     return NextResponse.json(

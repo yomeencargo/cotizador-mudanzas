@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { flowService } from '@/lib/flowService'
 import {
   ensureProvisionalBooking,
@@ -220,6 +221,17 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', prospect.id)
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'prospect.quote_sent',
+      entityType: 'prospect',
+      entityId: prospect.id,
+      entityLabel: prospect.name || prospect.email || 'Lead',
+      summary: `Envió la cotización ${quoteId} por $${Number(effectivePrice).toLocaleString('es-CL')}`,
+      changes: { quote_sent: { from: null, to: { quote_id: quoteId, price: effectivePrice } } },
+      request,
+    })
 
     return NextResponse.json({
       success: true,

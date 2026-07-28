@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { pickAttribution, hasAttribution, backfillAttribution } from '@/lib/attributionServer'
 
 // Crea (o confirma) una RESERVA real a partir de un prospecto, sin pasar por pago online.
@@ -193,6 +194,22 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', prospect.id)
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'prospect.converted_to_booking',
+      entityType: 'booking',
+      entityId: bookingId,
+      entityLabel: [prospect.name, effDate].filter(Boolean).join(' · '),
+      summary: `Convirtió el lead ${prospect.name || prospect.email || ''} en reserva para ${effDate} ${String(effTime || '').slice(0, 5)} por $${Number(effectivePrice).toLocaleString('es-CL')}`,
+      changes: {
+        converted: {
+          from: { prospect_id: prospect.id },
+          to: { booking_id: bookingId, quote_id: quoteId, price: effectivePrice },
+        },
+      },
+      request,
+    })
 
     return NextResponse.json({ success: true, bookingId, quoteId, price: effectivePrice })
   } catch (error) {

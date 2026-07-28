@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authenticateAdmin, isAdminAuthConfigured } from '@/lib/adminAuth'
+import { authenticateAdmin, isAdminAuthConfigured, normalizeUsername } from '@/lib/adminAuth'
 import { createSessionToken } from '@/lib/adminSession'
+import { logAdminAction } from '@/lib/activityLog'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,12 +31,31 @@ export async function POST(request: NextRequest) {
     const user = await authenticateAdmin(username, password)
 
     if (!user) {
+      // Intento fallido: se registra para poder detectar accesos indebidos.
+      // El actor es el usuario TIPEADO (no hay sesión), y nunca se guarda la contraseña.
+      await logAdminAction({
+        actor: { username: normalizeUsername(username) || 'desconocido' },
+        action: 'auth.login_failed',
+        entityType: 'auth',
+        summary: 'Intento de inicio de sesión fallido',
+        result: 'denied',
+        request,
+      })
+
       // Mismo mensaje siempre: no revelamos si falló el usuario o la contraseña.
       return NextResponse.json(
         { error: 'Credenciales incorrectas' },
         { status: 401 }
       )
     }
+
+    await logAdminAction({
+      actor: { username: user.username, id: user.id },
+      action: 'auth.login',
+      entityType: 'auth',
+      summary: `Inició sesión${user.mustChangePassword ? ' (con contraseña temporal)' : ''}`,
+      request,
+    })
 
     const response = NextResponse.json({
       success: true,

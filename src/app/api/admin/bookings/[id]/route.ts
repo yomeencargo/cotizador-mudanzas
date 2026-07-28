@@ -2,6 +2,107 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { deleteBookingPhotos } from '@/lib/deletePhotos'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
+import {
+  getActorFromRequest,
+  logAdminAction,
+  statusLabel,
+  type FieldChange,
+} from '@/lib/activityLog'
+
+/** Etiqueta legible de una reserva, para poder leer el log aunque luego se borre. */
+function bookingLabel(b: { client_name?: string | null; scheduled_date?: string | null }) {
+  return [b?.client_name, b?.scheduled_date].filter(Boolean).join(' · ') || 'Reserva'
+}
+
+/**
+ * Traduce el update a uno o más eventos de auditoría. Se emite un evento por TIPO de
+ * cambio (reprogramación, estado, pago) para poder filtrarlos por separado después.
+ */
+async function logBookingUpdate(args: {
+  request: NextRequest
+  id: string
+  before: Record<string, any> | null
+  after: Record<string, any>
+  updateData: Record<string, any>
+}) {
+  const { request, id, before, after, updateData } = args
+  const actor = getActorFromRequest(request)
+  const label = bookingLabel(after || before || {})
+  const base = { actor, entityType: 'booking', entityId: id, entityLabel: label, request }
+
+  // Reprogramación
+  const dateChanged =
+    'scheduled_date' in updateData && before?.scheduled_date !== after?.scheduled_date
+  const timeChanged =
+    'scheduled_time' in updateData && before?.scheduled_time !== after?.scheduled_time
+
+  if (dateChanged || timeChanged) {
+    const changes: Record<string, FieldChange> = {}
+    if (dateChanged) {
+      changes.scheduled_date = { from: before?.scheduled_date, to: after?.scheduled_date }
+    }
+    if (timeChanged) {
+      changes.scheduled_time = { from: before?.scheduled_time, to: after?.scheduled_time }
+    }
+    await logAdminAction({
+      ...base,
+      action: 'booking.rescheduled',
+      summary: `Reprogramó de ${before?.scheduled_date ?? '—'} ${String(
+        before?.scheduled_time ?? ''
+      ).slice(0, 5)} a ${after?.scheduled_date ?? '—'} ${String(
+        after?.scheduled_time ?? ''
+      ).slice(0, 5)}`,
+      changes,
+    })
+  }
+
+  // Cambio de estado
+  if ('status' in updateData && before?.status !== after?.status) {
+    await logAdminAction({
+      ...base,
+      action: 'booking.status_changed',
+      summary: `Cambió el estado de ${statusLabel(before?.status)} a ${statusLabel(
+        after?.status
+      )}`,
+      changes: { status: { from: before?.status, to: after?.status } },
+    })
+  }
+
+  // Pagos
+  const paymentChanges: Record<string, FieldChange> = {}
+  if ('payment_type' in updateData && before?.payment_type !== after?.payment_type) {
+    paymentChanges.payment_type = { from: before?.payment_type, to: after?.payment_type }
+  }
+  if ('payment_status' in updateData && before?.payment_status !== after?.payment_status) {
+    paymentChanges.payment_status = {
+      from: before?.payment_status,
+      to: after?.payment_status,
+    }
+  }
+  if (Object.keys(paymentChanges).length) {
+    const parts: string[] = []
+    if (paymentChanges.payment_status) {
+      parts.push(
+        `estado de pago: ${statusLabel(
+          paymentChanges.payment_status.from as string
+        )} → ${statusLabel(paymentChanges.payment_status.to as string)}`
+      )
+    }
+    if (paymentChanges.payment_type) {
+      parts.push(
+        `tipo de pago: ${paymentChanges.payment_type.from ?? '—'} → ${
+          paymentChanges.payment_type.to ?? '—'
+        }`
+      )
+    }
+    await logAdminAction({
+      ...base,
+      action: 'booking.payment_updated',
+      summary: `Actualizó el pago (${parts.join(', ')})`,
+      changes: paymentChanges,
+    })
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -168,6 +269,15 @@ export async function PATCH(
       }
     }
 
+    // Estado previo para el log (antes → después). Se lee aquí, justo antes de mutar.
+    const { data: before } = await supabaseAdmin
+      .from('bookings')
+      .select(
+        'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status'
+      )
+      .eq('id', id)
+      .maybeSingle()
+
     // Actualizar la reserva
     const { data: booking, error } = await supabaseAdmin
       .from('bookings')
@@ -183,6 +293,8 @@ export async function PATCH(
         { status: 500 }
       )
     }
+
+    await logBookingUpdate({ request, id, before, after: booking, updateData })
 
     return NextResponse.json({
       success: true,
@@ -207,6 +319,13 @@ export async function DELETE(
   try {
     const { id } = params
 
+    // Se leen los datos ANTES de borrar: después ya no hay de dónde sacarlos para el log.
+    const { data: before } = await supabaseAdmin
+      .from('bookings')
+      .select('client_name, scheduled_date, scheduled_time, status, quote_id, total_price')
+      .eq('id', id)
+      .maybeSingle()
+
     // Eliminar la reserva
     const { error } = await supabaseAdmin
       .from('bookings')
@@ -220,6 +339,22 @@ export async function DELETE(
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'booking.deleted',
+      entityType: 'booking',
+      entityId: id,
+      entityLabel: bookingLabel(before || {}),
+      summary: `Eliminó la reserva${before?.quote_id ? ` ${before.quote_id}` : ''} de ${
+        before?.scheduled_date ?? '—'
+      } ${String(before?.scheduled_time ?? '').slice(0, 5)}`,
+      // Guardamos el registro borrado: es la única copia que queda de qué se eliminó.
+      changes: before
+        ? { deleted_booking: { from: before, to: null } }
+        : null,
+      request,
+    })
 
     return NextResponse.json({
       success: true,

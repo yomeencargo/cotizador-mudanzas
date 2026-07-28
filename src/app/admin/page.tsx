@@ -15,6 +15,7 @@ import DashboardCharts from '@/components/admin/DashboardCharts'
 import AttendedCustomers from '@/components/admin/AttendedCustomers'
 import DriverAccessCard from '@/components/admin/DriverAccessCard'
 import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
+import ActivityLog from '@/components/admin/ActivityLog'
 import { 
   Calendar, 
   Truck, 
@@ -30,6 +31,7 @@ import {
   TrendingDown,
   LogOut,
   KeyRound,
+  History,
   Package,
   UserPlus
 } from 'lucide-react'
@@ -160,6 +162,7 @@ export default function AdminDashboard() {
     { id: 'customers', name: 'Clientes', icon: Users },
     { id: 'fleet', name: 'Flota', icon: Truck },
     { id: 'schedule', name: 'Horarios', icon: Clock },
+    { id: 'activity', name: 'Actividad', icon: History },
     { id: 'settings', name: 'Configuración', icon: Settings },
   ]
 
@@ -517,6 +520,8 @@ export default function AdminDashboard() {
         {activeTab === 'prospects' && <ProspectsManagement />}
 
         {activeTab === 'customers' && <AttendedCustomers />}
+
+        {activeTab === 'activity' && <ActivityLog />}
 
         {/* Fleet Tab */}
         {activeTab === 'fleet' && (
