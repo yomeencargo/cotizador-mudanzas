@@ -110,11 +110,16 @@ function toWhatsAppNumber(phone: string): string {
   return digits
 }
 
-export default function BookingsManagement() {
+interface BookingsManagementProps {
+  /** Búsqueda precargada (p. ej. al abrir una reserva desde el dashboard con ?q=). */
+  initialSearch?: string
+}
+
+export default function BookingsManagement({ initialSearch = '' }: BookingsManagementProps) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm] = useState(initialSearch)
   const [statusFilter, setStatusFilter] = useState('all')
   const [bookingTypeFilter, setBookingTypeFilter] = useState('all') // Nuevo filtro
   const [clientTypeFilter, setClientTypeFilter] = useState('') // '' | company | person
@@ -359,7 +364,13 @@ export default function BookingsManagement() {
   // persistían: el botón solo mandaba el estado y el texto se perdía).
   const saveBookingEdits = async (booking: Booking) => {
     try {
-      const updateData: any = { status: booking.status, notes: booking.notes ?? '' }
+      const updateData: any = {
+        status: booking.status,
+        notes: booking.notes ?? '',
+        // Reprogramación: el backend valida que haya cupo en el horario nuevo.
+        scheduled_date: booking.scheduled_date,
+        scheduled_time: booking.scheduled_time,
+      }
       if (booking.status === 'completed') {
         updateData.service_completed_at = new Date().toISOString()
       }
@@ -368,12 +379,17 @@ export default function BookingsManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
       })
-      if (!response.ok) throw new Error('Error al guardar')
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err?.error || 'Error al guardar')
+      }
       toast.success('Reserva actualizada correctamente')
       fetchBookings()
+      return true
     } catch (error) {
       console.error('Error saving booking edits:', error)
-      toast.error('Error al guardar los cambios')
+      toast.error(error instanceof Error ? error.message : 'Error al guardar los cambios')
+      return false
     }
   }
 
@@ -1896,6 +1912,36 @@ export default function BookingsManagement() {
       >
         {selectedBooking && (
           <div className="space-y-4">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">Fecha y hora del servicio</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                  <Input
+                    type="date"
+                    value={selectedBooking.scheduled_date || ''}
+                    onChange={(e) =>
+                      setSelectedBooking({ ...selectedBooking, scheduled_date: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                  <Input
+                    type="time"
+                    value={(selectedBooking.scheduled_time || '').slice(0, 5)}
+                    onChange={(e) =>
+                      setSelectedBooking({ ...selectedBooking, scheduled_time: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Si mueves la reserva a un horario sin camiones disponibles, se avisará y no se
+                guardará el cambio.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Estado
@@ -1945,8 +1991,10 @@ export default function BookingsManagement() {
               </Button>
               <Button
                 onClick={async () => {
-                  await saveBookingEdits(selectedBooking)
-                  setShowEditModal(false)
+                  // Solo cerramos si guardó: si el horario nuevo no tiene cupo, el modal
+                  // queda abierto con el error para poder elegir otra hora.
+                  const saved = await saveBookingEdits(selectedBooking)
+                  if (saved) setShowEditModal(false)
                 }}
               >
                 Guardar Cambios

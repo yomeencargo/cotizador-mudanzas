@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { randomBytes } from 'crypto'
+import { getDriverPin } from '@/lib/driverSession'
 
 // Gestión del token del link público de choferes. Protegido por el middleware
 // de admin (está bajo /api/admin). Solo el admin puede leer/regenerar el token.
@@ -20,7 +21,9 @@ export async function GET() {
 
     const token =
       (data as { driver_access_token?: string | null } | null)?.driver_access_token || null
-    return NextResponse.json({ token })
+    // El PIN se devuelve solo por esta ruta (protegida por sesión de admin), para que el
+    // panel lo muestre sin hornearlo en el bundle público.
+    return NextResponse.json({ token, pin: getDriverPin() })
   } catch (error) {
     console.error('Error in /api/admin/driver-link GET:', error)
     return NextResponse.json({ error: 'Error obteniendo el link' }, { status: 500 })

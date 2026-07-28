@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function DriverAccessCard() {
   const [token, setToken] = useState<string | null>(null)
+  const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [origin, setOrigin] = useState('')
@@ -24,6 +25,7 @@ export default function DriverAccessCard() {
       if (res.ok) {
         const data = await res.json()
         setToken(data.token || null)
+        setPin(data.pin || '')
       }
     } catch (error) {
       console.error('Error fetching driver link:', error)
@@ -50,7 +52,9 @@ export default function DriverAccessCard() {
 
   const link = token && origin ? `${origin}/trabajos/${token}` : ''
   const waHref = link
-    ? `https://wa.me/?text=${encodeURIComponent(`Trabajos del día · Yo Me Encargo:\n${link}`)}`
+    ? `https://wa.me/?text=${encodeURIComponent(
+        `Trabajos del día · Yo Me Encargo:\n${link}\n\nPIN de acceso: ${pin}`
+      )}`
     : ''
 
   const copy = async () => {
@@ -72,8 +76,9 @@ export default function DriverAccessCard() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Acceso Choferes</h3>
           <p className="text-sm text-gray-600">
-            Link público de solo lectura con los trabajos por hacer (sin precios). Compartilo con
-            los choferes por WhatsApp.
+            Link de solo lectura con los trabajos de los próximos 4 días (sin precios). Pide un
+            PIN de acceso (<strong>{pin}</strong>). Compartilo con los choferes por
+            WhatsApp.
           </p>
         </div>
       </div>

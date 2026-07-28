@@ -46,6 +46,7 @@ interface DashboardStats {
 
 interface TodayBooking {
   id: string
+  quote_id?: string
   client_name: string
   client_phone: string
   scheduled_date: string
@@ -57,6 +58,8 @@ interface TodayBooking {
 export default function AdminDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
+  // Búsqueda inicial para la pestaña Reservas (viene por ?q= al abrir desde el dashboard).
+  const [bookingsSearch, setBookingsSearch] = useState('')
   const [activeSettingsTab, setActiveSettingsTab] = useState('pricing')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([])
@@ -66,6 +69,18 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
+  }, [])
+
+  // Permite entrar directo a una pestaña con un filtro ya aplicado:
+  // /admin?tab=bookings&q=<quote_id>. Se usa al hacer click en una reserva del dashboard.
+  // Leemos window.location en vez de useSearchParams para no necesitar un <Suspense>.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    const q = params.get('q')
+    if (tab && tabs.some((t) => t.id === tab)) setActiveTab(tab)
+    if (q) setBookingsSearch(q)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleLogout = async () => {
@@ -161,10 +176,28 @@ export default function AdminDashboard() {
     return format(new Date(y, m - 1, d), "EEEE d 'de' MMMM", { locale: es })
   }
 
+  // Abre la reserva en una pestaña nueva, ya filtrada en la pestaña Reservas, para tener
+  // ahí los botones de acción (editar, marcar pagado, completar, PDF, etc.).
+  const openBookingInNewTab = (booking: TodayBooking) => {
+    const term = booking.quote_id || booking.client_name
+    const url = `/admin?tab=bookings&q=${encodeURIComponent(term)}`
+    window.open(url, '_blank', 'noopener')
+  }
+
   const renderBookingRow = (booking: TodayBooking) => (
     <div
       key={booking.id}
-      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+      onClick={() => openBookingInNewTab(booking)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          openBookingInNewTab(booking)
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      title="Abrir en Reservas (pestaña nueva) para ver acciones"
+      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 hover:ring-1 hover:ring-secondary-300 focus:outline-none focus:ring-2 focus:ring-secondary-400"
     >
       <div className="flex items-center gap-4">
         <div className={`p-2 rounded-full ${getStatusColor(booking.status)}`}>
@@ -441,7 +474,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Bookings Tab */}
-        {activeTab === 'bookings' && <BookingsManagement />}
+        {activeTab === 'bookings' && <BookingsManagement initialSearch={bookingsSearch} />}
 
         {/* Prospects Tab */}
         {activeTab === 'prospects' && <ProspectsManagement />}

@@ -1,4 +1,12 @@
-import { getDriverAccessToken, getUpcomingDriverJobs, type DriverJob } from '@/lib/driverJobs'
+import { cookies } from 'next/headers'
+import {
+  getDriverAccessToken,
+  getUpcomingDriverJobs,
+  DRIVER_WINDOW_DAYS,
+  type DriverJob,
+} from '@/lib/driverJobs'
+import { DRIVER_SESSION_COOKIE, verifyDriverSessionToken } from '@/lib/driverSession'
+import DriverPinGate from '@/components/trabajos/DriverPinGate'
 import { formatParkingDistance } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -143,6 +151,13 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
     )
   }
 
+  // Segunda capa: además del link con token, hay que ingresar el PIN. La sesión vive
+  // en una cookie firmada (12h), así que no se pide en cada carga durante la jornada.
+  const pinOk = await verifyDriverSessionToken(cookies().get(DRIVER_SESSION_COOKIE)?.value)
+  if (!pinOk) {
+    return <DriverPinGate token={params.token} />
+  }
+
   const jobs = await getUpcomingDriverJobs()
 
   // Agrupar por fecha, en orden.
@@ -161,12 +176,16 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
       <div className="mx-auto max-w-lg px-4 py-6">
         <header className="mb-5">
           <h1 className="text-xl font-bold text-gray-900">Trabajos por hacer</h1>
-          <p className="text-sm text-gray-500">Yo Me Encargo · próximos trabajos</p>
+          <p className="text-sm text-gray-500">
+            Yo Me Encargo · próximos {DRIVER_WINDOW_DAYS} días
+          </p>
         </header>
 
         {jobs.length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-            <p className="text-sm text-gray-600">No hay trabajos programados por ahora.</p>
+            <p className="text-sm text-gray-600">
+              No hay trabajos programados en los próximos {DRIVER_WINDOW_DAYS} días.
+            </p>
           </div>
         ) : (
           <div className="space-y-6">

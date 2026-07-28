@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { deleteBookingPhotos } from '@/lib/deletePhotos'
+import { getActiveCapacity } from '@/lib/fleetCapacity'
 
 export async function PATCH(
   request: NextRequest,
@@ -9,11 +10,28 @@ export async function PATCH(
   try {
     const { id } = params
     const body = await request.json()
-    const { status, notes, payment_type, payment_status, service_completed_at } = body
+    const {
+      status,
+      notes,
+      payment_type,
+      payment_status,
+      service_completed_at,
+      scheduled_date,
+      scheduled_time,
+    } = body
 
-    if (!status && !payment_type && !payment_status && service_completed_at === undefined) {
+    const reschedules = Boolean(scheduled_date || scheduled_time)
+
+    if (
+      !status &&
+      !payment_type &&
+      !payment_status &&
+      service_completed_at === undefined &&
+      notes === undefined &&
+      !reschedules
+    ) {
       return NextResponse.json(
-        { error: 'Estado, tipo de pago, estado de pago o timestamp de completación requerido' },
+        { error: 'No hay cambios que aplicar' },
         { status: 400 }
       )
     }
@@ -24,6 +42,76 @@ export async function PATCH(
     if (payment_type) updateData.payment_type = payment_type
     if (payment_status) updateData.payment_status = payment_status
     if (service_completed_at !== undefined) updateData.service_completed_at = service_completed_at
+
+    // Cambio de fecha/hora: hay que validar que el cupo nuevo exista, o se puede
+    // sobrevender un camión moviendo reservas a un horario ya lleno.
+    if (reschedules) {
+      const { data: current, error: currentErr } = await supabaseAdmin
+        .from('bookings')
+        .select('scheduled_date, scheduled_time, status, is_provisional')
+        .eq('id', id)
+        .single()
+
+      if (currentErr || !current) {
+        return NextResponse.json(
+          { error: 'No se encontró la reserva a reprogramar' },
+          { status: 404 }
+        )
+      }
+
+      const newDate = scheduled_date || current.scheduled_date
+      const newTime = scheduled_time || current.scheduled_time
+      const movedSlot =
+        newDate !== current.scheduled_date || newTime !== current.scheduled_time
+
+      // Solo validamos capacidad si realmente cambia de slot y la reserva ocupa cupo.
+      const occupiesSlot =
+        !current.is_provisional &&
+        !['cancelled', 'no_show'].includes(status || current.status)
+
+      if (movedSlot && occupiesSlot) {
+        const { data: fleet } = await supabaseAdmin
+          .from('fleet_config')
+          .select('*')
+          .single()
+        const capacity = getActiveCapacity(fleet)
+
+        // Excluimos la propia reserva del conteo: se está moviendo, no duplicando.
+        const { count: taken } = await supabaseAdmin
+          .from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('scheduled_date', newDate)
+          .eq('scheduled_time', newTime)
+          .in('status', ['confirmed', 'pending'])
+          .neq('id', id)
+
+        const { data: blocked } = await supabaseAdmin
+          .from('blocked_slots')
+          .select('id')
+          .eq('date', newDate)
+          .lte('start_time', newTime)
+          .gt('end_time', newTime)
+
+        if (blocked && blocked.length > 0) {
+          return NextResponse.json(
+            { error: 'Ese horario está bloqueado en la agenda' },
+            { status: 409 }
+          )
+        }
+
+        if ((taken || 0) >= capacity) {
+          return NextResponse.json(
+            {
+              error: `Sin cupo a esa hora: ${taken}/${capacity} camiones ya ocupados`,
+            },
+            { status: 409 }
+          )
+        }
+      }
+
+      if (scheduled_date) updateData.scheduled_date = scheduled_date
+      if (scheduled_time) updateData.scheduled_time = scheduled_time
+    }
 
     // Si se marca como pago completo, sincronizar total_price con original_price
     if (payment_type === 'completo') {

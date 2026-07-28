@@ -10,6 +10,22 @@ function chileTodayString(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(new Date())
 }
 
+/** Suma días a una fecha 'YYYY-MM-DD' sin pasar por UTC. */
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setDate(date.getDate() + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`
+}
+
+/**
+ * Ventana visible para los choferes: hoy + 3 días = 4 días en total. Se acota a
+ * propósito para que no vean toda la agenda futura en un link compartido.
+ */
+export const DRIVER_WINDOW_DAYS = 4
+
 export interface DriverJobItem {
   name: string
   quantity: number
@@ -43,6 +59,8 @@ export async function getDriverAccessToken(): Promise<string | null> {
 
 export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
   const today = chileTodayString()
+  // Tope de la ventana: hoy + 3 = 4 días visibles.
+  const windowEnd = addDays(today, DRIVER_WINDOW_DAYS - 1)
 
   // Mismo criterio que el dashboard admin ("Reservas de Hoy/Mañana"): no restringir
   // por status confirmed/pending, porque una reserva de hoy puede ya estar marcada
@@ -54,6 +72,7 @@ export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
       'id, quote_id, scheduled_date, scheduled_time, client_name, client_phone, booking_type, visit_address, origin_address, origin_floor, origin_has_elevator, origin_parking_distance, destination_address, destination_floor, destination_has_elevator, destination_parking_distance, notes, is_provisional, status'
     )
     .gte('scheduled_date', today)
+    .lte('scheduled_date', windowEnd)
     .not('status', 'in', '(cancelled,no_show)')
     .order('scheduled_date', { ascending: true })
     .order('scheduled_time', { ascending: true })

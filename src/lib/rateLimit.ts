@@ -140,6 +140,13 @@ export const RATE_LIMIT_RULES: readonly { prefix: string; rule: RateLimitRule }[
     rule: { bucket: 'admin-login', limit: 10, windowMs: 15 * MIN },
   },
 
+  // PIN del panel de choferes: son 4 dígitos, así que sin un límite estricto se
+  // adivina por fuerza bruta en minutos.
+  {
+    prefix: '/api/trabajos/verify-pin',
+    rule: { bucket: 'driver-pin', limit: 10, windowMs: 15 * MIN },
+  },
+
   // Subidas de archivos: es el vector que tumbó el sitio. Muy estricto.
   {
     prefix: '/api/photos/upload',
