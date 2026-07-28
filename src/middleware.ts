@@ -74,7 +74,11 @@ export async function middleware(request: NextRequest) {
 
   // Excepciones públicas / de sistema.
   if (PUBLIC_ADMIN_PATHS.has(pathname)) return NextResponse.next()
-  if (pathname.startsWith('/api/admin/auth/')) return NextResponse.next() // login + logout
+  // Solo login y logout son públicos. OJO: `change-password` NO va acá — necesita sesión
+  // válida, porque la identidad de quien cambia la clave sale de la cookie firmada.
+  if (pathname === '/api/admin/auth/login' || pathname === '/api/admin/auth/logout') {
+    return NextResponse.next()
+  }
   // Cron de Vercel (definido en vercel.json). Debería auto-protegerse con CRON_SECRET.
   if (pathname === '/api/admin/cleanup-bookings') return NextResponse.next()
   // Lectura pública del catálogo/precios/agenda que consume el cotizador (solo GET).
@@ -83,9 +87,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get('admin_authenticated')?.value
-  const isAuthenticated = await verifySessionToken(token)
+  const actor = await verifySessionToken(token)
 
-  if (!isAuthenticated) {
+  if (!actor) {
     if (isAdminApi) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
@@ -93,7 +97,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  return NextResponse.next()
+  // Propagamos la identidad a los route handlers para el log de auditoría.
+  // Se ESCRIBEN siempre (no se leen del request entrante), así un cliente no puede
+  // suplantar a otro usuario mandando estos headers por su cuenta.
+  const headers = new Headers(request.headers)
+  headers.set('x-admin-user', actor.username)
+  headers.set('x-admin-user-id', actor.id)
+
+  return NextResponse.next({ request: { headers } })
 }
 
 export const config = {

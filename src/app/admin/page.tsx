@@ -14,6 +14,7 @@ import ProspectsManagement from '@/components/admin/ProspectsManagement'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import AttendedCustomers from '@/components/admin/AttendedCustomers'
 import DriverAccessCard from '@/components/admin/DriverAccessCard'
+import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
 import { 
   Calendar, 
   Truck, 
@@ -28,6 +29,7 @@ import {
   TrendingUp,
   TrendingDown,
   LogOut,
+  KeyRound,
   Package,
   UserPlus
 } from 'lucide-react'
@@ -60,6 +62,13 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   // Búsqueda inicial para la pestaña Reservas (viene por ?q= al abrir desde el dashboard).
   const [bookingsSearch, setBookingsSearch] = useState('')
+  const [currentUser, setCurrentUser] = useState<{
+    username: string
+    displayName: string
+    mustChangePassword: boolean
+    canChangePassword: boolean
+  } | null>(null)
+  const [showChangePassword, setShowChangePassword] = useState(false)
   const [activeSettingsTab, setActiveSettingsTab] = useState('pricing')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([])
@@ -69,7 +78,21 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
+    fetchCurrentUser()
   }, [])
+
+  // Quién está en sesión. Si arrastra una contraseña temporal, el cambio es obligatorio.
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/admin/auth/me')
+      if (!res.ok) return
+      const data = await res.json()
+      setCurrentUser(data)
+      if (data?.mustChangePassword) setShowChangePassword(true)
+    } catch (error) {
+      console.error('Error obteniendo el usuario en sesión:', error)
+    }
+  }
 
   // Permite entrar directo a una pestaña con un filtro ya aplicado:
   // /admin?tab=bookings&q=<quote_id>. Se usa al hacer click en una reserva del dashboard.
@@ -274,7 +297,11 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-2xl font-archivo font-extrabold tracking-tight text-gray-900">Panel de Administración</h1>
-              <p className="text-sm text-gray-500">Gestión de mudanzas y reservas</p>
+              <p className="text-sm text-gray-500">
+                {currentUser?.displayName
+                  ? `Sesión de ${currentUser.displayName}`
+                  : 'Gestión de mudanzas y reservas'}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <Button
@@ -284,6 +311,16 @@ export default function AdminDashboard() {
               >
                 ← Volver al Cotizador
               </Button>
+              {currentUser?.canChangePassword && (
+                <Button
+                  onClick={() => setShowChangePassword(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <KeyRound className="w-4 h-4 mr-2" />
+                  Contraseña
+                </Button>
+              )}
               <Button
                 onClick={fetchDashboardData}
                 variant="secondary"
@@ -546,6 +583,16 @@ export default function AdminDashboard() {
           </a>
         </p>
       </div>
+
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        required={Boolean(currentUser?.mustChangePassword)}
+        onClose={() => setShowChangePassword(false)}
+        onChanged={() => {
+          setShowChangePassword(false)
+          fetchCurrentUser()
+        }}
+      />
     </div>
   )
 }

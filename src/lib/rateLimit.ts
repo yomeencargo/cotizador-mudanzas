@@ -147,6 +147,13 @@ export const RATE_LIMIT_RULES: readonly { prefix: string; rule: RateLimitRule }[
     rule: { bucket: 'driver-pin', limit: 10, windowMs: 15 * MIN },
   },
 
+  // Cambio de contraseña: exige la contraseña actual, así que también es un objetivo
+  // de fuerza bruta (con una sesión robada).
+  {
+    prefix: '/api/admin/auth/change-password',
+    rule: { bucket: 'change-password', limit: 10, windowMs: 15 * MIN },
+  },
+
   // Subidas de archivos: es el vector que tumbó el sitio. Muy estricto.
   {
     prefix: '/api/photos/upload',

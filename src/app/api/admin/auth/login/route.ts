@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  isAdminAuthConfigured,
-  validateAdminCredentials
-} from '@/lib/adminAuth'
+import { authenticateAdmin, isAdminAuthConfigured } from '@/lib/adminAuth'
 import { createSessionToken } from '@/lib/adminSession'
 
 export async function POST(request: NextRequest) {
@@ -30,7 +27,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!validateAdminCredentials(username, password)) {
+    const user = await authenticateAdmin(username, password)
+
+    if (!user) {
+      // Mismo mensaje siempre: no revelamos si falló el usuario o la contraseña.
       return NextResponse.json(
         { error: 'Credenciales incorrectas' },
         { status: 401 }
@@ -39,13 +39,21 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      message: 'Acceso autorizado'
+      message: 'Acceso autorizado',
+      user: {
+        username: user.username,
+        displayName: user.displayName,
+        mustChangePassword: user.mustChangePassword,
+      },
     })
 
     const isSecure = request.url.startsWith('https://')
 
-    // Cookie de sesión firmada (HMAC), no un 'true' forjable.
-    const sessionToken = await createSessionToken()
+    // Cookie de sesión firmada (HMAC) con la identidad del usuario.
+    const sessionToken = await createSessionToken({
+      id: user.id,
+      username: user.username,
+    })
 
     response.cookies.set('admin_authenticated', sessionToken, {
       httpOnly: true,
