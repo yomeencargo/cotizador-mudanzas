@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 // Marca/desmarca un cliente como frecuente. El atributo vive en quote_prospects (por cliente),
 // así que se aplica a TODAS las fichas de ese email => queda consistente entre Prospectos y Reservas.
@@ -52,6 +53,18 @@ export async function PATCH(request: NextRequest) {
       }
       affected = 1
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'customer.frequent_toggled',
+      entityType: 'prospect',
+      entityLabel: name || email,
+      summary: frequent
+        ? `Marcó a ${name || email} como cliente frecuente`
+        : `Quitó a ${name || email} de clientes frecuentes`,
+      changes: { is_frequent: { from: !frequent, to: frequent } },
+      request,
+    })
 
     return NextResponse.json({ success: true, affected, is_frequent: frequent })
   } catch (error) {

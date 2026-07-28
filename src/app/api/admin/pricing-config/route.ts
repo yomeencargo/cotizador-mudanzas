@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 export async function GET() {
   try {
@@ -144,6 +145,18 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'pricing.updated',
+      entityType: 'pricing',
+      entityId: result.data?.id ? String(result.data.id) : null,
+      entityLabel: 'Configuración de precios',
+      summary: `Actualizó los precios (base $${Number(body.basePrice || 0).toLocaleString('es-CL')}, m³ $${Number(body.pricePerCubicMeter || 0).toLocaleString('es-CL')}, km $${Number(body.pricePerKilometer || 0).toLocaleString('es-CL')})`,
+      // Se guarda la configuración completa: es el cambio que más impacta la facturación.
+      changes: { pricing: { from: existingConfig ? 'anterior' : null, to: dbData } },
+      request,
+    })
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 // GET - Obtener todos los items del catálogo
 export async function GET() {
@@ -77,6 +78,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'catalog.item_created',
+      entityType: 'catalog',
+      entityId: data?.id ? String(data.id) : null,
+      entityLabel: data?.name || name,
+      summary: `Agregó "${data?.name || name}" al catálogo (${data?.category || category})`,
+      changes: { created: { from: null, to: { name, category, volume, weight } } },
+      request,
+    })
+
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error('Error in /api/admin/catalog-items POST:', error)
@@ -143,6 +155,17 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'catalog.item_updated',
+      entityType: 'catalog',
+      entityId: String(id),
+      entityLabel: data?.name || String(id),
+      summary: `Editó "${data?.name || id}" en el catálogo`,
+      changes: { updated: { from: null, to: updateData } },
+      request,
+    })
+
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error('Error in /api/admin/catalog-items PUT:', error)
@@ -166,6 +189,13 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Se lee antes de borrar: después no queda de dónde sacar el nombre para el log.
+    const { data: before } = await supabaseAdmin
+      .from('catalog_items')
+      .select('name, category, volume, weight')
+      .eq('id', id)
+      .maybeSingle()
+
     // Opción 1: Eliminar físicamente
     const { error } = await supabaseAdmin
       .from('catalog_items')
@@ -179,6 +209,17 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'catalog.item_deleted',
+      entityType: 'catalog',
+      entityId: String(id),
+      entityLabel: before?.name || String(id),
+      summary: `Eliminó "${before?.name || id}" del catálogo`,
+      changes: before ? { deleted_item: { from: before, to: null } } : null,
+      request,
+    })
 
     return NextResponse.json({ success: true })
     

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 export async function GET() {
   try {
@@ -153,6 +154,16 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'schedule.updated',
+      entityType: 'schedule',
+      entityLabel: 'Configuración de horarios',
+      summary: `Actualizó la agenda (${body.timeSlots?.length || 0} franjas horarias)`,
+      changes: { schedule: { from: null, to: dbData } },
+      request,
+    })
 
     return NextResponse.json({
       success: true,

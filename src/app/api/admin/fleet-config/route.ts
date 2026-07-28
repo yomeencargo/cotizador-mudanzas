@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 export async function GET() {
   try {
@@ -104,6 +105,27 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // El detalle que importa: cuántos camiones quedan operativos, porque define los
+    // cupos que el cotizador ofrece al público.
+    const activos = Array.isArray(config?.vehicles)
+      ? config.vehicles.filter((v: any) => v?.status === 'active').length
+      : config?.num_vehicles ?? 0
+    const enMantenimiento = Array.isArray(config?.vehicles)
+      ? config.vehicles.filter((v: any) => v?.status === 'maintenance').length
+      : 0
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'fleet.updated',
+      entityType: 'fleet',
+      entityId: config?.id ? String(config.id) : null,
+      entityLabel: 'Flota',
+      summary: `Actualizó la flota: ${activos} camión(es) activo(s)` +
+        (enMantenimiento ? `, ${enMantenimiento} en mantenimiento` : ''),
+      changes: { vehicles: { from: null, to: updates.vehicles ?? updates.num_vehicles ?? null } },
+      request,
+    })
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 export async function PATCH(
   request: NextRequest,
@@ -68,6 +69,12 @@ export async function DELETE(
   try {
     const { id } = params
 
+    const { data: before } = await supabaseAdmin
+      .from('blocked_slots')
+      .select('date, start_time, end_time, reason')
+      .eq('id', id)
+      .maybeSingle()
+
     // Eliminar el bloqueo
     const { error } = await supabaseAdmin
       .from('blocked_slots')
@@ -81,6 +88,19 @@ export async function DELETE(
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'blocked_slot.deleted',
+      entityType: 'schedule',
+      entityId: id,
+      entityLabel: before ? `${before.date} ${String(before.start_time ?? '').slice(0, 5)}` : id,
+      summary: before
+        ? `Liberó el bloqueo del ${before.date} de ${String(before.start_time ?? '').slice(0, 5)} a ${String(before.end_time ?? '').slice(0, 5)}`
+        : 'Eliminó un bloqueo de agenda',
+      changes: before ? { deleted_block: { from: before, to: null } } : null,
+      request,
+    })
 
     return NextResponse.json({
       success: true,

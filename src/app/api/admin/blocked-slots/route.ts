@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 
 export async function GET() {
   try {
@@ -84,6 +85,16 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'blocked_slot.created',
+      entityType: 'schedule',
+      entityId: blockedSlot?.id ? String(blockedSlot.id) : null,
+      entityLabel: `${blockedSlot?.date ?? ''} ${blockedSlot?.start_time ?? ''}`.trim(),
+      summary: `Bloqueó la agenda el ${blockedSlot?.date} de ${String(blockedSlot?.start_time ?? '').slice(0, 5)} a ${String(blockedSlot?.end_time ?? '').slice(0, 5)}${blockedSlot?.reason ? ` (${blockedSlot.reason})` : ''}`,
+      request,
+    })
 
     return NextResponse.json({
       success: true,

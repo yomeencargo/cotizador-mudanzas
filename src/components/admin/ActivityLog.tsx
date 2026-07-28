@@ -41,6 +41,20 @@ const ACTION_LABELS: Record<string, string> = {
   'prospect.quote_sent': 'Cotización enviada',
   'prospect.converted_to_booking': 'Lead convertido',
   'customer.frequent_toggled': 'Cliente frecuente',
+  'auth.password_changed': 'Contraseña cambiada',
+  'pricing.updated': 'Precios actualizados',
+  'schedule.updated': 'Agenda actualizada',
+  'fleet.updated': 'Flota actualizada',
+  'driver_link.regenerated': 'Link choferes regenerado',
+  'blocked_slot.created': 'Horario bloqueado',
+  'blocked_slot.deleted': 'Bloqueo liberado',
+  'catalog.item_created': 'Item creado',
+  'catalog.item_updated': 'Item editado',
+  'catalog.item_deleted': 'Item eliminado',
+  'user.created': 'Usuario creado',
+  'user.updated': 'Usuario actualizado',
+  'user.deactivated': 'Usuario desactivado',
+  'user.password_reset': 'Contraseña reseteada',
 }
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -211,6 +225,11 @@ export default function ActivityLog() {
                 { value: 'booking', label: 'Reservas' },
                 { value: 'prospect', label: 'Leads' },
                 { value: 'auth', label: 'Sesiones' },
+                { value: 'pricing', label: 'Precios' },
+                { value: 'fleet', label: 'Flota' },
+                { value: 'schedule', label: 'Agenda' },
+                { value: 'catalog', label: 'Catálogo' },
+                { value: 'user', label: 'Usuarios' },
               ]}
             />
           </div>

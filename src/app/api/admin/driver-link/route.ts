@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { randomBytes } from 'crypto'
 import { getDriverPin } from '@/lib/driverSession'
 
@@ -30,7 +31,7 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const token = randomBytes(24).toString('base64url')
 
@@ -61,6 +62,15 @@ export async function POST() {
         { status: 500 }
       )
     }
+
+    await logAdminAction({
+      actor: getActorFromRequest(request),
+      action: 'driver_link.regenerated',
+      entityType: 'fleet',
+      entityLabel: 'Acceso choferes',
+      summary: 'Regeneró el link de choferes (el anterior dejó de funcionar)',
+      request,
+    })
 
     return NextResponse.json({ token })
   } catch (error) {

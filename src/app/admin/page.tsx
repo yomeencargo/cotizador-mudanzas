@@ -16,6 +16,7 @@ import AttendedCustomers from '@/components/admin/AttendedCustomers'
 import DriverAccessCard from '@/components/admin/DriverAccessCard'
 import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
 import ActivityLog from '@/components/admin/ActivityLog'
+import UsersManagement from '@/components/admin/UsersManagement'
 import { 
   Calendar, 
   Truck, 
@@ -32,6 +33,7 @@ import {
   LogOut,
   KeyRound,
   History,
+  ShieldCheck,
   Package,
   UserPlus
 } from 'lucide-react'
@@ -170,6 +172,7 @@ export default function AdminDashboard() {
     { id: 'pricing', name: 'Precios', icon: DollarSign },
     { id: 'schedule-config', name: 'Horarios', icon: Clock },
     { id: 'inventory', name: 'Inventario', icon: Package },
+    { id: 'users', name: 'Usuarios', icon: ShieldCheck },
   ]
 
   const getStatusColor = (status: string) => {
@@ -561,6 +564,7 @@ export default function AdminDashboard() {
             {activeSettingsTab === 'pricing' && <PricingConfiguration />}
             {activeSettingsTab === 'schedule-config' && <ScheduleConfiguration />}
             {activeSettingsTab === 'inventory' && <ItemsManagement />}
+            {activeSettingsTab === 'users' && <UsersManagement />}
           </div>
         )}
       </div>

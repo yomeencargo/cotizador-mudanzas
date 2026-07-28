@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ENV_ADMIN_ID, normalizeUsername } from '@/lib/adminAuth'
 import { hashPassword, validatePasswordStrength, verifyPassword } from '@/lib/passwordHash'
+import { logAdminAction } from '@/lib/activityLog'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +88,15 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Nunca se registra la contraseña (ni la vieja ni la nueva), solo el hecho.
+    await logAdminAction({
+      actor: { username, id: userId },
+      action: 'auth.password_changed',
+      entityType: 'auth',
+      summary: 'Cambió su contraseña',
+      request,
+    })
 
     return NextResponse.json({
       success: true,
