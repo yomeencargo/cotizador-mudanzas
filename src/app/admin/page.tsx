@@ -48,6 +48,15 @@ interface DashboardStats {
   totalVehicles: number
   occupancyRate: number
   averageTicket: number
+  revenue?: {
+    paid: number
+    paidCount: number
+    paidByChannel: { flow: number; transfer: number; cash: number; otro: number }
+    pending: number
+    pendingCount: number
+    booked: number
+  }
+  outstandingQuotes?: { total: number; count: number }
 }
 
 interface TodayBooking {
@@ -378,7 +387,7 @@ export default function AdminDashboard() {
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -389,20 +398,6 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-3 rounded-full bg-primary-50">
                     <Calendar className="w-6 h-6 text-primary-600" />
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Ingresos del Mes</p>
-                    <p className="text-3xl font-archivo font-extrabold text-gray-900">
-                      ${stats?.monthlyRevenue?.toLocaleString() || 0}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-full bg-secondary-50">
-                    <DollarSign className="w-6 h-6 text-secondary-600" />
                   </div>
                 </div>
               </Card>
@@ -444,6 +439,109 @@ export default function AdminDashboard() {
                   </span>
                 </div>
               </Card>
+            </div>
+
+            {/* Ingresos del mes, separados por estado de cobro */}
+            <div>
+              <div className="mb-3 flex items-baseline justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Ingresos</h3>
+                {stats?.revenue ? (
+                  <span className="text-sm text-gray-500">
+                    Reservado este mes: ${stats.revenue.booked.toLocaleString('es-CL')}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* 1. Cobrado */}
+                <Card className="p-6 border-l-4 border-l-green-500">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-600">Pagado · este mes</p>
+                      <p className="text-3xl font-archivo font-extrabold text-gray-900">
+                        ${(stats?.revenue?.paid ?? 0).toLocaleString('es-CL')}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {stats?.revenue?.paidCount ?? 0} reserva
+                        {(stats?.revenue?.paidCount ?? 0) === 1 ? '' : 's'} · plata recibida
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-full bg-green-50 shrink-0">
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+
+                  {stats?.revenue?.paidByChannel && (
+                    <div className="mt-4 space-y-1 border-t border-gray-100 pt-3">
+                      {([
+                        ['flow', 'Pago online'],
+                        ['transfer', 'Transferencia'],
+                        ['cash', 'Efectivo'],
+                        ['otro', 'Otro'],
+                      ] as const).map(([key, label]) => {
+                        const value = stats.revenue!.paidByChannel[key]
+                        if (!value) return null
+                        return (
+                          <div key={key} className="flex justify-between text-xs">
+                            <span className="text-gray-500">{label}</span>
+                            <span className="font-medium text-gray-700">
+                              ${value.toLocaleString('es-CL')}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </Card>
+
+                {/* 2. Por cobrar */}
+                <Card className="p-6 border-l-4 border-l-amber-500">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-600">Por cobrar · este mes</p>
+                      <p className="text-3xl font-archivo font-extrabold text-gray-900">
+                        ${(stats?.revenue?.pending ?? 0).toLocaleString('es-CL')}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {stats?.revenue?.pendingCount ?? 0} reserva
+                        {(stats?.revenue?.pendingCount ?? 0) === 1 ? '' : 's'} con saldo
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-full bg-amber-50 shrink-0">
+                      <Clock className="w-6 h-6 text-amber-600" />
+                    </div>
+                  </div>
+                  <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500">
+                    Incluye el 50% restante de quienes abonaron la mitad y las reservas sin
+                    pago confirmado.
+                  </p>
+                </Card>
+
+                {/* 3. Cotizado vigente (sin reserva) */}
+                <Card className="p-6 border-l-4 border-l-blue-500">
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-600">Cotizado vigente · a futuro</p>
+                      <p className="text-3xl font-archivo font-extrabold text-gray-900">
+                        ${(stats?.outstandingQuotes?.total ?? 0).toLocaleString('es-CL')}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {stats?.outstandingQuotes?.count ?? 0} cotización
+                        {(stats?.outstandingQuotes?.count ?? 0) === 1 ? '' : 'es'} sin reserva
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-full bg-blue-50 shrink-0">
+                      <TrendingUp className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('prospects')}
+                    className="mt-4 w-full border-t border-gray-100 pt-3 text-left text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Todas las fechas futuras, no solo este mes → ver leads
+                  </button>
+                </Card>
+              </div>
             </div>
 
             {/* Reservas de Hoy */}

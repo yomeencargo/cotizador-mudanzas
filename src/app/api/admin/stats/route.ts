@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
+import { summarizeBookings, summarizeOutstandingQuotes } from '@/lib/revenueBreakdown'
 
 // Lee datos en vivo: no debe prerenderizarse/cachearse en build.
 export const dynamic = 'force-dynamic'
@@ -45,10 +46,15 @@ export async function GET() {
       console.error('[API] Error fetching fleet config:', fleetError)
     }
 
-    // 4. Ingresos del mes (usar precios reales de las reservas - TODAS excepto canceladas)
+    // 4. Ingresos del mes, separados en COBRADO y POR COBRAR.
+    //    Ojo: no se suma total_price directamente porque cambió de significado en
+    //    julio-2026 (ver comentario en revenueBreakdown.ts). El monto cobrado se deriva
+    //    del precio del servicio según la modalidad de pago (mitad 50% / completo 95%).
     const { data: monthlyBookings, error: monthlyError } = await supabaseAdmin
       .from('bookings')
-      .select('id, original_price, total_price')
+      .select(
+        'id, original_price, total_price, payment_type, payment_status, status, is_provisional, flow_token, payment_method'
+      )
       .gte('scheduled_date', startOfMonth)
       .lte('scheduled_date', endOfMonth)
       .neq('status', 'cancelled')
@@ -57,11 +63,23 @@ export async function GET() {
       console.error('[API] Error fetching monthly bookings:', monthlyError)
     }
 
-    // Calcular ingresos reales sumando los precios (priorizar total_price si existe, sino original_price)
-    const monthlyRevenue = monthlyBookings?.reduce((sum, booking) => {
-      const price = booking.total_price || booking.original_price || 0
-      return sum + (typeof price === 'number' ? price : 0)
-    }, 0) || 0
+    const revenue = summarizeBookings(monthlyBookings || [])
+    // Se mantiene `monthlyRevenue` por compatibilidad: ahora es la plata realmente
+    // recibida, no el valor nominal de las reservas.
+    const monthlyRevenue = revenue.paid
+
+    // 4b. Cotizaciones vigentes sin reserva: la mudanza todavía no ocurrió y el lead
+    //     sigue abierto. Es plata que aún se puede cerrar.
+    const todayChile = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Santiago',
+    }).format(new Date())
+
+    const { data: openProspects } = await supabaseAdmin
+      .from('quote_prospects')
+      .select('status, total_price, adjusted_price, scheduled_date, converted_booking_id')
+      .gte('scheduled_date', todayChile)
+
+    const quotes = summarizeOutstandingQuotes(openProspects || [], todayChile)
 
     // 5. Ocupación del mes = reservas del mes / cupos reales.
     //    Cupos = vehículos ACTIVOS * franjas horarias configuradas * días del mes
@@ -83,7 +101,8 @@ export async function GET() {
     const occupancyRate = Math.min(100, Math.round((occupiedSlots / totalSlots) * 100))
 
     // 6. Ticket promedio
-    const averageTicket = occupiedSlots > 0 ? Math.round(monthlyRevenue / occupiedSlots) : 0
+    // Ticket promedio sobre el valor de lo reservado (no sobre lo ya cobrado).
+    const averageTicket = occupiedSlots > 0 ? Math.round(revenue.booked / occupiedSlots) : 0
 
     const stats = {
       todayBookings: todayBookings || 0,
@@ -92,6 +111,19 @@ export async function GET() {
       totalVehicles: fleetConfig?.num_vehicles,
       occupancyRate,
       averageTicket,
+      // Desglose de ingresos del mes
+      revenue: {
+        paid: revenue.paid,
+        paidCount: revenue.paidCount,
+        paidByChannel: revenue.paidByChannel,
+        pending: revenue.pending,
+        pendingCount: revenue.pendingCount,
+        booked: revenue.booked,
+      },
+      outstandingQuotes: {
+        total: quotes.total,
+        count: quotes.count,
+      },
     }
 
     console.log('[API] Stats fetched successfully:', stats)
