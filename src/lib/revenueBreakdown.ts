@@ -15,6 +15,16 @@
 //
 // El 5% de descuento NO es deuda: quien pagó completo no debe nada. Los "ingresos
 // pagados" reflejan plata realmente recibida (decisión de Francisco, jul-2026).
+//
+// VALIDACIÓN DE LA FÓRMULA (ago-2026): se contrastó contra los 21 cobros históricos en
+// los que `total_price` guardaba el monto que Flow cobró de verdad (medios reportados:
+// Webpay, Onepay, transferencia). La fórmula reproduce 20 de 21 al peso exacto; el
+// restante difiere en $143 por redondeo ($72.978 calculado vs $73.121 cobrado). Sobre
+// un total de $1.854.095 el desvío agregado es del 0,008%.
+//
+// No se pudo consultar la API de Flow en vivo para revalidar: el `.env.local` apunta al
+// sandbox (sandbox.flow.cl) y los tokens guardados son de producción, así que devuelven
+// 403. Para un contraste directo hay que comparar el panel de Flow con el dashboard.
 
 export interface BookingLike {
   original_price?: number | null
