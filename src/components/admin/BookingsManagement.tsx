@@ -38,6 +38,15 @@ import {
 } from '@/lib/adminBookingQuoteData'
 import { getSourceLabel, getSourceBadge } from '@/lib/prospectSource'
 import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
+import { resolveVehicleColor, UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
+
+interface FleetVehicleOption {
+  id: number
+  name: string
+  driver?: string
+  status?: string
+  color: VehicleColor
+}
 
 interface Booking extends AdminBookingQuoteSource {
   id: string
@@ -66,6 +75,7 @@ interface Booking extends AdminBookingQuoteSource {
   booking_type?: 'online' | 'domicilio' // Tipo de reserva
   visit_address?: string // Dirección para visita a domicilio
   service_completed_at?: string // Fecha de completación del servicio
+  vehicle_id?: number | null // Camión asignado (color en el link de choferes)
   is_flexible?: boolean
   recommended_vehicle?: string
   total_volume?: number
@@ -123,6 +133,8 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
   const [statusFilter, setStatusFilter] = useState('all')
   const [bookingTypeFilter, setBookingTypeFilter] = useState('all') // Nuevo filtro
   const [clientTypeFilter, setClientTypeFilter] = useState('') // '' | company | person
+  const [vehicleFilter, setVehicleFilter] = useState('all') // 'all' | 'unassigned' | id
+  const [fleet, setFleet] = useState<FleetVehicleOption[]>([])
   const [selectedBookingIds, setSelectedBookingIds] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [dateFilter, setDateFilter] = useState('all')
@@ -158,6 +170,33 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
       if (!options.silent) setLoading(false)
     }
   }
+
+  // La flota se lee aparte de las reservas: nombre y color del camión viven en
+  // fleet_config, y la reserva solo guarda el vehicle_id.
+  const fetchFleet = async () => {
+    try {
+      const response = await fetch('/api/admin/fleet-config')
+      const data = await response.json()
+      const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : []
+      setFleet(
+        vehicles.map((v: any, i: number) => ({
+          id: v.id,
+          name: v.name || `Camión ${i + 1}`,
+          driver: v.driver || '',
+          status: v.status,
+          color: resolveVehicleColor(v, i),
+        }))
+      )
+    } catch (error) {
+      console.error('Error fetching fleet config:', error)
+    }
+  }
+
+  const vehicleOf = useCallback(
+    (booking: Booking): FleetVehicleOption | null =>
+      booking.vehicle_id == null ? null : fleet.find((v) => v.id === booking.vehicle_id) || null,
+    [fleet]
+  )
 
   const filterBookings = useCallback(() => {
     let filtered = [...bookings]
@@ -245,6 +284,13 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
       })
     }
 
+    // Filtrar por camión asignado
+    if (vehicleFilter === 'unassigned') {
+      filtered = filtered.filter(booking => booking.vehicle_id == null)
+    } else if (vehicleFilter !== 'all') {
+      filtered = filtered.filter(booking => String(booking.vehicle_id) === vehicleFilter)
+    }
+
     // Filtrar por tipo de cliente (empresa vs persona natural)
     if (clientTypeFilter === 'company') {
       filtered = filtered.filter(b => b.is_company === true)
@@ -267,10 +313,11 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
     })
 
     setFilteredBookings(filtered)
-  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, clientTypeFilter, dateFilter, customStartDate, customEndDate])
+  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, clientTypeFilter, vehicleFilter, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchBookings()
+    fetchFleet()
     // Refresco silencioso al volver a la pestaña/ventana: los pagos confirmados por el
     // webhook aparecen sin necesidad de pulsar "Actualizar".
     const refreshOnFocus = () => {
@@ -370,6 +417,14 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
         // Reprogramación: el backend valida que haya cupo en el horario nuevo.
         scheduled_date: booking.scheduled_date,
         scheduled_time: booking.scheduled_time,
+      }
+
+      // El camión solo se manda si realmente cambió. Si no, editar las notas de una
+      // reserva que quedó apuntando a un camión en mantención fallaría con 409.
+      const original = bookings.find((b) => b.id === booking.id)
+      if ((original?.vehicle_id ?? null) !== (booking.vehicle_id ?? null)) {
+        // null desasigna: el reparto automático la vuelve a tomar en la próxima lectura.
+        updateData.vehicle_id = booking.vehicle_id ?? null
       }
       if (booking.status === 'completed') {
         updateData.service_completed_at = new Date().toISOString()
@@ -750,6 +805,7 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
       { header: 'Fecha mudanza', value: (b) => fmtSchedDate(b.scheduled_date) },
       { header: 'Hora mudanza', value: (b) => fmtSchedTime(b.scheduled_time) },
       { header: 'Duración (horas)', value: (b) => b.duration_hours },
+      { header: 'Camión', value: (b) => vehicleOf(b)?.name || 'Sin asignar' },
       { header: 'Estado', value: (b) => b.status },
       { header: 'Estado de pago', value: (b) => b.payment_status },
       { header: 'Tipo de pago', value: (b) => b.payment_type },
@@ -906,6 +962,24 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Camión
+            </label>
+            <Select
+              value={vehicleFilter}
+              onChange={(e) => setVehicleFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Todos los camiones' },
+                ...fleet.map((v) => ({
+                  value: String(v.id),
+                  label: v.driver ? `${v.name} · ${v.driver}` : v.name,
+                })),
+                { value: 'unassigned', label: 'Sin asignar' },
+              ]}
+            />
+          </div>
+
           <div className={dateFilter === 'range' ? 'md:col-span-2' : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha
@@ -959,6 +1033,7 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                 setStatusFilter('all')
                 setBookingTypeFilter('all')
                 setClientTypeFilter('')
+                setVehicleFilter('all')
                 setDateFilter('all')
                 setCustomStartDate('')
                 setCustomEndDate('')
@@ -1031,6 +1106,9 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Fecha y Hora
+                  </th>
+                  <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Camión
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
@@ -1121,6 +1199,26 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                       <div className="text-sm text-gray-500">
                         {booking.scheduled_time}
                       </div>
+                    </td>
+                    <td className="hidden md:table-cell px-4 py-3 align-top whitespace-nowrap">
+                      {(() => {
+                        const vehicle = vehicleOf(booking)
+                        const color = vehicle ? vehicle.color : UNASSIGNED_COLOR
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold"
+                            style={{ backgroundColor: color.soft, color: color.ink }}
+                            title={vehicle?.driver ? `Chofer: ${vehicle.driver}` : undefined}
+                          >
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: color.hex }}
+                              aria-hidden
+                            />
+                            {vehicle ? vehicle.name : 'Sin asignar'}
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap">
                       <div className="flex flex-col gap-1">
@@ -1939,6 +2037,62 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
               <p className="mt-2 text-xs text-gray-500">
                 Si mueves la reserva a un horario sin camiones disponibles, se avisará y no se
                 guardará el cambio.
+              </p>
+            </div>
+
+            {/* Camión asignado: es el color con el que los choferes ven este trabajo. */}
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Camión asignado</label>
+              <div className="flex flex-wrap gap-2">
+                {fleet.map((vehicle) => {
+                  const selected = selectedBooking.vehicle_id === vehicle.id
+                  // Un camión en mantención está fuera de servicio: se muestra (para que
+                  // se entienda de dónde salió una asignación vieja) pero no se puede elegir.
+                  const inMaintenance = vehicle.status === 'maintenance'
+                  return (
+                    <button
+                      key={vehicle.id}
+                      type="button"
+                      disabled={inMaintenance}
+                      title={inMaintenance ? 'En mantención: actívalo en Flota para usarlo' : undefined}
+                      onClick={() =>
+                        setSelectedBooking({ ...selectedBooking, vehicle_id: vehicle.id })
+                      }
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                        selected ? 'ring-2 ring-offset-1 ring-gray-900' : 'opacity-70 hover:opacity-100'
+                      } ${inMaintenance ? 'cursor-not-allowed line-through opacity-40 hover:opacity-40' : ''}`}
+                      style={{ backgroundColor: vehicle.color.soft, color: vehicle.color.ink }}
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: vehicle.color.hex }}
+                        aria-hidden
+                      />
+                      {vehicle.name}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={() => setSelectedBooking({ ...selectedBooking, vehicle_id: null })}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                    selectedBooking.vehicle_id == null
+                      ? 'ring-2 ring-offset-1 ring-gray-900'
+                      : 'opacity-70 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: UNASSIGNED_COLOR.soft, color: UNASSIGNED_COLOR.ink }}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: UNASSIGNED_COLOR.hex }}
+                    aria-hidden
+                  />
+                  Sin asignar
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Lo que elijas acá manda. &quot;Sin asignar&quot; devuelve la reserva al reparto
+                automático, que le dará el camión activo con menos trabajos ese día.
               </p>
             </div>
 

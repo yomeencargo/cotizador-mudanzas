@@ -12,6 +12,8 @@ export interface FleetVehicle {
   driver?: string
   phone?: string
   status: VehicleStatus
+  /** Clave de color (ver src/lib/vehicleColors.ts). Ausente en flotas antiguas. */
+  color?: string
 }
 
 export interface FleetConfigRow {

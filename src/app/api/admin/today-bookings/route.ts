@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import {
+  ensureVehicleAssignments,
+  getFleetVehicleViews,
+  getVehicleAssignmentsInRange,
+} from '@/lib/vehicleAssignment'
 
 // Lee datos en vivo: no debe prerenderizarse/cachearse en build.
 export const dynamic = 'force-dynamic'
@@ -36,7 +41,8 @@ export async function GET() {
         scheduled_time,
         status,
         total_price,
-        original_price
+        original_price,
+        is_provisional
       `)
       .gte('scheduled_date', today)
       .lte('scheduled_date', weekEnd)
@@ -60,10 +66,25 @@ export async function GET() {
 
     console.log(`[API] Successfully fetched ${bookings?.length || 0} upcoming bookings`)
 
-    const result = (bookings || []).map((booking) => ({
-      ...booking,
-      estimated_price: booking.original_price ?? booking.total_price ?? null,
-    }))
+    // Camión de cada trabajo: se resuelve acá (nombre + color ya listos) para que el
+    // dashboard no tenga que ir a buscar la flota por su cuenta.
+    const vehicles = await getFleetVehicleViews()
+    const assignments = await ensureVehicleAssignments(
+      bookings || [],
+      vehicles,
+      await getVehicleAssignmentsInRange(today, weekEnd)
+    )
+
+    const result = (bookings || []).map((booking) => {
+      const vehicle = vehicles.find((v) => v.id === assignments.get(booking.id))
+      return {
+        ...booking,
+        estimated_price: booking.original_price ?? booking.total_price ?? null,
+        vehicle: vehicle
+          ? { id: vehicle.id, name: vehicle.name, driver: vehicle.driver, color: vehicle.color }
+          : null,
+      }
+    })
 
     return NextResponse.json(result)
   } catch (error) {

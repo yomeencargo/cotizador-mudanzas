@@ -34,6 +34,7 @@ const ACTION_LABELS: Record<string, string> = {
   'booking.status_changed': 'Estado de reserva',
   'booking.rescheduled': 'Reserva reprogramada',
   'booking.payment_updated': 'Pago de reserva',
+  'booking.vehicle_assigned': 'Camión asignado',
   'booking.deleted': 'Reserva eliminada',
   'prospect.status_changed': 'Estado de lead',
   'prospect.updated': 'Lead actualizado',

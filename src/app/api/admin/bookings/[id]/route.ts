@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { deleteBookingPhotos } from '@/lib/deletePhotos'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
+import { getFleetVehicleViews } from '@/lib/vehicleAssignment'
 import {
   getActorFromRequest,
   logAdminAction,
@@ -53,6 +54,20 @@ async function logBookingUpdate(args: {
         after?.scheduled_time ?? ''
       ).slice(0, 5)}`,
       changes,
+    })
+  }
+
+  // Cambio de camión: se registra aparte porque es la decisión que ven los choferes en
+  // el link público, y hay que poder rastrear quién movió un trabajo de camión.
+  if ('vehicle_id' in updateData && before?.vehicle_id !== after?.vehicle_id) {
+    const fleet = await getFleetVehicleViews()
+    const nameOf = (vid: number | null | undefined) =>
+      vid == null ? 'Sin asignar' : fleet.find((v) => v.id === vid)?.name || `Camión ${vid}`
+    await logAdminAction({
+      ...base,
+      action: 'booking.vehicle_assigned',
+      summary: `Cambió el camión de ${nameOf(before?.vehicle_id)} a ${nameOf(after?.vehicle_id)}`,
+      changes: { vehicle_id: { from: before?.vehicle_id ?? null, to: after?.vehicle_id ?? null } },
     })
   }
 
@@ -119,6 +134,7 @@ export async function PATCH(
       service_completed_at,
       scheduled_date,
       scheduled_time,
+      vehicle_id,
     } = body
 
     const reschedules = Boolean(scheduled_date || scheduled_time)
@@ -129,6 +145,7 @@ export async function PATCH(
       !payment_status &&
       service_completed_at === undefined &&
       notes === undefined &&
+      vehicle_id === undefined &&
       !reschedules
     ) {
       return NextResponse.json(
@@ -143,6 +160,32 @@ export async function PATCH(
     if (payment_type) updateData.payment_type = payment_type
     if (payment_status) updateData.payment_status = payment_status
     if (service_completed_at !== undefined) updateData.service_completed_at = service_completed_at
+
+    // Asignación manual de camión. null = desasignar; el reparto automático la volverá a
+    // tomar en la próxima lectura, así que "sin camión" es un estado transitorio a propósito.
+    if (vehicle_id !== undefined) {
+      if (vehicle_id === null) {
+        updateData.vehicle_id = null
+      } else {
+        // Solo camiones activos: los que están en mantención salen de servicio y el
+        // reparto automático les quita el trabajo, así que asignarlos no duraría nada.
+        const fleetVehicles = await getFleetVehicleViews()
+        const target = fleetVehicles.find((v) => v.id === vehicle_id)
+        if (!target) {
+          return NextResponse.json(
+            { error: 'El camión indicado no existe en la flota' },
+            { status: 400 }
+          )
+        }
+        if (target.status === 'maintenance') {
+          return NextResponse.json(
+            { error: `${target.name} está en mantención: actívalo en Flota para asignarle trabajos` },
+            { status: 409 }
+          )
+        }
+        updateData.vehicle_id = vehicle_id
+      }
+    }
 
     // Cambio de fecha/hora: hay que validar que el cupo nuevo exista, o se puede
     // sobrevender un camión moviendo reservas a un horario ya lleno.
@@ -273,7 +316,7 @@ export async function PATCH(
     const { data: before } = await supabaseAdmin
       .from('bookings')
       .select(
-        'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status'
+        'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id'
       )
       .eq('id', id)
       .maybeSingle()

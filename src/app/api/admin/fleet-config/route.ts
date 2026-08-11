@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
+import { resolveVehicleColor, vehicleColorByKey } from '@/lib/vehicleColors'
 
 export async function GET() {
   try {
@@ -38,7 +39,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (Array.isArray(vehicles)) {
-      // Persistir la lista de vehículos con su estado (activo/mantenimiento).
+      // Persistir la lista de vehículos con su estado (activo/mantenimiento) y su color.
       const sanitized = vehicles.map((v, i) => ({
         id: typeof v?.id === 'number' ? v.id : i + 1,
         name:
@@ -49,7 +50,10 @@ export async function PATCH(request: NextRequest) {
           typeof v?.capacity === 'number' && v.capacity > 0 ? v.capacity : 1,
         driver: typeof v?.driver === 'string' ? v.driver : '',
         phone: typeof v?.phone === 'string' ? v.phone : '',
-        status: v?.status === 'maintenance' ? 'maintenance' : 'active'
+        status: v?.status === 'maintenance' ? 'maintenance' : 'active',
+        // El color solo se guarda si es una clave conocida de la paleta; cualquier otra
+        // cosa se descarta y el color se deriva de la posición al leerlo.
+        color: vehicleColorByKey(v?.color)?.key ?? resolveVehicleColor(v, i).key
       }))
 
       if (sanitized.length < 1) {

@@ -1,4 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import {
+  ensureVehicleAssignments,
+  getFleetVehicleViews,
+  getVehicleAssignmentsInRange,
+  type VehicleView,
+} from '@/lib/vehicleAssignment'
 
 // Datos para el panel público de choferes: SIN precios. Nunca seleccionamos
 // total_price / original_price aquí para que no puedan filtrarse al link público.
@@ -49,6 +55,8 @@ export interface DriverJob {
   destination_parking_distance: number | null
   notes: string | null
   items: DriverJobItem[]
+  /** Camión asignado. null = todavía sin asignar (grupo aparte en la vista). */
+  vehicle_id: number | null
 }
 
 export async function getDriverAccessToken(): Promise<string | null> {
@@ -57,7 +65,13 @@ export async function getDriverAccessToken(): Promise<string | null> {
   return typeof token === 'string' && token.length > 0 ? token : null
 }
 
-export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
+export interface DriverAgenda {
+  jobs: DriverJob[]
+  /** Flota con su color, para pintar las secciones y la leyenda. */
+  vehicles: VehicleView[]
+}
+
+export async function getUpcomingDriverJobs(): Promise<DriverAgenda> {
   const today = chileTodayString()
   // Tope de la ventana: hoy + 3 = 4 días visibles.
   const windowEnd = addDays(today, DRIVER_WINDOW_DAYS - 1)
@@ -79,6 +93,15 @@ export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
 
   // Solo trabajos reales (las pre-reservas sin pagar no ocupan cupo ni son trabajo).
   const rows = (bookings || []).filter((b) => !b.is_provisional)
+
+  // Reparto de camiones: los que ya tienen uno (automático o puesto a mano por el
+  // admin) lo conservan; los nuevos se reparten aquí y quedan guardados.
+  const vehicles = await getFleetVehicleViews()
+  const assignments = await ensureVehicleAssignments(
+    rows,
+    vehicles,
+    await getVehicleAssignmentsInRange(today, windowEnd)
+  )
 
   // Items a mover viven en quote_prospects (por quote_id).
   const quoteIds = Array.from(
@@ -105,7 +128,7 @@ export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
     }
   }
 
-  return rows.map((b) => ({
+  const jobs: DriverJob[] = rows.map((b) => ({
     id: b.id,
     scheduled_date: b.scheduled_date,
     scheduled_time: b.scheduled_time ?? null,
@@ -123,5 +146,8 @@ export async function getUpcomingDriverJobs(): Promise<DriverJob[]> {
     destination_parking_distance: b.destination_parking_distance ?? null,
     notes: b.notes ?? null,
     items: itemsByQuote.get(b.quote_id) || [],
+    vehicle_id: assignments.get(b.id) ?? null,
   }))
+
+  return { jobs, vehicles }
 }

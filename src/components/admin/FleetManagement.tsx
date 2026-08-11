@@ -6,6 +6,11 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { Truck, Plus, Minus, AlertCircle, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import {
+  VEHICLE_COLORS,
+  nextFreeColorKey,
+  resolveVehicleColor,
+} from '@/lib/vehicleColors'
 
 interface FleetConfig {
   id: string
@@ -23,6 +28,8 @@ interface Vehicle {
   status: VehicleStatus
   driver?: string
   phone?: string
+  /** Color con el que se identifica en el link de choferes y en Reservas. */
+  color?: string
 }
 
 // Vehículos por defecto derivados de num_vehicles, usados solo cuando la BD aún no
@@ -34,7 +41,8 @@ function buildDefaultVehicles(count: number): Vehicle[] {
     capacity: 1,
     status: 'active' as const,
     driver: '',
-    phone: ''
+    phone: '',
+    color: VEHICLE_COLORS[i % VEHICLE_COLORS.length].key
   }))
 }
 
@@ -52,8 +60,20 @@ export default function FleetManagement() {
     name: '',
     capacity: 1,
     driver: '',
-    phone: ''
+    phone: '',
+    color: VEHICLE_COLORS[0].key
   })
+
+  const openAddVehicle = () => {
+    setNewVehicle({
+      name: '',
+      capacity: 1,
+      driver: '',
+      phone: '',
+      color: nextFreeColorKey(vehicles.map((v) => v.color))
+    })
+    setShowAddVehicle(true)
+  }
 
   useEffect(() => {
     fetchFleetData()
@@ -128,15 +148,20 @@ export default function FleetManagement() {
     let next: Vehicle[]
     if (newSize > vehicles.length) {
       const toAdd = newSize - vehicles.length
-      const additions = Array.from({ length: toAdd }, (_, i) => ({
-        id: nextVehicleId(vehicles) + i,
-        name: `Camión ${vehicles.length + i + 1}`,
-        capacity: 1,
-        status: 'active' as const,
-        driver: '',
-        phone: ''
-      }))
-      next = [...vehicles, ...additions]
+      // Se agregan de a uno para que cada nuevo camión tome un color todavía libre,
+      // contando también los que se acaban de crear en esta misma tanda.
+      next = [...vehicles]
+      for (let i = 0; i < toAdd; i++) {
+        next.push({
+          id: nextVehicleId(next),
+          name: `Camión ${next.length + 1}`,
+          capacity: 1,
+          status: 'active',
+          driver: '',
+          phone: '',
+          color: nextFreeColorKey(next.map((v) => v.color))
+        })
+      }
     } else {
       next = vehicles.slice(0, newSize)
     }
@@ -156,7 +181,8 @@ export default function FleetManagement() {
       capacity: newVehicle.capacity,
       status: 'active',
       driver: newVehicle.driver,
-      phone: newVehicle.phone
+      phone: newVehicle.phone,
+      color: newVehicle.color
     }
 
     const ok = await persistVehicles(
@@ -164,7 +190,7 @@ export default function FleetManagement() {
       'Vehículo agregado'
     )
     if (ok) {
-      setNewVehicle({ name: '', capacity: 1, driver: '', phone: '' })
+      setNewVehicle({ name: '', capacity: 1, driver: '', phone: '', color: VEHICLE_COLORS[0].key })
       setShowAddVehicle(false)
     }
   }
@@ -178,6 +204,11 @@ export default function FleetManagement() {
       vehicles.filter((v) => v.id !== vehicleId),
       'Vehículo eliminado'
     )
+  }
+
+  const updateVehicleColor = async (vehicleId: number, color: string) => {
+    const next = vehicles.map((v) => (v.id === vehicleId ? { ...v, color } : v))
+    await persistVehicles(next, 'Color del camión actualizado')
   }
 
   const updateVehicleStatus = async (vehicleId: number, status: VehicleStatus) => {
@@ -309,7 +340,7 @@ export default function FleetManagement() {
             </p>
           </div>
           <Button
-            onClick={() => setShowAddVehicle(true)}
+            onClick={openAddVehicle}
             variant="outline"
             size="sm"
           >
@@ -319,14 +350,17 @@ export default function FleetManagement() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {vehicles.map((vehicle) => (
+          {vehicles.map((vehicle, index) => {
+            const color = resolveVehicleColor(vehicle, index)
+            return (
             <div
               key={vehicle.id}
-              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="border border-l-4 border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+              style={{ borderLeftColor: color.hex }}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-gray-600" />
+                  <Truck className="w-5 h-5" style={{ color: color.hex }} />
                   <h4 className="font-semibold text-gray-900">{vehicle.name}</h4>
                 </div>
                 <span
@@ -360,6 +394,44 @@ export default function FleetManagement() {
                 )}
               </div>
 
+              {/* El color es la referencia que usan los choferes en el link de trabajos:
+                  cambiarlo cambia cómo ven su bloque, así que se edita acá y en un solo lugar. */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">Color</span>
+                  <span className="text-xs font-medium" style={{ color: color.ink }}>
+                    {color.label}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {VEHICLE_COLORS.map((option) => {
+                    const selected = option.key === color.key
+                    const takenBy = vehicles.find(
+                      (v, i) => v.id !== vehicle.id && resolveVehicleColor(v, i).key === option.key
+                    )
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => updateVehicleColor(vehicle.id, option.key)}
+                        disabled={saving || selected}
+                        title={
+                          takenBy
+                            ? `${option.label} — ya lo usa ${takenBy.name}`
+                            : option.label
+                        }
+                        aria-label={`Color ${option.label}`}
+                        aria-pressed={selected}
+                        className={`h-6 w-6 rounded-full transition-transform hover:scale-110 disabled:hover:scale-100 ${
+                          selected ? 'ring-2 ring-offset-2 ring-gray-900' : ''
+                        } ${takenBy ? 'opacity-40' : ''}`}
+                        style={{ backgroundColor: option.hex }}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+
               <div className="flex gap-2 mt-4">
                 <Button
                   onClick={() => updateVehicleStatus(vehicle.id, 'active')}
@@ -390,7 +462,8 @@ export default function FleetManagement() {
                 </Button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </Card>
 
@@ -460,6 +533,37 @@ export default function FleetManagement() {
                   }
                   placeholder="+56912345678"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Color (con el que lo ven los choferes)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {VEHICLE_COLORS.map((option) => {
+                    const takenBy = vehicles.find(
+                      (v, i) => resolveVehicleColor(v, i).key === option.key
+                    )
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setNewVehicle({ ...newVehicle, color: option.key })}
+                        title={
+                          takenBy ? `${option.label} — ya lo usa ${takenBy.name}` : option.label
+                        }
+                        aria-label={`Color ${option.label}`}
+                        aria-pressed={newVehicle.color === option.key}
+                        className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+                          newVehicle.color === option.key
+                            ? 'ring-2 ring-offset-2 ring-gray-900'
+                            : ''
+                        } ${takenBy ? 'opacity-40' : ''}`}
+                        style={{ backgroundColor: option.hex }}
+                      />
+                    )
+                  })}
+                </div>
               </div>
             </div>
 

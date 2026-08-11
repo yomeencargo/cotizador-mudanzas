@@ -68,6 +68,13 @@ interface TodayBooking {
   scheduled_time: string
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   estimated_price: number | null
+  /** Camión asignado, con el color con el que lo ven los choferes. */
+  vehicle?: {
+    id: number
+    name: string
+    driver?: string
+    color: { hex: string; soft: string; ink: string }
+  } | null
 }
 
 export default function AdminDashboard() {
@@ -248,6 +255,23 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-600">
             {booking.client_phone} • {booking.scheduled_time?.slice(0, 5)}
           </p>
+          {booking.vehicle && (
+            <span
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={{
+                backgroundColor: booking.vehicle.color.soft,
+                color: booking.vehicle.color.ink,
+              }}
+              title={booking.vehicle.driver ? `Chofer: ${booking.vehicle.driver}` : undefined}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: booking.vehicle.color.hex }}
+                aria-hidden
+              />
+              {booking.vehicle.name}
+            </span>
+          )}
         </div>
       </div>
       <div className="text-right">

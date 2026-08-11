@@ -3,6 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
+import {
+  ensureVehicleAssignments,
+  getAllVehicleAssignments,
+  getFleetVehicleViews,
+} from '@/lib/vehicleAssignment'
 
 const PROSPECT_QUOTE_FIELDS = `
   id,
@@ -166,8 +171,21 @@ export async function GET() {
     const prospects = await fetchProspectQuoteDetails(bookingRows)
     const enrichedBookings = mergeBookingQuoteDetails(bookingRows, prospects)
 
-    console.log(`[API] Successfully fetched ${enrichedBookings.length} bookings`)
-    return NextResponse.json(enrichedBookings)
+    // Camión de cada reserva. Las futuras que aún no tienen uno se reparten acá y quedan
+    // guardadas, así el admin y el link de choferes ven siempre lo mismo.
+    const vehicles = await getFleetVehicleViews()
+    const assignments = await ensureVehicleAssignments(
+      bookingRows,
+      vehicles,
+      await getAllVehicleAssignments()
+    )
+    const withVehicle = enrichedBookings.map((b: any) => ({
+      ...b,
+      vehicle_id: assignments.get(b.id) ?? null,
+    }))
+
+    console.log(`[API] Successfully fetched ${withVehicle.length} bookings`)
+    return NextResponse.json(withVehicle)
   } catch (error) {
     console.error('[API] Exception in /api/admin/bookings:', error)
     return NextResponse.json(
