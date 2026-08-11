@@ -30,6 +30,20 @@ interface Vehicle {
   phone?: string
   /** Color con el que se identifica en el link de choferes y en Reservas. */
   color?: string
+  /** Medidas útiles del cajón, en metros. 0 = sin medir. */
+  length?: number
+  width?: number
+  height?: number
+  /** Carga máxima en kilos. 0 = sin definir. */
+  maxWeight?: number
+}
+
+/** Volumen útil derivado de las medidas. Se calcula, no se guarda, para que no se desincronice. */
+function cargoVolume(v: Vehicle): number {
+  const l = Number(v.length) || 0
+  const w = Number(v.width) || 0
+  const h = Number(v.height) || 0
+  return l > 0 && w > 0 && h > 0 ? l * w * h : 0
 }
 
 // Vehículos por defecto derivados de num_vehicles, usados solo cuando la BD aún no
@@ -211,6 +225,34 @@ export default function FleetManagement() {
     await persistVehicles(next, 'Color del camión actualizado')
   }
 
+  // Edición de ficha (nombre, chofer, teléfono, medidas). Se edita en un borrador local y
+  // solo se persiste al guardar: así escribir un nombre no dispara un PATCH por tecla.
+  const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null)
+  const [vehicleDraft, setVehicleDraft] = useState<Vehicle | null>(null)
+
+  const startEditVehicle = (vehicle: Vehicle) => {
+    setEditingVehicleId(vehicle.id)
+    setVehicleDraft({ ...vehicle })
+  }
+
+  const cancelEditVehicle = () => {
+    setEditingVehicleId(null)
+    setVehicleDraft(null)
+  }
+
+  const saveVehicleDraft = async () => {
+    if (!vehicleDraft) return
+    if (!vehicleDraft.name.trim()) {
+      toast.error('El nombre del vehículo es requerido')
+      return
+    }
+    const ok = await persistVehicles(
+      vehicles.map((v) => (v.id === vehicleDraft.id ? { ...vehicleDraft, name: vehicleDraft.name.trim() } : v)),
+      'Vehículo actualizado'
+    )
+    if (ok) cancelEditVehicle()
+  }
+
   const updateVehicleStatus = async (vehicleId: number, status: VehicleStatus) => {
     const next = vehicles.map((v) =>
       v.id === vehicleId ? { ...v, status } : v
@@ -373,26 +415,142 @@ export default function FleetManagement() {
                 </span>
               </div>
 
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex justify-between">
-                  <span>Capacidad:</span>
-                  <span className="font-medium">
-                    {vehicle.capacity} mudanza{vehicle.capacity !== 1 ? 's' : ''}
-                  </span>
+              {editingVehicleId === vehicle.id && vehicleDraft ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+                    <Input
+                      type="text"
+                      value={vehicleDraft.name}
+                      onChange={(e) => setVehicleDraft({ ...vehicleDraft, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Conductor</label>
+                      <Input
+                        type="text"
+                        value={vehicleDraft.driver || ''}
+                        onChange={(e) => setVehicleDraft({ ...vehicleDraft, driver: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
+                      <Input
+                        type="tel"
+                        value={vehicleDraft.phone || ''}
+                        onChange={(e) => setVehicleDraft({ ...vehicleDraft, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Medidas del cajón (metros)
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['length', 'width', 'height'] as const).map((dim) => (
+                        <Input
+                          key={dim}
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder={dim === 'length' ? 'Largo' : dim === 'width' ? 'Ancho' : 'Alto'}
+                          value={vehicleDraft[dim] || ''}
+                          onChange={(e) =>
+                            setVehicleDraft({ ...vehicleDraft, [dim]: Number(e.target.value) || 0 })
+                          }
+                        />
+                      ))}
+                    </div>
+                    {cargoVolume(vehicleDraft) > 0 && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Volumen útil: {cargoVolume(vehicleDraft).toFixed(2)} m³
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Carga máx. (kg)
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={vehicleDraft.maxWeight || ''}
+                        onChange={(e) =>
+                          setVehicleDraft({ ...vehicleDraft, maxWeight: Number(e.target.value) || 0 })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Mudanzas simultáneas
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={vehicleDraft.capacity}
+                        onChange={(e) =>
+                          setVehicleDraft({ ...vehicleDraft, capacity: Number(e.target.value) || 1 })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={saveVehicleDraft} size="sm" className="flex-1" disabled={saving}>
+                      Guardar
+                    </Button>
+                    <Button onClick={cancelEditVehicle} variant="outline" size="sm" className="flex-1">
+                      Cancelar
+                    </Button>
+                  </div>
                 </div>
-                {vehicle.driver && (
+              ) : (
+                <div className="space-y-2 text-sm text-gray-600">
                   <div className="flex justify-between">
-                    <span>Conductor:</span>
-                    <span className="font-medium">{vehicle.driver}</span>
+                    <span>Capacidad:</span>
+                    <span className="font-medium">
+                      {vehicle.capacity} mudanza{vehicle.capacity !== 1 ? 's' : ''}
+                    </span>
                   </div>
-                )}
-                {vehicle.phone && (
-                  <div className="flex justify-between">
-                    <span>Teléfono:</span>
-                    <span className="font-medium">{vehicle.phone}</span>
-                  </div>
-                )}
-              </div>
+                  {cargoVolume(vehicle) > 0 && (
+                    <div className="flex justify-between">
+                      <span>Cajón:</span>
+                      <span className="font-medium">
+                        {vehicle.length}×{vehicle.width}×{vehicle.height} m ·{' '}
+                        {cargoVolume(vehicle).toFixed(1)} m³
+                      </span>
+                    </div>
+                  )}
+                  {!!vehicle.maxWeight && (
+                    <div className="flex justify-between">
+                      <span>Carga máx.:</span>
+                      <span className="font-medium">
+                        {vehicle.maxWeight.toLocaleString('es-CL')} kg
+                      </span>
+                    </div>
+                  )}
+                  {vehicle.driver && (
+                    <div className="flex justify-between">
+                      <span>Conductor:</span>
+                      <span className="font-medium">{vehicle.driver}</span>
+                    </div>
+                  )}
+                  {vehicle.phone && (
+                    <div className="flex justify-between">
+                      <span>Teléfono:</span>
+                      <span className="font-medium">{vehicle.phone}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => startEditVehicle(vehicle)}
+                    className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                  >
+                    Editar ficha
+                  </button>
+                </div>
+              )}
 
               {/* El color es la referencia que usan los choferes en el link de trabajos:
                   cambiarlo cambia cómo ven su bloque, así que se edita acá y en un solo lugar. */}

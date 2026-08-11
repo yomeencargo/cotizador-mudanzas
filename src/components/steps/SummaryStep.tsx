@@ -54,6 +54,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     totalDistance,
     estimatedPrice,
     recommendedVehicle,
+    requiredCrew,
+    totalCrew,
     isConfirmed,
     calculateTotals,
     setConfirmed,
@@ -874,7 +876,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 )
               })}
             </div>
-            <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4 text-center">
+            <div className="mt-4 pt-4 border-t grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
               <div>
                 <p className="text-sm text-gray-500">Volumen Total</p>
                 <p className="font-bold text-lg">{parseFloat(totalVolume.toFixed(2))} m³</p>
@@ -884,11 +886,39 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 <p className="font-bold text-lg">{totalWeight} kg</p>
               </div>
               <div>
+                <p className="text-sm text-gray-500">Equipo</p>
+                <p className="font-bold text-lg">👷</p>
+                <p className="text-xs text-gray-600">
+                  {totalCrew} {totalCrew === 1 ? 'persona' : 'personas'}
+                </p>
+              </div>
+              <div>
                 <p className="text-sm text-gray-500">Vehículo</p>
                 <p className="font-bold text-lg">🚚</p>
                 <p className="text-xs text-gray-600">{recommendedVehicle}</p>
               </div>
             </div>
+
+            {/* Por qué va esa cantidad de gente: sin esta línea el precio sube y el
+                cliente no tiene forma de saber de dónde salió. */}
+            {totalCrew > 1 && (
+              <p className="mt-3 text-xs text-gray-500">
+                {requiredCrew > 1 && (
+                  <>
+                    Tu carga incluye un artículo pesado, así que el traslado va con{' '}
+                    <strong>{requiredCrew} personas</strong> por seguridad.
+                  </>
+                )}
+                {totalCrew > requiredCrew && (
+                  <>
+                    {' '}
+                    Sumaste {totalCrew - requiredCrew}{' '}
+                    {totalCrew - requiredCrew === 1 ? 'ayudante' : 'ayudantes'} para agilizar
+                    el trabajo.
+                  </>
+                )}
+              </p>
+            )}
           </Card>
 
           {/* Embalaje Especial */}

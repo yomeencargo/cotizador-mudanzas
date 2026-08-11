@@ -3,6 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { resolveVehicleColor, vehicleColorByKey } from '@/lib/vehicleColors'
 
+/** Medidas: número no negativo o 0. Nunca null, para que el formulario no muestre vacíos. */
+function positiveNumber(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : 0
+}
+
 export async function GET() {
   try {
     // Obtener configuración de flota
@@ -53,7 +59,12 @@ export async function PATCH(request: NextRequest) {
         status: v?.status === 'maintenance' ? 'maintenance' : 'active',
         // El color solo se guarda si es una clave conocida de la paleta; cualquier otra
         // cosa se descarta y el color se deriva de la posición al leerlo.
-        color: vehicleColorByKey(v?.color)?.key ?? resolveVehicleColor(v, i).key
+        color: vehicleColorByKey(v?.color)?.key ?? resolveVehicleColor(v, i).key,
+        // Dimensiones en metros y carga máxima en kilos. 0 = sin medir.
+        length: positiveNumber(v?.length),
+        width: positiveNumber(v?.width),
+        height: positiveNumber(v?.height),
+        maxWeight: positiveNumber(v?.maxWeight)
       }))
 
       if (sanitized.length < 1) {

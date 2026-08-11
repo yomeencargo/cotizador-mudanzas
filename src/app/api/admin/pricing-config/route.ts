@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
+import { DEFAULT_CREW, DEFAULT_STAIRS } from '@/lib/crewPricing'
+
+/**
+ * Normaliza los bloques nuevos (cuadrilla y escaleras) contra los valores por defecto.
+ * Una fila de `pricing_config` anterior a la migración no los tiene, y sin esto el
+ * cotizador quedaría dividiendo por undefined.
+ */
+function withCrewDefaults(crew: unknown) {
+  const c = (crew || {}) as Partial<typeof DEFAULT_CREW>
+  const num = (v: unknown, fallback: number) =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback
+  return {
+    includedPeople: Math.max(1, num(c.includedPeople, DEFAULT_CREW.includedPeople)),
+    kgPerPerson: Math.max(1, num(c.kgPerPerson, DEFAULT_CREW.kgPerPerson)),
+    pricePerExtraPerson: num(c.pricePerExtraPerson, DEFAULT_CREW.pricePerExtraPerson),
+    maxPeople: Math.max(1, num(c.maxPeople, DEFAULT_CREW.maxPeople)),
+  }
+}
+
+function withStairsDefaults(stairs: unknown) {
+  const s = (stairs || {}) as Partial<typeof DEFAULT_STAIRS>
+  const itemsPerTrip =
+    typeof s.itemsPerTrip === 'number' && s.itemsPerTrip >= 1
+      ? s.itemsPerTrip
+      : DEFAULT_STAIRS.itemsPerTrip
+  return { itemsPerTrip }
+}
 
 export async function GET() {
   try {
@@ -49,7 +76,9 @@ export async function GET() {
           flexibility: 10,
           advanceBooking: 5,
           repeatCustomer: 15
-        }
+        },
+        crew: { ...DEFAULT_CREW },
+        stairs: { ...DEFAULT_STAIRS }
       }
 
       return NextResponse.json(defaultConfig)
@@ -65,7 +94,9 @@ export async function GET() {
       additionalServices: config.additional_services,
       specialPackaging: config.special_packaging,
       timeSurcharges: config.time_surcharges,
-      discounts: config.discounts
+      discounts: config.discounts,
+      crew: withCrewDefaults(config.crew_config),
+      stairs: withStairsDefaults(config.stairs_config)
     }
 
     return NextResponse.json(transformedConfig)
@@ -108,6 +139,8 @@ export async function PUT(request: NextRequest) {
       special_packaging: body.specialPackaging,
       time_surcharges: body.timeSurcharges,
       discounts: body.discounts,
+      crew_config: withCrewDefaults(body.crew),
+      stairs_config: withStairsDefaults(body.stairs),
       updated_at: new Date().toISOString()
     }
 

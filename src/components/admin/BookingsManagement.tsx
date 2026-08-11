@@ -214,6 +214,16 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
     // Filtrar por estado (incluye opción especial 'provisional' = pre-reservas sin pagar)
     if (statusFilter === 'provisional') {
       filtered = filtered.filter(booking => booking.is_provisional === true)
+    } else if (statusFilter === 'saldo_pendiente') {
+      // Abonos del 50% ya cobrados: falta el saldo. Es la lista de a quién hay que ir a
+      // cobrar, así que se excluyen las canceladas y las que nunca pagaron el abono.
+      filtered = filtered.filter(
+        booking =>
+          booking.is_provisional !== true &&
+          booking.payment_type === 'mitad' &&
+          booking.payment_status === 'approved' &&
+          !['cancelled', 'no_show'].includes(booking.status)
+      )
     } else {
       // Las pre-reservas provisionales sin pagar son cotizaciones no concretadas (no
       // ocupan cupo): solo se ven con el filtro "Sin pagar", nunca mezcladas con las
@@ -938,6 +948,7 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
               options={[
                 { value: 'all', label: 'Todos los estados' },
                 { value: 'provisional', label: 'Sin pagar (provisional)' },
+                { value: 'saldo_pendiente', label: 'Abonó 50% — falta el saldo' },
                 { value: 'pending', label: 'Pendiente' },
                 { value: 'confirmed', label: 'Confirmado' },
                 { value: 'completed', label: 'Completado' },
@@ -1253,6 +1264,18 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
                                 ✓ Pagado {booking.payment_type === 'mitad' ? '(abono 50%)' : '(completo)'}
                               </span>
+                              {/* El saldo es el número accionable: es lo que hay que ir a
+                                  cobrar. Sin esto el filtro de abonos obliga a restar a mano. */}
+                              {booking.payment_type === 'mitad' &&
+                                booking.original_price != null &&
+                                booking.original_price > (booking.total_price || 0) && (
+                                  <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                                    Falta $
+                                    {(
+                                      booking.original_price - (booking.total_price || 0)
+                                    ).toLocaleString()}
+                                  </div>
+                                )}
                             </>
                           ) : (
                             <>

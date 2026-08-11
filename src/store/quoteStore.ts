@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getPricingConfig } from '@/lib/pricingService'
 import { calculateDistanceByAddresses } from '@/lib/mapsService'
+import { crewCost, requiredPeople, stairTrips, stairsCost } from '@/lib/crewPricing'
 
 export interface PersonalInfo {
   name: string
@@ -62,6 +63,11 @@ export interface AdditionalServices {
   unpacking: boolean
   observations: string
   photos: string[]
+  /**
+   * Ayudantes que el cliente agrega POR SOBRE los que el peso ya obliga a mandar.
+   * Más gente = más rápido y con más cuidado; no reemplaza a la cuadrilla mínima.
+   */
+  extraHelpers: number
 }
 
 export interface QuoteState {
@@ -83,6 +89,12 @@ export interface QuoteState {
   totalDistance: number // km calculados (real o estimado)
   estimatedPrice: number
   recommendedVehicle: string
+  /** Personas que el peso obliga a mandar (sin contar los ayudantes agregados). */
+  requiredCrew: number
+  /** Cuadrilla total cotizada: obligatorias + ayudantes extra. */
+  totalCrew: number
+  /** Viajes por escalera que implica la cantidad de bultos. */
+  stairTrips: number
   isConfirmed: boolean
 
   // Actions
@@ -121,12 +133,16 @@ const initialState = {
     unpacking: false,
     observations: '',
     photos: [],
+    extraHelpers: 0,
   },
   totalVolume: 0,
   totalWeight: 0,
   totalDistance: 0,
   estimatedPrice: 0,
   recommendedVehicle: 'Camioneta',
+  requiredCrew: 1,
+  totalCrew: 1,
+  stairTrips: 1,
   isConfirmed: false,
 }
 
@@ -234,13 +250,33 @@ export const useQuoteStore = create<QuoteState>()(
         const chargeableKm = Math.max(0, distance - freeKilometers)
         basePrice += chargeableKm * pricing.pricePerKilometer
 
-        // Ajuste por piso sin ascensor
-        if (state.origin.details && !state.origin.details.hasElevator) {
-          basePrice += state.origin.details.floor * pricing.floorSurcharge
-        }
-        if (state.destination.details && !state.destination.details.hasElevator) {
-          basePrice += state.destination.details.floor * pricing.floorSurcharge
-        }
+        // Ajuste por piso sin ascensor. Se multiplica por los viajes que implica la
+        // carga: antes era plano y subir un velador a un 3º costaba igual que subir
+        // treinta bultos.
+        const trips = stairTrips(state.items, pricing.stairs)
+        basePrice += stairsCost(
+          state.origin.details?.floor,
+          state.origin.details?.hasElevator,
+          state.items,
+          pricing.floorSurcharge,
+          pricing.stairs
+        )
+        basePrice += stairsCost(
+          state.destination.details?.floor,
+          state.destination.details?.hasElevator,
+          state.items,
+          pricing.floorSurcharge,
+          pricing.stairs
+        )
+
+        // Cuadrilla: el bulto más pesado define cuánta gente hace falta, y el cliente
+        // puede sumar ayudantes por encima de ese mínimo.
+        const crewByWeight = requiredPeople(state.items, pricing.crew)
+        const totalCrew = Math.min(
+          pricing.crew.maxPeople,
+          crewByWeight + Math.max(0, state.additionalServices.extraHelpers || 0)
+        )
+        basePrice += crewCost(totalCrew, pricing.crew)
 
         // Cargo por fin de semana: sábado (6) y domingo (0) con el mismo porcentaje
         if (state.dateTime) {
@@ -287,6 +323,9 @@ export const useQuoteStore = create<QuoteState>()(
           totalDistance: distance,
           estimatedPrice: Math.round(basePrice),
           recommendedVehicle,
+          requiredCrew: crewByWeight,
+          totalCrew,
+          stairTrips: trips,
         })
       },
 

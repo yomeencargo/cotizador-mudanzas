@@ -6,8 +6,10 @@ import { getAdditionalServices, AdditionalService } from '@/lib/additionalServic
 import Button from '../ui/Button'
 import Checkbox from '../ui/Checkbox'
 import Card from '../ui/Card'
-import { Wrench, Package, Camera, FileText } from 'lucide-react'
+import { Wrench, Package, Camera, FileText, Users, Minus, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { getPricingConfig } from '@/lib/pricingService'
+import { DEFAULT_CREW, requiredPeople, type CrewConfig } from '@/lib/crewPricing'
 
 interface AdditionalServicesStepProps {
   onNext: () => void
@@ -15,11 +17,12 @@ interface AdditionalServicesStepProps {
 }
 
 export default function AdditionalServicesStep({ onNext, onPrevious }: AdditionalServicesStepProps) {
-  const { additionalServices, setAdditionalServices, calculateTotals } = useQuoteStore()
+  const { additionalServices, setAdditionalServices, calculateTotals, items } = useQuoteStore()
 
   const [services, setServices] = useState<AdditionalService[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
+  const [crewConfig, setCrewConfig] = useState<CrewConfig>(DEFAULT_CREW)
   const [formData, setFormData] = useState({
     disassembly: additionalServices.disassembly,
     assembly: additionalServices.assembly,
@@ -27,7 +30,30 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
     unpacking: additionalServices.unpacking,
     observations: additionalServices.observations,
     photos: additionalServices.photos,
+    extraHelpers: additionalServices.extraHelpers || 0,
   })
+
+  // Cuadrilla mínima que exige el bulto más pesado. Los ayudantes que elija el cliente
+  // van POR ENCIMA de esto, nunca lo reemplazan.
+  const crewByWeight = requiredPeople(items, crewConfig)
+  const maxExtraHelpers = Math.max(0, crewConfig.maxPeople - crewByWeight)
+  const helpersCost =
+    Math.max(0, crewByWeight + formData.extraHelpers - crewConfig.includedPeople) *
+    crewConfig.pricePerExtraPerson
+
+  useEffect(() => {
+    getPricingConfig()
+      .then((config) => setCrewConfig(config.crew || DEFAULT_CREW))
+      .catch(() => setCrewConfig(DEFAULT_CREW))
+  }, [])
+
+  // Si baja el peso de la carga, el tope de ayudantes baja con él: hay que recortar la
+  // selección para no cotizar más gente de la que cabe en el servicio.
+  useEffect(() => {
+    setFormData((prev) =>
+      prev.extraHelpers > maxExtraHelpers ? { ...prev, extraHelpers: maxExtraHelpers } : prev
+    )
+  }, [maxExtraHelpers])
 
   // Cargar servicios adicionales dinámicamente
   useEffect(() => {
@@ -174,6 +200,78 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
             })}
           </div>
         )}
+
+        {/* Cuadrilla: cuánta gente va y cuánta más se puede sumar */}
+        <div className="mb-8 rounded-lg border-2 border-gray-200 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold">Personas para el traslado</h4>
+              <p className="text-sm text-gray-600">
+                Más personas es más rápido y con más cuidado en cada mueble.
+              </p>
+
+              {crewByWeight > crewConfig.includedPeople && (
+                <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  Tu carga incluye un artículo pesado, así que el servicio ya va con{' '}
+                  <strong>{crewByWeight} personas</strong>. Es obligatorio por seguridad.
+                </p>
+              )}
+
+              <div className="mt-4 flex items-center gap-4">
+                <button
+                  type="button"
+                  aria-label="Quitar un ayudante"
+                  onClick={() =>
+                    setFormData({ ...formData, extraHelpers: Math.max(0, formData.extraHelpers - 1) })
+                  }
+                  disabled={formData.extraHelpers <= 0}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 text-gray-700 transition-colors hover:border-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {crewByWeight + formData.extraHelpers}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {crewByWeight + formData.extraHelpers === 1 ? 'persona' : 'personas'} en total
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label="Agregar un ayudante"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      extraHelpers: Math.min(maxExtraHelpers, formData.extraHelpers + 1),
+                    })
+                  }
+                  disabled={formData.extraHelpers >= maxExtraHelpers}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-300 text-gray-700 transition-colors hover:border-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+
+                {helpersCost > 0 && (
+                  <span className="ml-auto text-sm font-bold text-primary-600">
+                    +${helpersCost.toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-2 text-xs text-gray-500">
+                Incluidas en el precio: {crewConfig.includedPeople}. Cada persona adicional
+                son ${crewConfig.pricePerExtraPerson.toLocaleString()}. Máximo{' '}
+                {crewConfig.maxPeople}.
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Total servicios */}
         {totalServicesPrice > 0 && (

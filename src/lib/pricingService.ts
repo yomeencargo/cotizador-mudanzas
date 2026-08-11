@@ -5,12 +5,18 @@
  * y la convierte al formato esperado por el sistema de cotización.
  */
 
+import { DEFAULT_CREW, DEFAULT_STAIRS, type CrewConfig, type StairsConfig } from '@/lib/crewPricing'
+
 export interface PricingConfig {
   basePrice: number
   pricePerCubicMeter: number
   pricePerKilometer: number
   freeKilometers: number
   floorSurcharge: number
+  /** Personas incluidas, escalón de peso y precio por persona extra. */
+  crew: CrewConfig
+  /** Cada cuántos bultos se repite el cargo por piso. */
+  stairs: StairsConfig
   additionalServices: {
     packing: number
     unpacking: number
@@ -89,7 +95,9 @@ export async function getPricingConfig(): Promise<PricingConfig> {
         flexibility: 10,
         advanceBooking: 5,
         repeatCustomer: 15
-      }
+      },
+      crew: { ...DEFAULT_CREW },
+      stairs: { ...DEFAULT_STAIRS }
     }
   }
 }

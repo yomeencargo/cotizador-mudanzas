@@ -43,6 +43,15 @@ interface PricingConfig {
     advanceBooking: number
     repeatCustomer: number
   }
+  crew: {
+    includedPeople: number
+    kgPerPerson: number
+    pricePerExtraPerson: number
+    maxPeople: number
+  }
+  stairs: {
+    itemsPerTrip: number
+  }
 }
 
 export default function PricingConfiguration() {
@@ -233,6 +242,100 @@ export default function PricingConfiguration() {
                 onChange={(e) => handleInputChange('floorSurcharge', Number(e.target.value))}
                 placeholder="5000"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Por piso. Se multiplica por los viajes de escalera (ver abajo).
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Cuadrilla y escaleras */}
+        <Card className="p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Edit3 className="w-5 h-5 text-primary-600" />
+            <h3 className="text-lg font-semibold">Cuadrilla y escaleras</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Cuánta gente exige la carga y cuánto pesa subir por escalera. La cuadrilla la
+            define el <strong>artículo más pesado</strong>, no la suma: tres bultos de 60 kg
+            se cargan de a uno y necesitan las mismas personas que uno solo.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Personas incluidas en el precio base
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={config.crew?.includedPeople ?? 1}
+                onChange={(e) => handleInputChange('crew.includedPeople', Number(e.target.value))}
+                placeholder="1"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Hoy: solo el chofer. Recién se cobra a partir de la siguiente persona.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Kilos por persona
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={config.crew?.kgPerPerson ?? 50}
+                onChange={(e) => handleInputChange('crew.kgPerPerson', Number(e.target.value))}
+                placeholder="50"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Con 50: hasta 50 kg va 1 persona, 51 kg ya son 2, y 200 kg son 4.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio por persona adicional (CLP)
+              </label>
+              <Input
+                type="number"
+                value={config.crew?.pricePerExtraPerson ?? 20000}
+                onChange={(e) =>
+                  handleInputChange('crew.pricePerExtraPerson', Number(e.target.value))
+                }
+                placeholder="20000"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Mismo precio para la persona obligatoria por peso y para el ayudante que
+                pide el cliente.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Máximo de personas por servicio
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={config.crew?.maxPeople ?? 10}
+                onChange={(e) => handleInputChange('crew.maxPeople', Number(e.target.value))}
+                placeholder="10"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Artículos por viaje de escalera
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={config.stairs?.itemsPerTrip ?? 5}
+                onChange={(e) => handleInputChange('stairs.itemsPerTrip', Number(e.target.value))}
+                placeholder="5"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Con 5: un 3º piso con 12 artículos cobra 3 viajes ($
+                {((config.floorSurcharge || 0) * 3 * 3).toLocaleString('es-CL')}) en vez de
+                uno solo.
+              </p>
             </div>
           </div>
         </Card>

@@ -10,6 +10,7 @@ import Input from '../ui/Input'
 import { Search, Plus, Minus, Trash2, Package, AlertCircle, Box, Info, CheckCircle2, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateId } from '@/lib/utils'
+import { FULL_MOVE_ITEM_THRESHOLD, totalUnits } from '@/lib/crewPricing'
 
 interface CatalogItem {
   id: string
@@ -41,6 +42,10 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [showPackagingModal, setShowPackagingModal] = useState(false)
   const [showBulkPackagingModal, setShowBulkPackagingModal] = useState(false)
+  // Aviso de mudanza completa: se muestra UNA vez al cruzar el umbral de bultos, no en
+  // cada click, para que no se vuelva un modal que el cliente aprende a cerrar sin leer.
+  const [showFullMoveModal, setShowFullMoveModal] = useState(false)
+  const [fullMoveNotified, setFullMoveNotified] = useState(false)
 
   const [selectedItemForPackaging, setSelectedItemForPackaging] = useState<string | null>(null)
   const [selectedPackaging, setSelectedPackaging] = useState<string>('none')
@@ -116,7 +121,17 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     loadPackagingOptions()
   }, [])
 
+  // Cantidad real de bultos (suma de cantidades, no de líneas del catálogo).
+  const unitCount = totalUnits(items)
 
+  // El aviso de mudanza completa se dispara UNA vez al cruzar el umbral, no en cada
+  // click, para que no se vuelva un modal que el cliente aprende a cerrar sin leer.
+  useEffect(() => {
+    if (unitCount > FULL_MOVE_ITEM_THRESHOLD && !fullMoveNotified) {
+      setShowFullMoveModal(true)
+      setFullMoveNotified(true)
+    }
+  }, [unitCount, fullMoveNotified])
 
   const filteredItems = itemsCatalog.filter((item) => {
     const matchesCategory = selectedCategory === 'Todos' || item.category === selectedCategory
@@ -804,6 +819,56 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
               </div>
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* Aviso de mudanza completa */}
+      <Modal
+        isOpen={showFullMoveModal}
+        onClose={() => setShowFullMoveModal(false)}
+        title="Esto ya es una mudanza completa"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            Llevas <strong>{unitCount} artículos</strong>. Por sobre{' '}
+            {FULL_MOVE_ITEM_THRESHOLD} bultos el traslado deja de ser un flete puntual y
+            conviene cotizarlo como mudanza completa: cambia el camión, la cantidad de
+            gente y el tiempo que toma.
+          </p>
+
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
+            <p className="font-semibold mb-1">Podés seguir por acá igual</p>
+            <p>
+              El cotizador te va a dar un precio estimado con lo que cargaste. Si preferís
+              que lo revisemos y te armemos una propuesta a medida, escribinos y lo vemos
+              contigo.
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+            En mudanzas completas trabajamos hasta un <strong>5º piso sin ascensor</strong>.
+            Si tu edificio supera eso, hablemos antes de agendar.
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={() => setShowFullMoveModal(false)}
+              variant="outline"
+              className="flex-1"
+            >
+              Seguir con la cotización
+            </Button>
+            <a
+              href="/contactanos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1"
+            >
+              <Button variant="brand" className="w-full">
+                Quiero una propuesta a medida
+              </Button>
+            </a>
+          </div>
         </div>
       </Modal>
 
