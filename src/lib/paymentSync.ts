@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { flowService, type FlowPaymentStatus } from '@/lib/flowService'
 import { postQuoteWebhook } from '@/lib/n8nClient'
+import { sendBookingConfirmed } from '@/lib/transactionalEmails'
 
 /**
  * Datos mínimos de la reserva que necesitan los endpoints de pago para redirigir
@@ -163,6 +164,15 @@ async function applyFlowPaymentStatus(
       amount: paymentStatus.amount || null,
       paymentType: optionalPaymentType || null,
     })
+    // #05 al CLIENTE. Best-effort igual que el aviso interno: si el correo falla, el
+    // pago ya está aplicado y no se revierte — el cron lo reintenta como red de
+    // seguridad dentro de las 24 h. Doble idempotencia: `alreadyProcessed` evita
+    // repetirlo acá, y la clave de `email_log` lo evita venga por donde venga.
+    try {
+      await sendBookingConfirmed(bookingData.id)
+    } catch (mailErr) {
+      console.error('[paymentSync] Error enviando la confirmación al cliente:', mailErr)
+    }
   }
 
   return { paymentStatus, bookingData, bookingRef, alreadyProcessed }
