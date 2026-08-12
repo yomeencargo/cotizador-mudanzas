@@ -22,7 +22,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { postQuoteWebhook } from '@/lib/n8nClient'
+import { n8nConfirmedSuccess, postQuoteWebhook } from '@/lib/n8nClient'
 
 // ---------------------------------------------------------------------------
 // Reglas transversales — aplican a TODOS los correos
@@ -298,10 +298,23 @@ export async function claimAndSend(input: ClaimAndSendInput): Promise<SendOutcom
   const result = await postQuoteWebhook(body, { label: emailType })
 
   // --- 5. Registrar el desenlace --------------------------------------------
-  if (result.ok) {
+  // Solo cuenta como enviado si n8n lo CONFIRMÓ con `{"success": true}`. Un 2xx a
+  // secas no sirve: comprobado contra el webhook real, cuando el workflow muere a
+  // mitad de camino n8n responde HTTP 200 con el cuerpo vacío. Dar eso por enviado
+  // quemaría la clave de idempotencia y ese cliente no recibiría el correo nunca.
+  if (n8nConfirmedSuccess(result)) {
     await update(id, { status: 'sent', sent_at: new Date().toISOString(), error: null })
     console.info(`[emailLog][${emailType}] Enviado a ${recipient}.`)
     return { outcome: 'sent', id }
+  }
+
+  // 2xx sin confirmación: el workflow falló adentro. n8n contestó, así que sabemos
+  // que el correo NO salió — es reintentable, igual que un HTTP de error.
+  if (result.ok) {
+    const error = `n8n respondió ${result.status} sin "success": el workflow falló a mitad de camino`
+    await update(id, { status: 'failed', error })
+    console.error(`[emailLog][${emailType}] ${error} (intento ${attempts}/${MAX_ATTEMPTS})`)
+    return { outcome: 'failed', id, error, attempts }
   }
 
   const error = result.error || 'error desconocido de n8n'
