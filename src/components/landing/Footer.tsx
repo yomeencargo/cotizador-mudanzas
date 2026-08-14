@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Instagram, Mail, Phone } from 'lucide-react'
 import { trackEvent } from '@/lib/tracking'
 
-const PHONE = '+56 9 5439 0267'
+const PHONE = '+56 9 5233 4799'
 
 const SmallPhoneIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -66,7 +66,7 @@ export default function Footer() {
                 <Mail size={16} />
               </a>
               <a
-                href="https://wa.me/56954390267"
+                href="https://wa.me/56952334799"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'footer' })}
@@ -131,7 +131,7 @@ export default function Footer() {
                 <SmallPhoneIcon /> {PHONE}
               </a>
               <a
-                href="https://wa.me/56954390267"
+                href="https://wa.me/56952334799"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'footer' })}

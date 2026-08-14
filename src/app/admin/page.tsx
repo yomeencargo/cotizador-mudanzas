@@ -87,6 +87,7 @@ export default function AdminDashboard() {
     displayName: string
     mustChangePassword: boolean
     canChangePassword: boolean
+    role: 'administrator' | 'staff'
   } | null>(null)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [activeSettingsTab, setActiveSettingsTab] = useState('pricing')
@@ -188,7 +189,9 @@ export default function AdminDashboard() {
     { id: 'pricing', name: 'Precios', icon: DollarSign },
     { id: 'schedule-config', name: 'Horarios', icon: Clock },
     { id: 'inventory', name: 'Inventario', icon: Package },
-    { id: 'users', name: 'Usuarios', icon: ShieldCheck },
+    ...(currentUser?.role === 'administrator'
+      ? [{ id: 'users', name: 'Usuarios', icon: ShieldCheck }]
+      : []),
   ]
 
   const getStatusColor = (status: string) => {
@@ -639,7 +642,12 @@ export default function AdminDashboard() {
         )}
 
         {/* Bookings Tab */}
-        {activeTab === 'bookings' && <BookingsManagement initialSearch={bookingsSearch} />}
+        {activeTab === 'bookings' && (
+          <BookingsManagement
+            initialSearch={bookingsSearch}
+            canAdjustAmounts={currentUser?.role === 'administrator'}
+          />
+        )}
 
         {/* Prospects Tab */}
         {activeTab === 'prospects' && <ProspectsManagement />}
@@ -686,7 +694,9 @@ export default function AdminDashboard() {
             {activeSettingsTab === 'pricing' && <PricingConfiguration />}
             {activeSettingsTab === 'schedule-config' && <ScheduleConfiguration />}
             {activeSettingsTab === 'inventory' && <ItemsManagement />}
-            {activeSettingsTab === 'users' && <UsersManagement />}
+            {activeSettingsTab === 'users' && currentUser?.role === 'administrator' && (
+              <UsersManagement />
+            )}
           </div>
         )}
       </div>

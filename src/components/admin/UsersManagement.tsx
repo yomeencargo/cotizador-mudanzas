@@ -12,6 +12,7 @@ interface AdminUser {
   id: string
   username: string
   display_name: string
+  role: 'administrator' | 'staff'
   is_active: boolean
   must_change_password: boolean
   created_at: string
@@ -38,7 +39,12 @@ export default function UsersManagement() {
   const [saving, setSaving] = useState(false)
 
   const [showCreate, setShowCreate] = useState(false)
-  const [newUser, setNewUser] = useState({ username: '', displayName: '', password: '' })
+  const [newUser, setNewUser] = useState({
+    username: '',
+    displayName: '',
+    password: '',
+    role: 'staff' as 'administrator' | 'staff',
+  })
 
   const [resetTarget, setResetTarget] = useState<AdminUser | null>(null)
   const [resetPassword, setResetPassword] = useState('')
@@ -83,7 +89,7 @@ export default function UsersManagement() {
 
       toast.success('Usuario creado. Deberá cambiar la contraseña al entrar.')
       setShowCreate(false)
-      setNewUser({ username: '', displayName: '', password: '' })
+      setNewUser({ username: '', displayName: '', password: '', role: 'staff' })
       fetchUsers()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo crear el usuario')
@@ -106,6 +112,23 @@ export default function UsersManagement() {
       fetchUsers()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'No se pudo actualizar')
+    }
+  }
+
+  const updateRole = async (user: AdminUser, role: AdminUser['role']) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, role }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'No se pudo cambiar el perfil')
+
+      toast.success('Perfil actualizado')
+      fetchUsers()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo cambiar el perfil')
     }
   }
 
@@ -141,7 +164,7 @@ export default function UsersManagement() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Usuarios del panel</h3>
           <p className="text-sm text-gray-600">
-            Todos tienen los mismos permisos. Sus acciones quedan registradas en Actividad.
+            Administrador puede gestionar usuarios y reajustar montos; Secretaría mantiene la operación diaria.
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)} variant="outline" size="sm">
@@ -169,6 +192,9 @@ export default function UsersManagement() {
                     Último ingreso
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Perfil
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -185,6 +211,19 @@ export default function UsersManagement() {
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 align-top text-sm text-gray-600">
                       {fmtDateTime(u.last_login_at)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <select
+                        value={u.role}
+                        onChange={(e) =>
+                          updateRole(u, e.target.value as AdminUser['role'])
+                        }
+                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        aria-label={`Perfil de ${u.display_name}`}
+                      >
+                        <option value="staff">Secretaría</option>
+                        <option value="administrator">Administrador</option>
+                      </select>
                     </td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex flex-col gap-1">
@@ -251,7 +290,8 @@ export default function UsersManagement() {
         <div className="text-sm text-blue-900">
           Los usuarios se <strong>desactivan</strong>, no se borran: así el historial de
           Actividad sigue mostrando quién hizo cada cosa. Toda contraseña creada o reseteada
-          desde aquí es temporal y su titular debe cambiarla al entrar.
+          desde aquí es temporal y su titular debe cambiarla al entrar. Solo el perfil
+          <strong> Administrador</strong> puede modificar montos después de un abono.
         </div>
       </div>
 
@@ -294,6 +334,22 @@ export default function UsersManagement() {
               Se la compartes a la persona por un canal seguro. Al entrar, el sistema la
               obliga a cambiarla.
             </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Perfil</label>
+            <select
+              value={newUser.role}
+              onChange={(e) =>
+                setNewUser({
+                  ...newUser,
+                  role: e.target.value as 'administrator' | 'staff',
+                })
+              }
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+            >
+              <option value="staff">Secretaría</option>
+              <option value="administrator">Administrador</option>
+            </select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setShowCreate(false)} disabled={saving}>

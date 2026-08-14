@@ -9,6 +9,7 @@ import {
   statusLabel,
   type FieldChange,
 } from '@/lib/activityLog'
+import { isAdministrator } from '@/lib/adminPermissions'
 
 /** Etiqueta legible de una reserva, para poder leer el log aunque luego se borre. */
 function bookingLabel(b: { client_name?: string | null; scheduled_date?: string | null }) {
@@ -94,6 +95,18 @@ async function logBookingUpdate(args: {
       to: after?.payment_status,
     }
   }
+  const isManualFinancialAdjustment =
+    'adjusted_price' in updateData || 'adjustment_comment' in updateData
+  if (
+    !isManualFinancialAdjustment &&
+    'amount_paid' in updateData &&
+    Number(before?.amount_paid || 0) !== Number(after?.amount_paid || 0)
+  ) {
+    paymentChanges.amount_paid = {
+      from: Number(before?.amount_paid || 0),
+      to: Number(after?.amount_paid || 0),
+    }
+  }
   if (Object.keys(paymentChanges).length) {
     const parts: string[] = []
     if (paymentChanges.payment_status) {
@@ -110,11 +123,33 @@ async function logBookingUpdate(args: {
         }`
       )
     }
+    if (paymentChanges.amount_paid) {
+      parts.push(
+        `monto pagado: $${Number(paymentChanges.amount_paid.to || 0).toLocaleString('es-CL')}`
+      )
+    }
     await logAdminAction({
       ...base,
       action: 'booking.payment_updated',
       summary: `Actualizó el pago (${parts.join(', ')})`,
       changes: paymentChanges,
+    })
+  }
+
+  const financialChanges: Record<string, FieldChange> = {}
+  if (isManualFinancialAdjustment) {
+    for (const field of ['adjusted_price', 'amount_paid', 'adjustment_comment']) {
+      if (field in updateData && String(before?.[field] ?? '') !== String(after?.[field] ?? '')) {
+        financialChanges[field] = { from: before?.[field] ?? null, to: after?.[field] ?? null }
+      }
+    }
+  }
+  if (Object.keys(financialChanges).length) {
+    await logAdminAction({
+      ...base,
+      action: 'booking.amount_adjusted',
+      summary: `Reajustó el servicio a $${Number(after.adjusted_price || after.original_price || after.total_price || 0).toLocaleString('es-CL')} y registró $${Number(after.amount_paid || 0).toLocaleString('es-CL')} pagados`,
+      changes: financialChanges,
     })
   }
 }
@@ -135,9 +170,16 @@ export async function PATCH(
       scheduled_date,
       scheduled_time,
       vehicle_id,
+      adjusted_price,
+      amount_paid,
+      adjustment_comment,
     } = body
 
     const reschedules = Boolean(scheduled_date || scheduled_time)
+    const financialRequested =
+      adjusted_price !== undefined ||
+      amount_paid !== undefined ||
+      adjustment_comment !== undefined
 
     if (
       !status &&
@@ -146,6 +188,7 @@ export async function PATCH(
       service_completed_at === undefined &&
       notes === undefined &&
       vehicle_id === undefined &&
+      !financialRequested &&
       !reschedules
     ) {
       return NextResponse.json(
@@ -160,6 +203,90 @@ export async function PATCH(
     if (payment_type) updateData.payment_type = payment_type
     if (payment_status) updateData.payment_status = payment_status
     if (service_completed_at !== undefined) updateData.service_completed_at = service_completed_at
+
+    // Reajustes posteriores al abono: doble barrera. La UI los oculta para Secretaría,
+    // pero el permiso real se valida acá para que no se pueda saltar llamando la API.
+    if (financialRequested) {
+      if (!(await isAdministrator(request))) {
+        return NextResponse.json(
+          { error: 'Solo el perfil Administrador puede reajustar montos' },
+          { status: 403 }
+        )
+      }
+
+      const { data: currentFinancial, error: financialError } = await supabaseAdmin
+        .from('bookings')
+        .select(
+          'payment_status, payment_type, original_price, total_price, adjusted_price, amount_paid, adjustment_comment'
+        )
+        .eq('id', id)
+        .maybeSingle()
+
+      if (financialError || !currentFinancial) {
+        return NextResponse.json({ error: 'No se encontró la reserva' }, { status: 404 })
+      }
+      if (
+        currentFinancial.payment_status !== 'approved' ||
+        currentFinancial.payment_type !== 'mitad'
+      ) {
+        return NextResponse.json(
+          { error: 'El reajuste está disponible después de confirmar el abono del 50%' },
+          { status: 409 }
+        )
+      }
+
+      const requestedAdjusted =
+        adjusted_price === null
+          ? null
+          : adjusted_price === undefined
+            ? currentFinancial.adjusted_price
+            : Math.round(Number(adjusted_price))
+      const quotedPrice = Number(
+        currentFinancial.original_price || currentFinancial.total_price || 0
+      )
+      // Si el valor vuelve a coincidir con la cotización, se limpia el reajuste en vez
+      // de guardar un falso "reajustado" con exactamente el mismo monto.
+      const nextAdjusted =
+        requestedAdjusted !== null && requestedAdjusted === quotedPrice
+          ? null
+          : requestedAdjusted
+      const nextPaid =
+        amount_paid === undefined
+          ? Number(currentFinancial.amount_paid) || 0
+          : Math.round(Number(amount_paid))
+      const nextComment =
+        adjustment_comment === undefined
+          ? String(currentFinancial.adjustment_comment || '')
+          : String(adjustment_comment || '').trim()
+
+      const effectivePrice = nextAdjusted ?? quotedPrice
+      if (!Number.isFinite(effectivePrice) || effectivePrice <= 0) {
+        return NextResponse.json({ error: 'El monto final debe ser mayor que cero' }, { status: 400 })
+      }
+      if (!Number.isFinite(nextPaid) || nextPaid < 0) {
+        return NextResponse.json({ error: 'El monto pagado no puede ser negativo' }, { status: 400 })
+      }
+
+      const financialChanged =
+        String(currentFinancial.adjusted_price ?? '') !== String(nextAdjusted ?? '') ||
+        Number(currentFinancial.amount_paid || 0) !== nextPaid ||
+        String(currentFinancial.adjustment_comment || '') !== nextComment
+
+      if (financialChanged && !nextComment) {
+        return NextResponse.json(
+          { error: 'Agrega el motivo del reajuste para dejar trazabilidad' },
+          { status: 400 }
+        )
+      }
+
+      if (financialChanged) {
+        updateData.adjusted_price = nextAdjusted
+        updateData.amount_paid = nextPaid
+        updateData.adjustment_comment = nextComment
+        updateData.adjusted_at = new Date().toISOString()
+        updateData.adjusted_by = request.headers.get('x-admin-user') || 'administrador'
+      }
+    }
 
     // Asignación manual de camión. null = desasignar; el reparto automático la volverá a
     // tomar en la próxima lectura, así que "sin camión" es un estado transitorio a propósito.
@@ -257,16 +384,44 @@ export async function PATCH(
       if (scheduled_time) updateData.scheduled_time = scheduled_time
     }
 
-    // Si se marca como pago completo, sincronizar total_price con original_price
+    // Al cerrar el saldo de una reserva que partió con abono, registrar el total real
+    // como pagado. El precio cotizado/reajustado no se pisa. Solo aplica si el abono ya
+    // estaba aprobado; cambiar una reserva impaga a "completo" no inventa un cobro.
     if (payment_type === 'completo') {
       const { data: existing, error: fetchError } = await supabaseAdmin
         .from('bookings')
-        .select('original_price, total_price')
+        .select('original_price, total_price, adjusted_price, payment_status')
         .eq('id', id)
         .single()
 
-      if (!fetchError && existing && existing.original_price) {
-        updateData.total_price = existing.original_price
+      if (
+        !fetchError &&
+        existing &&
+        (existing.payment_status === 'approved' || payment_status === 'approved')
+      ) {
+        const finalPrice = Number(
+          existing.adjusted_price || existing.original_price || existing.total_price || 0
+        )
+        if (finalPrice > 0) updateData.amount_paid = Math.round(finalPrice)
+      }
+    }
+
+    // "Marcar como pagado" también debe dejar un monto real. Flow escribe el valor
+    // exacto por su propio webhook; esta rama cubre la confirmación manual del panel.
+    if (payment_status === 'approved' && payment_type !== 'completo') {
+      const { data: existing, error: fetchError } = await supabaseAdmin
+        .from('bookings')
+        .select('original_price, total_price, adjusted_price, amount_paid, payment_type')
+        .eq('id', id)
+        .single()
+
+      if (!fetchError && existing && (Number(existing.amount_paid) || 0) <= 0) {
+        const finalPrice = Number(
+          existing.adjusted_price || existing.original_price || existing.total_price || 0
+        )
+        const effectiveType = payment_type || existing.payment_type
+        const ratio = effectiveType === 'mitad' ? 0.5 : effectiveType === 'completo' ? 0.95 : 1
+        if (finalPrice > 0) updateData.amount_paid = Math.round(finalPrice * ratio)
       }
     }
 
@@ -316,7 +471,7 @@ export async function PATCH(
     const { data: before } = await supabaseAdmin
       .from('bookings')
       .select(
-        'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id'
+        'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id, original_price, total_price, adjusted_price, amount_paid, adjustment_comment'
       )
       .eq('id', id)
       .maybeSingle()

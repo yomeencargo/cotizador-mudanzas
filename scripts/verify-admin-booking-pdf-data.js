@@ -67,6 +67,9 @@ const prospect = {
     packing: true,
     unpacking: false,
     observations: 'Retirar por conserjeria',
+    extraHelpers: 2,
+    requiredCrew: 2,
+    totalCrew: 4,
   },
 }
 
@@ -80,6 +83,8 @@ assert.equal(pdfData.totalWeight, 80)
 assert.equal(pdfData.totalDistance, 12.4)
 assert.equal(pdfData.isFlexible, true)
 assert.deepEqual(pdfData.additionalServices, prospect.additional_services)
+assert.equal(pdfData.additionalServices.extraHelpers, 2)
+assert.equal(pdfData.additionalServices.totalCrew, 4)
 
 assert.equal(pdfData.items.length, 2)
 assert.equal(pdfData.items[0].name, 'Caja mediana')

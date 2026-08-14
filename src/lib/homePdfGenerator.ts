@@ -169,7 +169,7 @@ export const generateHomePDF = async (
         pdf.setFont('helvetica', 'normal')
         
         pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
-        pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
+        pdf.text('+56 9 5233 4799 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
         pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
         // Generar el PDF

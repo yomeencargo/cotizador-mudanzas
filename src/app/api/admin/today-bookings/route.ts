@@ -42,6 +42,8 @@ export async function GET() {
         status,
         total_price,
         original_price,
+        adjusted_price,
+        amount_paid,
         is_provisional
       `)
       .gte('scheduled_date', today)
@@ -79,7 +81,8 @@ export async function GET() {
       const vehicle = vehicles.find((v) => v.id === assignments.get(booking.id))
       return {
         ...booking,
-        estimated_price: booking.original_price ?? booking.total_price ?? null,
+        estimated_price:
+          booking.adjusted_price ?? booking.original_price ?? booking.total_price ?? null,
         vehicle: vehicle
           ? { id: vehicle.id, name: vehicle.name, driver: vehicle.driver, color: vehicle.color }
           : null,

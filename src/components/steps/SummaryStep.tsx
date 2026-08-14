@@ -214,6 +214,11 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             packing: additionalServices.packing,
             unpacking: additionalServices.unpacking,
             observations: additionalServices.observations,
+            // La cuadrilla debe sobrevivir al store del navegador: el panel admin usa
+            // estos datos para regenerar tanto la cotización como la orden de trabajo.
+            extraHelpers: additionalServices.extraHelpers || 0,
+            requiredCrew,
+            totalCrew,
           },
           // gclid/UTMs capturados de la URL (Google Ads).
           attribution: attributionForSubmit(),

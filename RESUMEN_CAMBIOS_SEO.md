@@ -91,7 +91,7 @@
 {
   "@type": "MovingCompany",
   "name": "Yo me Encargo",
-  "telephone": "+56954390267",
+  "telephone": "+56952334799",
   "priceRange": "$$",
   "serviceType": [
     "Mudanzas",
@@ -237,7 +237,7 @@ npm run lint
 
 2. **Canonical URLs**: Todas apuntan a `https://yomeencargo.cl` - verifica que este sea tu dominio final
 
-3. **Teléfono**: El número `+56954390267` está hardcodeado en el schema - verifica que sea correcto
+3. **Teléfono**: El número `+56952334799` está hardcodeado en el schema - verifica que sea correcto
 
 4. **Rating**: El schema incluye un rating de 4.8 con 150 reviews - ajusta si no es real
 

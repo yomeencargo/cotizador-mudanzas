@@ -58,6 +58,8 @@ export interface AdminBookingQuoteSource {
   scheduled_date?: string | null
   scheduled_time?: string | null
   total_price?: number | string | null
+  original_price?: number | string | null
+  adjusted_price?: number | string | null
   is_flexible?: boolean | null
   recommended_vehicle?: string | null
   total_volume?: number | string | null
@@ -159,6 +161,16 @@ export function normalizeAdminPdfItems(
   }))
 }
 
+/** Volumen disponible para la lista de reservas, con respaldo en el detalle de ítems. */
+export function bookingVolumeM3(booking: AdminBookingQuoteSource): number | undefined {
+  const direct = toNumber(booking.total_volume)
+  if (direct !== undefined && direct >= 0) return direct
+
+  const items = normalizeAdminPdfItems(booking.items_summary)
+  if (items.length === 0) return undefined
+  return items.reduce((sum, item) => sum + item.volume * item.quantity, 0)
+}
+
 function pickQuoteDetails(prospect?: BookingQuoteDetails): Partial<AdminBookingQuoteSource> {
   if (!prospect) return {}
 
@@ -246,10 +258,13 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     destinationParkingDistance: booking.destination_parking_distance ?? undefined,
     scheduledDate: booking.scheduled_date,
     scheduledTime: booking.scheduled_time,
-    totalPrice: toNumber(booking.total_price),
+    totalPrice:
+      toNumber(booking.adjusted_price) ??
+      toNumber(booking.original_price) ??
+      toNumber(booking.total_price),
     isFlexible: booking.is_flexible || false,
     recommendedVehicle: booking.recommended_vehicle,
-    totalVolume: toNumber(booking.total_volume),
+    totalVolume: bookingVolumeM3(booking),
     totalWeight: toNumber(booking.total_weight),
     totalDistance: toNumber(booking.total_distance),
     items: normalizeAdminPdfItems(booking.items_summary, booking.total_volume),

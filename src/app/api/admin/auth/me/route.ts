@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ENV_ADMIN_ID, normalizeUsername } from '@/lib/adminAuth'
+import { getAdminRole } from '@/lib/adminPermissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
         displayName: 'Administrador',
         mustChangePassword: false,
         canChangePassword: false,
+        role: 'administrator',
       })
     }
 
@@ -30,11 +32,14 @@ export async function GET(request: NextRequest) {
       .eq('username', username)
       .maybeSingle()
 
+    const role = await getAdminRole(request)
+
     return NextResponse.json({
       username,
       displayName: user?.display_name || username,
       mustChangePassword: Boolean(user?.must_change_password),
       canChangePassword: true,
+      role,
     })
   } catch (error) {
     console.error('Error en /api/admin/auth/me:', error)

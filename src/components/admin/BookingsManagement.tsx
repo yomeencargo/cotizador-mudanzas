@@ -33,9 +33,15 @@ import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
 import {
+  bookingVolumeM3,
   bookingToAdminQuoteData,
   type AdminBookingQuoteSource,
 } from '@/lib/adminBookingQuoteData'
+import {
+  actualPaidAmount,
+  pendingAmount,
+  servicePrice,
+} from '@/lib/revenueBreakdown'
 import { getSourceLabel, getSourceBadge } from '@/lib/prospectSource'
 import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
 import { resolveVehicleColor, UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
@@ -61,9 +67,15 @@ interface Booking extends AdminBookingQuoteSource {
   notes?: string
   payment_type?: string
   payment_status?: string
+  payment_method?: string
   is_provisional?: boolean
   total_price?: number
   original_price?: number
+  adjusted_price?: number | null
+  amount_paid?: number | null
+  adjustment_comment?: string | null
+  adjusted_at?: string | null
+  adjusted_by?: string | null
   origin_address?: string
   destination_address?: string
   is_company?: boolean
@@ -123,9 +135,14 @@ function toWhatsAppNumber(phone: string): string {
 interface BookingsManagementProps {
   /** Búsqueda precargada (p. ej. al abrir una reserva desde el dashboard con ?q=). */
   initialSearch?: string
+  /** Permiso derivado del perfil firmado; el backend vuelve a validarlo al guardar. */
+  canAdjustAmounts?: boolean
 }
 
-export default function BookingsManagement({ initialSearch = '' }: BookingsManagementProps) {
+export default function BookingsManagement({
+  initialSearch = '',
+  canAdjustAmounts = false,
+}: BookingsManagementProps) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -144,6 +161,11 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [financialEdit, setFinancialEdit] = useState({
+    adjustedPrice: '',
+    amountPaid: '',
+    comment: '',
+  })
   const [creating, setCreating] = useState(false)
   const [blockOnly, setBlockOnly] = useState(false)
   const [newBooking, setNewBooking] = useState({ ...EMPTY_NEW_BOOKING })
@@ -154,6 +176,16 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
     clientPhone: string
     amount: number
   } | null>(null)
+
+  const openEditBooking = (booking: Booking) => {
+    setSelectedBooking(booking)
+    setFinancialEdit({
+      adjustedPrice: String(servicePrice(booking) || ''),
+      amountPaid: String(actualPaidAmount(booking) || 0),
+      comment: booking.adjustment_comment || '',
+    })
+    setShowEditModal(true)
+  }
 
   const fetchBookings = async (options: { silent?: boolean } = {}) => {
     try {
@@ -222,6 +254,7 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
           booking.is_provisional !== true &&
           booking.payment_type === 'mitad' &&
           booking.payment_status === 'approved' &&
+          pendingAmount(booking) > 0 &&
           !['cancelled', 'no_show'].includes(booking.status)
       )
     } else {
@@ -435,6 +468,33 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
       if ((original?.vehicle_id ?? null) !== (booking.vehicle_id ?? null)) {
         // null desasigna: el reparto automático la vuelve a tomar en la próxima lectura.
         updateData.vehicle_id = booking.vehicle_id ?? null
+      }
+      const canEditThisAmount =
+        canAdjustAmounts &&
+        booking.payment_status === 'approved' &&
+        booking.payment_type === 'mitad'
+      if (canEditThisAmount) {
+        const adjustedPrice = Math.round(Number(financialEdit.adjustedPrice))
+        const amountPaid = Math.round(Number(financialEdit.amountPaid))
+        if (!Number.isFinite(adjustedPrice) || adjustedPrice <= 0) {
+          toast.error('El monto final debe ser mayor que cero')
+          return false
+        }
+        if (!Number.isFinite(amountPaid) || amountPaid < 0) {
+          toast.error('El monto pagado no puede ser negativo')
+          return false
+        }
+
+        const financialChanged =
+          adjustedPrice !== servicePrice(original || booking) ||
+          amountPaid !== actualPaidAmount(original || booking) ||
+          financialEdit.comment.trim() !== String(original?.adjustment_comment || '')
+
+        if (financialChanged) {
+          updateData.adjusted_price = adjustedPrice
+          updateData.amount_paid = amountPaid
+          updateData.adjustment_comment = financialEdit.comment.trim()
+        }
       }
       if (booking.status === 'completed') {
         updateData.service_completed_at = new Date().toISOString()
@@ -819,8 +879,12 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
       { header: 'Estado', value: (b) => b.status },
       { header: 'Estado de pago', value: (b) => b.payment_status },
       { header: 'Tipo de pago', value: (b) => b.payment_type },
-      { header: 'Precio total', value: (b) => b.total_price },
-      { header: 'Precio original', value: (b) => b.original_price },
+      { header: 'Volumen m³', value: (b) => bookingVolumeM3(b) },
+      { header: 'Precio cotizado', value: (b) => b.original_price ?? b.total_price },
+      { header: 'Precio final reajustado', value: (b) => servicePrice(b) },
+      { header: 'Monto pagado real', value: (b) => actualPaidAmount(b) },
+      { header: 'Saldo pendiente', value: (b) => pendingAmount(b) },
+      { header: 'Motivo reajuste', value: (b) => b.adjustment_comment || '' },
       { header: 'Dirección origen', value: (b) => b.origin_address },
       { header: 'Dirección destino', value: (b) => b.destination_address },
       { header: 'Notas', value: (b) => b.notes },
@@ -1125,7 +1189,10 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                     Estado
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Precio
+                    Volumen
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Montos
                   </th>
                   <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contacto
@@ -1245,58 +1312,56 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap">
-                      {(booking.original_price || booking.total_price) ? (
-                        <div>
-                          {booking.payment_status === 'approved' ? (
-                            <>
-                              <div className="text-sm font-semibold text-green-700">
-                                ${booking.total_price?.toLocaleString()}
-                              </div>
-                              {/* Si el precio cotizado difiere de lo pagado (hubo un reajuste
-                                  manual en el camino), se muestra aparte — antes solo se veía
-                                  el precio cotizado y parecía que el cliente pagó esa cifra,
-                                  aunque no fuera ni el 50% ni el 100% de ella. */}
-                              {booking.original_price != null && booking.original_price !== booking.total_price && (
-                                <div className="text-xs text-gray-500">
-                                  Cotizado: ${booking.original_price.toLocaleString()}
-                                </div>
-                              )}
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                                ✓ Pagado {booking.payment_type === 'mitad' ? '(abono 50%)' : '(completo)'}
-                              </span>
-                              {/* El saldo es el número accionable: es lo que hay que ir a
-                                  cobrar. Sin esto el filtro de abonos obliga a restar a mano. */}
-                              {booking.payment_type === 'mitad' &&
-                                booking.original_price != null &&
-                                booking.original_price > (booking.total_price || 0) && (
-                                  <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200">
-                                    Falta $
-                                    {(
-                                      booking.original_price - (booking.total_price || 0)
-                                    ).toLocaleString()}
-                                  </div>
-                                )}
-                            </>
-                          ) : (
-                            <>
-                              <div className="text-sm font-semibold text-green-700">
-                                ${(booking.original_price || booking.total_price)?.toLocaleString()}
-                              </div>
-                              {booking.payment_status === 'pending' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
-                                  ⏳ Pago pendiente
-                                </span>
-                              )}
-                              {booking.payment_status === 'rejected' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                                  ✗ Pago rechazado
-                                </span>
-                              )}
-                            </>
+                      {(() => {
+                        const volume = bookingVolumeM3(booking)
+                        return volume !== undefined ? (
+                          <div>
+                            <div className="text-sm font-bold text-gray-900">
+                              {volume.toFixed(2)} m³
+                            </div>
+                            <div className="text-[11px] text-gray-500">
+                              {booking.items_summary?.reduce(
+                                (sum, item) => sum + (Number(item.quantity) || 0),
+                                0
+                              ) || 0}{' '}
+                              bultos
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )
+                      })()}
+                    </td>
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
+                      {servicePrice(booking) > 0 ? (
+                        <div className="space-y-0.5">
+                          <div className="text-sm font-semibold text-gray-900">
+                            Total: ${servicePrice(booking).toLocaleString('es-CL')}
+                          </div>
+                          {booking.adjusted_price != null && (
+                            <div className="text-[11px] font-medium text-purple-700">
+                              Reajustado · antes ${Number(
+                                booking.original_price || booking.total_price || 0
+                              ).toLocaleString('es-CL')}
+                            </div>
                           )}
+                          <div className="text-xs font-semibold text-green-700">
+                            Pagado real: ${actualPaidAmount(booking).toLocaleString('es-CL')}
+                          </div>
+                          {pendingAmount(booking) > 0 ? (
+                            <div className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">
+                              Falta ${pendingAmount(booking).toLocaleString('es-CL')}
+                            </div>
+                          ) : actualPaidAmount(booking) > 0 ? (
+                            <div className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                              ✓ Sin saldo pendiente
+                            </div>
+                          ) : booking.payment_status === 'pending' ? (
+                            <div className="text-xs font-medium text-yellow-700">⏳ Pago pendiente</div>
+                          ) : null}
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">-</span>
+                        <span className="text-sm text-gray-400">—</span>
                       )}
                     </td>
                     <td className="hidden lg:table-cell px-4 py-3 align-top whitespace-nowrap">
@@ -1351,10 +1416,7 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                             <Star className={`w-4 h-4 ${booking.is_frequent ? 'fill-amber-400 text-amber-500' : ''}`} />
                           </Button>
                           <Button
-                            onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowEditModal(true)
-                            }}
+                            onClick={() => openEditBooking(booking)}
                             variant="outline"
                             size="sm"
                             title="Editar"
@@ -1409,7 +1471,9 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                             </Button>
                           )}
 
-                          {booking.payment_type === 'mitad' && !isDomicilio && (
+                          {booking.payment_type === 'mitad' &&
+                            booking.payment_status === 'approved' &&
+                            !isDomicilio && (
                             <Button
                               onClick={() => {
                                 if (confirm('¿Cambiar el estado de pago de "mitad" a "completo"?')) {
@@ -1844,23 +1908,55 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
               </span>
             </div>
 
-            {selectedBooking.original_price && (
+            <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Precio Cotizado</label>
-                <p className="text-sm font-semibold text-green-700">
-                  ${selectedBooking.original_price.toLocaleString()}
+                <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Volumen
+                </label>
+                <p className="text-lg font-bold text-gray-900">
+                  {bookingVolumeM3(selectedBooking) !== undefined
+                    ? `${bookingVolumeM3(selectedBooking)!.toFixed(2)} m³`
+                    : 'No informado'}
                 </p>
-                {/* Se muestra el monto pagado siempre que difiera del cotizado (no solo
-                    cuando payment_type==='mitad'): un reajuste manual de precio también
-                    puede hacer que no coincidan sin que sea un abono del 50%. */}
-                {selectedBooking.total_price != null && selectedBooking.total_price !== selectedBooking.original_price && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Pagado: ${selectedBooking.total_price.toLocaleString()}
-                    {selectedBooking.payment_type === 'mitad' ? ' (abono 50%)' : ''}
+              </div>
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Total del servicio
+                </label>
+                <p className="text-lg font-bold text-gray-900">
+                  ${servicePrice(selectedBooking).toLocaleString('es-CL')}
+                </p>
+                {selectedBooking.adjusted_price != null && (
+                  <p className="text-xs font-medium text-purple-700">
+                    Reajustado desde ${Number(
+                      selectedBooking.original_price || selectedBooking.total_price || 0
+                    ).toLocaleString('es-CL')}
                   </p>
                 )}
               </div>
-            )}
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Monto pagado real
+                </label>
+                <p className="text-lg font-bold text-green-700">
+                  ${actualPaidAmount(selectedBooking).toLocaleString('es-CL')}
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Saldo pendiente
+                </label>
+                <p className={`text-lg font-bold ${pendingAmount(selectedBooking) > 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                  ${pendingAmount(selectedBooking).toLocaleString('es-CL')}
+                </p>
+              </div>
+              {selectedBooking.adjustment_comment && (
+                <div className="sm:col-span-2 border-t border-gray-200 pt-3 text-sm text-gray-700">
+                  <strong>Motivo del reajuste:</strong> {selectedBooking.adjustment_comment}
+                  {selectedBooking.adjusted_by ? ` · ${selectedBooking.adjusted_by}` : ''}
+                </div>
+              )}
+            </div>
 
             {selectedBooking.payment_type && (
               <div>
@@ -2140,6 +2236,74 @@ export default function BookingsManagement({ initialSearch = '' }: BookingsManag
                 ]}
               />
             </div>
+
+            {canAdjustAmounts &&
+              selectedBooking.payment_status === 'approved' &&
+              selectedBooking.payment_type === 'mitad' && (
+                <div className="space-y-4 rounded-lg border-2 border-purple-200 bg-purple-50 p-4">
+                  <div>
+                    <p className="font-semibold text-purple-900">Reajuste posterior al abono</p>
+                    <p className="text-xs text-purple-700">
+                      Solo el perfil Administrador puede cambiar estos valores. El motivo y el
+                      usuario quedan registrados en Actividad.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Monto final del servicio
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={financialEdit.adjustedPrice}
+                        onChange={(e) =>
+                          setFinancialEdit({ ...financialEdit, adjustedPrice: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Monto pagado real
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={financialEdit.amountPaid}
+                        onChange={(e) =>
+                          setFinancialEdit({ ...financialEdit, amountPaid: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Motivo del reajuste
+                    </label>
+                    <textarea
+                      className="w-full rounded-md border border-purple-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      rows={2}
+                      value={financialEdit.comment}
+                      onChange={(e) =>
+                        setFinancialEdit({ ...financialEdit, comment: e.target.value })
+                      }
+                      placeholder="Ej: se agregaron 4 m³ y un ayudante en terreno"
+                    />
+                  </div>
+                  <div className="flex justify-between rounded-md bg-white px-3 py-2 text-sm">
+                    <span className="text-gray-600">Saldo resultante</span>
+                    <strong className="text-purple-900">
+                      ${Math.max(
+                        0,
+                        (Number(financialEdit.adjustedPrice) || 0) -
+                          (Number(financialEdit.amountPaid) || 0)
+                      ).toLocaleString('es-CL')}
+                    </strong>
+                  </div>
+                </div>
+              )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

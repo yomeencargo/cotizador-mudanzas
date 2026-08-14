@@ -55,7 +55,7 @@ export default function FAQ() {
               ¿Te queda algo en el tintero? Escríbenos por WhatsApp y te respondemos al toque.
             </p>
             <a
-              href="https://wa.me/56954390267"
+              href="https://wa.me/56952334799"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackEvent('Contact', { method: 'whatsapp', location: 'faq' })}

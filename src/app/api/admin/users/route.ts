@@ -3,18 +3,24 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeUsername } from '@/lib/adminAuth'
 import { hashPassword, validatePasswordStrength } from '@/lib/passwordHash'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
+import { isAdministrator, normalizeAdminRole } from '@/lib/adminPermissions'
 
 export const dynamic = 'force-dynamic'
 
-// Gestión de usuarios del panel. Todos tienen los MISMOS permisos (no hay roles).
 // Nunca se devuelve el password_hash al cliente.
-const SAFE_FIELDS = 'id, username, display_name, is_active, must_change_password, created_at, last_login_at'
+const SAFE_FIELDS = 'id, username, display_name, role, is_active, must_change_password, created_at, last_login_at'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!(await isAdministrator(request))) {
+      return NextResponse.json({ error: 'Solo un Administrador puede gestionar usuarios' }, { status: 403 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('admin_users')
-      .select(SAFE_FIELDS)
+      // Lectura compatible antes de aplicar la migración de roles; se proyectan los
+      // campos seguros manualmente para no exponer password_hash.
+      .select('*')
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -22,7 +28,18 @@ export async function GET() {
       return NextResponse.json({ error: 'Error obteniendo usuarios' }, { status: 500 })
     }
 
-    return NextResponse.json(data || [])
+    return NextResponse.json(
+      (data || []).map((user: any) => ({
+        id: user.id,
+        username: user.username,
+        display_name: user.display_name,
+        role: normalizeAdminRole(user.role),
+        is_active: user.is_active,
+        must_change_password: user.must_change_password,
+        created_at: user.created_at,
+        last_login_at: user.last_login_at,
+      }))
+    )
   } catch (error) {
     console.error('Error en /api/admin/users GET:', error)
     return NextResponse.json({ error: 'Error obteniendo usuarios' }, { status: 500 })
@@ -31,7 +48,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, displayName, password } = await request.json()
+    if (!(await isAdministrator(request))) {
+      return NextResponse.json({ error: 'Solo un Administrador puede crear usuarios' }, { status: 403 })
+    }
+
+    const { username, displayName, password, role } = await request.json()
 
     const normalized = normalizeUsername(String(username || ''))
     if (!normalized || !displayName || !password) {
@@ -64,6 +85,7 @@ export async function POST(request: NextRequest) {
         username: normalized,
         display_name: String(displayName).trim(),
         password_hash,
+        role: normalizeAdminRole(role),
         // Contraseña definida por otra persona: el titular debe cambiarla al entrar.
         must_change_password: true,
       })
@@ -94,7 +116,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, isActive, newPassword } = await request.json()
+    if (!(await isAdministrator(request))) {
+      return NextResponse.json({ error: 'Solo un Administrador puede modificar usuarios' }, { status: 403 })
+    }
+
+    const { id, isActive, newPassword, role } = await request.json()
     if (!id) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
     }
@@ -103,12 +129,47 @@ export async function PATCH(request: NextRequest) {
 
     const { data: target } = await supabaseAdmin
       .from('admin_users')
-      .select('id, username, display_name, is_active')
+      .select('*')
       .eq('id', id)
       .maybeSingle()
 
     if (!target) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+    }
+
+    // Cambio de perfil. Nadie puede quitarse a sí mismo el rol Administrador: el
+    // siguiente cambio ya no podría revertirlo desde el panel.
+    if (role === 'administrator' || role === 'staff') {
+      if (actor?.username === target.username && role !== 'administrator') {
+        return NextResponse.json(
+          { error: 'No puedes quitarte tu propio perfil Administrador' },
+          { status: 400 }
+        )
+      }
+
+      const nextRole = normalizeAdminRole(role)
+      const { error } = await supabaseAdmin
+        .from('admin_users')
+        .update({ role: nextRole })
+        .eq('id', id)
+
+      if (error) {
+        console.error('[admin/users] Error cambiando rol:', error)
+        return NextResponse.json({ error: 'No se pudo cambiar el perfil' }, { status: 500 })
+      }
+
+      await logAdminAction({
+        actor,
+        action: 'user.role_changed',
+        entityType: 'user',
+        entityId: id,
+        entityLabel: target.username,
+        summary: `Cambió el perfil de ${target.username} a ${nextRole === 'administrator' ? 'Administrador' : 'Secretaría'}`,
+        changes: { role: { from: normalizeAdminRole(target.role), to: nextRole } },
+        request,
+      })
+
+      return NextResponse.json({ success: true })
     }
 
     // Reseteo de contraseña por otro admin

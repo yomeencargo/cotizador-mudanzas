@@ -12,6 +12,7 @@ export interface AuthenticatedAdmin {
   username: string
   displayName: string
   mustChangePassword: boolean
+  role: 'administrator' | 'staff'
 }
 
 function safeEqualString(a: string, b: string): boolean {
@@ -55,7 +56,9 @@ export async function authenticateAdmin(
   try {
     const { data: user, error } = await supabaseAdmin
       .from('admin_users')
-      .select('id, username, display_name, password_hash, is_active, must_change_password')
+      // `*` mantiene el login compatible durante la ventana entre deploy y migración:
+      // si la columna role todavía no existe, simplemente llega undefined y se usa staff.
+      .select('*')
       .eq('username', normalized)
       .maybeSingle()
 
@@ -79,6 +82,7 @@ export async function authenticateAdmin(
         username: user.username,
         displayName: user.display_name || user.username,
         mustChangePassword: Boolean(user.must_change_password),
+        role: user.role === 'administrator' ? 'administrator' : 'staff',
       }
     }
   } catch (err) {
@@ -99,6 +103,7 @@ export async function authenticateAdmin(
       username: expectedUser,
       displayName: 'Administrador',
       mustChangePassword: false,
+      role: 'administrator',
     }
   }
 

@@ -1,3 +1,5 @@
+import { servicePrice } from './revenueBreakdown'
+
 export interface MonthlyPoint {
   month: string   // 'YYYY-MM'
   label: string   // mes corto en español
@@ -35,6 +37,8 @@ export interface BookingLike {
   status?: string | null
   total_price?: number | null
   original_price?: number | null
+  adjusted_price?: number | null
+  amount_paid?: number | null
   client_email?: string | null
   client_name?: string | null
   client_phone?: string | null
@@ -94,8 +98,7 @@ export function groupBookingsByMonth(bookings: BookingLike[], monthsBack: number
       // Incrementar count y revenue
       bookingMonth.count += 1
       
-      const price = (booking.total_price ?? booking.original_price) || 0
-      bookingMonth.revenue += price
+      bookingMonth.revenue += servicePrice(booking)
       
       monthlyMap.set(monthKey, bookingMonth)
     }
@@ -203,12 +206,12 @@ export function aggregateAttendedCustomers(bookings: BookingLike[]): AttendedCus
         movesCount: 1,
         lastMoveDate: booking.scheduled_date ?? null,
         firstMoveDate: booking.scheduled_date ?? null,
-        totalSpent: (booking.total_price ?? booking.original_price) || 0
+        totalSpent: servicePrice(booking)
       })
     } else {
       // Actualizar existente
       
-      const price = (booking.total_price ?? booking.original_price) || 0
+      const price = servicePrice(booking)
       const d = booking.scheduled_date ?? null
       existing.movesCount += 1
       existing.totalSpent += price

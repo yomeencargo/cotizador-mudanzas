@@ -8,8 +8,8 @@
 // 35 registros con la semántica nueva y 2 con la vieja.
 //
 // Por eso NO se suma `total_price` para saber lo cobrado: mezclaría dos significados.
-// El monto cobrado se DERIVA del precio del servicio aplicando la regla de negocio, que
-// los datos confirman con exactitud:
+// Desde ago-2026 `amount_paid` guarda el cobro real. Para los registros históricos que
+// todavía no lo tienen, se conserva como respaldo la regla de negocio verificada:
 //   - payment_type 'mitad'    -> paga el 50% ahora, el resto al terminar el traslado
 //   - payment_type 'completo' -> paga el 95% (5% de descuento por pagar todo por adelantado)
 //
@@ -29,6 +29,8 @@
 export interface BookingLike {
   original_price?: number | null
   total_price?: number | null
+  adjusted_price?: number | null
+  amount_paid?: number | null
   payment_type?: string | null
   payment_status?: string | null
   status?: string | null
@@ -50,10 +52,12 @@ export const HALF_RATIO = 0.5
 export const FULL_RATIO = 0.95
 
 /**
- * Precio del servicio. `original_price` es el campo consistente en el tiempo;
- * `total_price` solo se usa como respaldo cuando falta.
+ * Precio vigente del servicio. Un reajuste en terreno manda sobre el valor cotizado;
+ * `total_price` queda como respaldo para registros históricos incompletos.
  */
 export function servicePrice(b: BookingLike): number {
+  const adjusted = Number(b.adjusted_price) || 0
+  if (adjusted > 0) return adjusted
   const original = Number(b.original_price) || 0
   if (original > 0) return original
   return Number(b.total_price) || 0
@@ -80,10 +84,23 @@ export function isPaid(b: BookingLike): boolean {
   return b.payment_status === 'approved'
 }
 
-/** Monto efectivamente recibido por esta reserva. */
-export function paidAmount(b: BookingLike): number {
-  if (!countsForRevenue(b) || !isPaid(b)) return 0
+/**
+ * Monto efectivamente recibido, incluso si la reserva luego fue cancelada o marcada
+ * como no atendida. Sirve para la ficha operativa, donde el pago real no debe ocultarse.
+ */
+export function actualPaidAmount(b: BookingLike): number {
+  if (b.amount_paid !== undefined && b.amount_paid !== null) {
+    const recorded = Number(b.amount_paid)
+    if (Number.isFinite(recorded)) return Math.max(0, Math.round(recorded))
+  }
+  if (!isPaid(b)) return 0
   return Math.round(servicePrice(b) * paidRatio(b.payment_type))
+}
+
+/** Monto que entra al resumen de ingresos (excluye pre-reservas y cierres sin servicio). */
+export function paidAmount(b: BookingLike): number {
+  if (!countsForRevenue(b)) return 0
+  return actualPaidAmount(b)
 }
 
 /**
@@ -95,9 +112,9 @@ export function paidAmount(b: BookingLike): number {
 export function pendingAmount(b: BookingLike): number {
   if (!countsForRevenue(b)) return 0
   const price = servicePrice(b)
-  if (!isPaid(b)) return price
-  if (b.payment_type === 'mitad') return Math.round(price * (1 - HALF_RATIO))
-  return 0
+  // Pago completo aprobado: el posible 5% de diferencia es descuento, no deuda.
+  if (isPaid(b) && b.payment_type === 'completo') return 0
+  return Math.max(0, price - actualPaidAmount(b))
 }
 
 /** Canal por el que entró la plata. Flow deja `flow_token`; lo manual no. */

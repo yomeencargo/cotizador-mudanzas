@@ -14,6 +14,7 @@ export interface SyncedBookingData {
   client_email?: string | null
   visit_address?: string | null
   payment_status?: string | null
+  amount_paid?: number | null
 }
 
 export interface ApplyFlowPaymentResult {
@@ -94,7 +95,7 @@ async function applyFlowPaymentStatus(
   // Leer la reserva ANTES de actualizar: sirve para idempotencia y para redirigir/convertir.
   const { data: existing } = await supabaseAdmin
     .from('bookings')
-    .select('id, booking_type, client_name, client_email, visit_address, payment_status')
+    .select('id, booking_type, client_name, client_email, visit_address, payment_status, amount_paid')
     .eq('quote_id', bookingRef)
     .maybeSingle()
 
@@ -138,6 +139,16 @@ async function applyFlowPaymentStatus(
     // descuento); pisarlo con ese valor dejaba la reserva registrada a mitad/95% de su precio
     // real y descuadraba la contabilidad y los PDF regenerados.
     if (optionalPaymentType) updateData.payment_type = optionalPaymentType
+    // Flow sí entrega el monto real cobrado. Se registra solo si todavía no había un
+    // monto explícito: un reajuste manual posterior no debe ser pisado por un webhook
+    // duplicado o tardío de la misma orden.
+    if (
+      !alreadyApproved &&
+      (Number(bookingData?.amount_paid) || 0) <= 0 &&
+      Number(paymentStatus.amount) > 0
+    ) {
+      updateData.amount_paid = Math.round(Number(paymentStatus.amount))
+    }
   } else if (paymentStatus.status === 3 || paymentStatus.status === 4) {
     updateData.status = 'cancelled'
   }

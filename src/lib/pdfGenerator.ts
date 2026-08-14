@@ -29,6 +29,8 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     totalDistance,
     estimatedPrice,
     recommendedVehicle,
+    requiredCrew,
+    totalCrew,
   } = useQuoteStore.getState()
 
   // Crear nuevo documento PDF
@@ -257,7 +259,8 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
   const hasAdditionalServices = additionalServices.disassembly || 
     additionalServices.assembly || 
     additionalServices.packing || 
-    additionalServices.unpacking
+    additionalServices.unpacking ||
+    totalCrew > 1
 
   if (hasAdditionalServices) {
     pdf.setFont('helvetica', 'bold')
@@ -283,6 +286,18 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     if (additionalServices.unpacking) {
       pdf.text('[OK] Desembalaje - Contactar ejecutivo', 20, yPosition)
       yPosition += 6
+    }
+    if (totalCrew > 1) {
+      pdf.text(`[OK] Cuadrilla total: ${totalCrew} personas`, 20, yPosition)
+      yPosition += 6
+      if (additionalServices.extraHelpers > 0) {
+        pdf.text(
+          `    Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (minimo por peso: ${requiredCrew})`,
+          20,
+          yPosition
+        )
+        yPosition += 6
+      }
     }
     
     yPosition += 10
@@ -338,7 +353,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
   }
   
   pdf.text('Esta cotizacion es valida por 7 dias desde la fecha de emision.', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('Para confirmar tu reserva, contactanos al +56 9 5439 0267', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('Para confirmar tu reserva, contactanos al +56 9 5233 4799', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl | contacto@yomeencargo.cl', pageWidth / 2, footerY, { align: 'center' })
 
   const fileName = `Cotizacion_Mudanza_${personalInfo?.name?.replace(/\s/g, '_') || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`
@@ -385,6 +400,8 @@ export const generateBookingPDF = async (
     totalDistance,
     estimatedPrice,
     recommendedVehicle,
+    requiredCrew,
+    totalCrew,
   } = useQuoteStore.getState()
 
   // Crear nuevo documento PDF
@@ -728,7 +745,8 @@ export const generateBookingPDF = async (
   const hasAdditionalServices = additionalServices.disassembly || 
     additionalServices.assembly || 
     additionalServices.packing || 
-    additionalServices.unpacking
+    additionalServices.unpacking ||
+    totalCrew > 1
 
   if (hasAdditionalServices) {
     pdf.setFont('helvetica', 'bold')
@@ -754,6 +772,18 @@ export const generateBookingPDF = async (
     if (additionalServices.unpacking) {
       pdf.text('✓ Desembalaje - Contactar ejecutivo', 20, yPosition)
       yPosition += 6
+    }
+    if (totalCrew > 1) {
+      pdf.text(`✓ Cuadrilla total: ${totalCrew} personas`, 20, yPosition)
+      yPosition += 6
+      if (additionalServices.extraHelpers > 0) {
+        pdf.text(
+          `  Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (minimo por peso: ${requiredCrew})`,
+          20,
+          yPosition
+        )
+        yPosition += 6
+      }
     }
     
     yPosition += 10
@@ -844,7 +874,7 @@ export const generateBookingPDF = async (
   }
   
   pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('+56 9 5233 4799 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
   // Generar el nombre del archivo
@@ -893,6 +923,8 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     totalDistance,
     estimatedPrice,
     recommendedVehicle,
+    requiredCrew,
+    totalCrew,
   } = useQuoteStore.getState()
 
   // Crear nuevo documento PDF
@@ -1179,7 +1211,8 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   const hasAdditionalServices = additionalServices.disassembly || 
                                  additionalServices.assembly || 
                                  additionalServices.packing || 
-                                 additionalServices.unpacking
+                                 additionalServices.unpacking ||
+                                 totalCrew > 1
 
   if (hasAdditionalServices) {
     if (yPosition > pageHeight - 50) {
@@ -1210,6 +1243,18 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     if (additionalServices.unpacking) {
       pdf.text('✓ Desembalaje (Contactar ejecutivo)', 25, yPosition)
       yPosition += 6
+    }
+    if (totalCrew > 1) {
+      pdf.text(`✓ Cuadrilla total: ${totalCrew} personas`, 25, yPosition)
+      yPosition += 6
+      if (additionalServices.extraHelpers > 0) {
+        pdf.text(
+          `  Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (minimo por peso: ${requiredCrew})`,
+          25,
+          yPosition
+        )
+        yPosition += 6
+      }
     }
 
     yPosition += 5
@@ -1335,7 +1380,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   }
   
   pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('+56 9 5439 0267 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('+56 9 5233 4799 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
   const fileName = `Cotizacion_Confirmada_${personalInfo?.name?.replace(/\s/g, '_') || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`

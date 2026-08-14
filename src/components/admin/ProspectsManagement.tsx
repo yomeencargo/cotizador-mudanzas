@@ -1413,6 +1413,14 @@ export default function ProspectsManagement() {
                   {selectedProspect.additional_services.unpacking && (
                     <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">Desembalaje</span>
                   )}
+                  {Number(selectedProspect.additional_services.totalCrew) > 1 && (
+                    <span className="rounded bg-purple-50 px-2 py-1 text-xs text-purple-700">
+                      Cuadrilla: {Number(selectedProspect.additional_services.totalCrew)} personas
+                      {Number(selectedProspect.additional_services.extraHelpers) > 0
+                        ? ` (${Number(selectedProspect.additional_services.extraHelpers)} ayudantes adicionales)`
+                        : ''}
+                    </span>
+                  )}
                   {selectedProspect.additional_services.observations && (
                     <p className="text-sm text-gray-600 w-full mt-1">
                       Obs: {selectedProspect.additional_services.observations}

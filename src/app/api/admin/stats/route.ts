@@ -48,12 +48,12 @@ export async function GET() {
 
     // 4. Ingresos del mes, separados en COBRADO y POR COBRAR.
     //    Ojo: no se suma total_price directamente porque cambió de significado en
-    //    julio-2026 (ver comentario en revenueBreakdown.ts). El monto cobrado se deriva
-    //    del precio del servicio según la modalidad de pago (mitad 50% / completo 95%).
+    //    julio-2026 (ver comentario en revenueBreakdown.ts). `amount_paid` manda; la
+    //    modalidad de pago queda como respaldo para registros históricos.
     const { data: monthlyBookings, error: monthlyError } = await supabaseAdmin
       .from('bookings')
       .select(
-        'id, original_price, total_price, payment_type, payment_status, status, is_provisional, flow_token, payment_method'
+        'id, original_price, total_price, adjusted_price, amount_paid, payment_type, payment_status, status, is_provisional, flow_token, payment_method'
       )
       .gte('scheduled_date', startOfMonth)
       .lte('scheduled_date', endOfMonth)

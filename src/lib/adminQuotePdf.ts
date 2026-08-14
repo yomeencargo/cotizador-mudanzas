@@ -288,7 +288,11 @@ export async function generateAdminQuotePDF(
 
   // ── Servicios adicionales (operativos: útiles para trabajadores) ──
   const svc = data.additionalServices || {}
-  const hasSvc = svc.disassembly || svc.assembly || svc.packing || svc.unpacking
+  const extraHelpers = Math.max(0, Number(svc.extraHelpers) || 0)
+  const requiredCrew = Math.max(1, Number(svc.requiredCrew) || 1)
+  const totalCrew = Math.max(requiredCrew + extraHelpers, Number(svc.totalCrew) || 0)
+  const hasCrew = extraHelpers > 0 || totalCrew > 1
+  const hasSvc = svc.disassembly || svc.assembly || svc.packing || svc.unpacking || hasCrew
   if (hasSvc) {
     ensureSpace(24)
     pdf.setFont('helvetica', 'bold')
@@ -301,6 +305,13 @@ export async function generateAdminQuotePDF(
     if (svc.assembly) { ensureSpace(6); pdf.text('[OK] Armado de muebles', 20, y); y += 6 }
     if (svc.packing) { ensureSpace(6); pdf.text('[OK] Embalaje / armado de cajas', 20, y); y += 6 }
     if (svc.unpacking) { ensureSpace(6); pdf.text('[OK] Desembalaje', 20, y); y += 6 }
+    if (hasCrew) {
+      ensureSpace(extraHelpers > 0 ? 12 : 6)
+      pdf.text(`[OK] Cuadrilla total: ${totalCrew} personas`, 20, y); y += 6
+      if (extraHelpers > 0) {
+        pdf.text(`    Ayudantes adicionales seleccionados: ${extraHelpers}`, 20, y); y += 6
+      }
+    }
     y += 4
   }
 
@@ -346,7 +357,7 @@ export async function generateAdminQuotePDF(
   } else {
     pdf.text('Cotizacion valida por 7 dias desde la emision.', pageWidth / 2, footerY - 5, { align: 'center' })
   }
-  pdf.text('www.yomeencargo.cl | +56 9 5439 0267', pageWidth / 2, footerY, { align: 'center' })
+  pdf.text('www.yomeencargo.cl | +56 9 5233 4799', pageWidth / 2, footerY, { align: 'center' })
 
   const safeName = (data.name || 'Cliente').replace(/\s+/g, '_').replace(/[^\w-]/g, '')
   const prefix = withPrices ? 'Cotizacion' : 'OrdenTrabajo'

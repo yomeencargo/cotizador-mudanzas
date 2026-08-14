@@ -129,6 +129,12 @@ export async function GET() {
         is_provisional,
         total_price,
         original_price,
+        adjusted_price,
+        amount_paid,
+        adjustment_comment,
+        adjusted_at,
+        adjusted_by,
+        payment_method,
         origin_address,
         destination_address,
         origin_floor,
@@ -214,6 +220,7 @@ export async function POST(request: NextRequest) {
       payment_status,
       total_price,
       original_price,
+      amount_paid,
       origin_address,
       destination_address,
       notes,
@@ -288,6 +295,14 @@ export async function POST(request: NextRequest) {
         payment_status: payment_status || 'pending',
         total_price,
         original_price,
+        amount_paid:
+          amount_paid !== undefined
+            ? Math.max(0, Math.round(Number(amount_paid) || 0))
+            : payment_status === 'approved'
+              ? payment_type === 'mitad'
+                ? Math.round(Number(original_price || total_price || 0) * 0.5)
+                : Math.round(Number(total_price || original_price || 0))
+              : 0,
         origin_address,
         destination_address,
         notes,

@@ -3,7 +3,7 @@
 import { trackEvent } from '@/lib/tracking'
 
 const WHATSAPP_URL =
-  'https://wa.me/56954390267?text=Hola,%20necesito%20información%20sobre%20sus%20servicios'
+  'https://wa.me/56952334799?text=Hola,%20necesito%20información%20sobre%20sus%20servicios'
 
 export default function WhatsAppFloatingButton() {
   const handleClick = () => {

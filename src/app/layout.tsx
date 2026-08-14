@@ -92,7 +92,7 @@ export default function RootLayout({
     url: 'https://yomeencargo.cl',
     logo: 'https://yomeencargo.cl/images/logo.png',
     image: 'https://yomeencargo.cl/images/hero-truck.jpg',
-    telephone: '+56954390267',
+    telephone: '+56952334799',
     priceRange: '$$',
     areaServed: {
       '@type': 'Country',
@@ -149,4 +149,3 @@ export default function RootLayout({
     </html>
   )
 }
-

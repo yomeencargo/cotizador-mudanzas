@@ -206,8 +206,8 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-none text-gray-700 space-y-2">
                 <li><strong>Email:</strong> contacto@yomeencargo.cl</li>
-                <li><strong>Teléfono:</strong> +56 9 5439 0267</li>
-                <li><strong>WhatsApp:</strong> +56 9 5439 0267</li>
+                <li><strong>Teléfono:</strong> +56 9 5233 4799</li>
+                <li><strong>WhatsApp:</strong> +56 9 5233 4799</li>
                 <li><strong>Horario de atención:</strong> Lunes a Domingo, 9:00 - 19:00 hrs</li>
               </ul>
             </section>
@@ -229,4 +229,3 @@ export default function PrivacyPage() {
     </>
   )
 }
-

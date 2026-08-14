@@ -16,7 +16,7 @@ export async function GET() {
     const [bookingsRes, prospectsRes] = await Promise.all([
       supabaseAdmin
         .from('bookings')
-        .select('scheduled_date, status, total_price, original_price'),
+        .select('scheduled_date, status, total_price, original_price, adjusted_price, amount_paid'),
       supabaseAdmin.from('quote_prospects').select('source, status'),
     ])
 

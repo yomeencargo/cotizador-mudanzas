@@ -83,6 +83,10 @@ export async function POST(request: NextRequest) {
           scheduled_date: effDate,
           scheduled_time: effTime,
           total_price: effectivePrice,
+          adjusted_price:
+            prospect.total_price && Number(prospect.total_price) !== Number(effectivePrice)
+              ? effectivePrice
+              : null,
           notes: comment || null,
           origin_floor: prospect.origin_floor ?? null,
           origin_has_elevator: prospect.origin_has_elevator ?? null,
@@ -94,6 +98,10 @@ export async function POST(request: NextRequest) {
                 payment_method: paymentMethod,
                 payment_type: paymentType,
                 payment_date: new Date().toISOString(),
+                amount_paid:
+                  paymentType === 'mitad'
+                    ? Math.round(Number(effectivePrice) * 0.5)
+                    : Number(effectivePrice),
               }
             : {}),
         })
@@ -158,6 +166,15 @@ export async function POST(request: NextRequest) {
           is_provisional: false,
           total_price: effectivePrice,
           original_price: prospect.total_price ?? effectivePrice,
+          adjusted_price:
+            prospect.total_price && Number(prospect.total_price) !== Number(effectivePrice)
+              ? effectivePrice
+              : null,
+          amount_paid: alreadyPaid
+            ? paymentType === 'mitad'
+              ? Math.round(Number(effectivePrice) * 0.5)
+              : Number(effectivePrice)
+            : 0,
           origin_address: prospect.origin_address || null,
           destination_address: prospect.destination_address || null,
           origin_floor: prospect.origin_floor ?? null,

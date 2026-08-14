@@ -57,6 +57,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     width: 0,
     depth: 0,
     weight: 0,
+    quantity: 1,
   })
 
   useEffect(() => {
@@ -185,7 +186,15 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     // Calcular volumen a partir de dimensiones (convertir cm a metros, luego a m³)
     const volumeInM3 = ((customItem.height * customItem.width * customItem.depth) / 1000000).toFixed(4)
 
-    if (!customItem.name || customItem.height <= 0 || customItem.width <= 0 || customItem.depth <= 0 || customItem.weight <= 0) {
+    if (
+      !customItem.name ||
+      customItem.height <= 0 ||
+      customItem.width <= 0 ||
+      customItem.depth <= 0 ||
+      customItem.weight <= 0 ||
+      !Number.isInteger(customItem.quantity) ||
+      customItem.quantity <= 0
+    ) {
       toast.error('Completa todos los campos del item personalizado')
       return
     }
@@ -196,15 +205,19 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
       category: 'Personalizado',
       volume: parseFloat(volumeInM3),
       weight: customItem.weight,
-      quantity: 1,
+      quantity: customItem.quantity,
       isFragile: false,
       isHeavy: customItem.weight > 50,
       isGlass: false,
     })
 
-    setCustomItem({ name: '', height: 0, width: 0, depth: 0, weight: 0 })
+    setCustomItem({ name: '', height: 0, width: 0, depth: 0, weight: 0, quantity: 1 })
     setShowCustomModal(false)
-    toast.success(`Item agregado - Volumen: ${volumeInM3} m³`)
+    toast.success(
+      `${customItem.quantity} ${customItem.quantity === 1 ? 'item agregado' : 'items agregados'} - Volumen total: ${(
+        Number(volumeInM3) * customItem.quantity
+      ).toFixed(4)} m³`
+    )
   }
 
   const handleOpenPackagingModal = (itemId: string) => {
@@ -486,10 +499,30 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
                           key={item.id}
                           className="p-2 bg-gray-50 rounded-lg"
                         >
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between mb-1 gap-2">
                             <div className="flex-1">
                               <div className="font-medium text-sm">{item.name}</div>
-                              <div className="text-xs text-gray-500">x{item.quantity}</div>
+                              <div className="mt-1 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDecreaseItem(item.id)}
+                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                                  aria-label={`Quitar una unidad de ${item.name}`}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <span className="min-w-5 text-center text-xs font-semibold text-gray-700">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateItem(item.id, { quantity: item.quantity + 1 })}
+                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-primary-600 hover:bg-primary-200"
+                                  aria-label={`Agregar una unidad de ${item.name}`}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
                             </div>
                             <div className="flex items-center gap-1">
                               <button
@@ -716,6 +749,34 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
             }
           />
 
+          <Input
+            label="Cantidad"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="1"
+            value={customItem.quantity}
+            onChange={(e) =>
+              setCustomItem({
+                ...customItem,
+                quantity: Math.max(1, Math.trunc(Number(e.target.value) || 1)),
+              })
+            }
+          />
+
+          {customItem.quantity > 1 && customItem.height > 0 && customItem.width > 0 && customItem.depth > 0 && (
+            <p className="text-sm text-gray-600">
+              Volumen total para {customItem.quantity} unidades:{' '}
+              <strong>
+                {(
+                  (customItem.height * customItem.width * customItem.depth * customItem.quantity) /
+                  1000000
+                ).toFixed(4)}{' '}
+                m³
+              </strong>
+            </p>
+          )}
+
           <div className="flex gap-3 pt-4">
             <Button variant="outline" onClick={() => setShowCustomModal(false)} className="flex-1">
               Cancelar
@@ -884,4 +945,3 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
     </div>
   )
 }
-

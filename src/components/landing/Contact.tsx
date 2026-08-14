@@ -25,9 +25,9 @@ export default function Contact() {
       icon: MessageCircle,
       customIcon: <WhatsAppIcon />,
       title: 'WhatsApp',
-      value: '+56 9 5439 0267',
+      value: '+56 9 5233 4799',
       description: 'Respuesta inmediata',
-      href: 'https://wa.me/56954390267',
+      href: 'https://wa.me/56952334799',
       gradient: 'from-green-500 to-emerald-600',
       bgGradient: 'from-green-50 to-emerald-50',
       iconBg: 'bg-gradient-to-br from-green-400 to-emerald-500',
@@ -36,9 +36,9 @@ export default function Contact() {
     {
       icon: Phone,
       title: 'Teléfono',
-      value: '+56 9 5439 0267',
+      value: '+56 9 5233 4799',
       description: 'Lunes a Domingo',
-      href: 'tel:+56954390267',
+      href: 'tel:+56952334799',
       gradient: 'from-blue-500 to-cyan-600',
       bgGradient: 'from-blue-50 to-cyan-50',
       iconBg: 'bg-gradient-to-br from-blue-400 to-cyan-500',
@@ -209,4 +209,3 @@ export default function Contact() {
     </section>
   )
 }
-

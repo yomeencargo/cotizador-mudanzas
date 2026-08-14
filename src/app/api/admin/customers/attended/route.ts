@@ -11,7 +11,7 @@ export async function GET() {
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
       .select(
-        'client_email, client_name, client_phone, is_company, company_name, company_rut, scheduled_date, status, total_price, original_price, payment_status, payment_type'
+        'client_email, client_name, client_phone, is_company, company_name, company_rut, scheduled_date, status, total_price, original_price, adjusted_price, amount_paid, payment_status, payment_type'
       )
       .neq('status', 'cancelled')
       .or('status.eq.completed,and(payment_status.eq.approved,payment_type.eq.completo)')

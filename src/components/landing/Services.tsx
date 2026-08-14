@@ -165,7 +165,7 @@ export default function Services() {
               Contáctanos y encontraremos la solución perfecta para tu necesidad
             </p>
             <a
-              href="https://wa.me/56954390267?text=Hola,%20necesito%20información%20sobre%20un%20servicio%20especial"
+              href="https://wa.me/56952334799?text=Hola,%20necesito%20información%20sobre%20un%20servicio%20especial"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block px-8 py-4 bg-white text-brand-blue rounded-lg hover:bg-gray-100 transition-all duration-300 font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-1"
@@ -178,4 +178,3 @@ export default function Services() {
     </section>
   )
 }
-
