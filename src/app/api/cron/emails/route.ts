@@ -368,8 +368,14 @@ async function runEmailCron(force: boolean): Promise<Record<string, unknown>> {
     .filter(([k]) => k.endsWith('.sent'))
     .reduce((n, [, v]) => n + v, 0)
 
-  console.log(`[cron/emails] ${sent} enviados. Detalle: ${JSON.stringify(tally)}`)
-  return { sent, detail: tally, config: emailGatesStatus() }
+  // El estado de las puertas va TAMBIÉN al log, no solo a la respuesta: Vercel
+  // descarta el cuerpo de la respuesta de sus crons, así que sin esta línea el
+  // diagnóstico solo sería visible llamando al endpoint a mano con el secreto.
+  const config = emailGatesStatus()
+  console.log(
+    `[cron/emails] ${sent} enviados. Detalle: ${JSON.stringify(tally)}. Puertas: ${JSON.stringify(config)}`
+  )
+  return { sent, detail: tally, config }
 }
 
 /** Disparo automático por Vercel Cron. */
