@@ -80,8 +80,11 @@ export type SendOutcome =
   | { outcome: 'failed'; id: string; error: string; attempts: number }
   /** Timeout o error de red: NO se sabe si el correo salió. La fila queda 'pending'. */
   | { outcome: 'unknown'; id: string; error: string }
-  /** Bloqueado por el entorno (dry-run, lista blanca, ventana horaria). No consume la clave. */
-  | { outcome: 'deferred'; reason: 'dry_run' | 'not_allowlisted' | 'quiet_hours' | 'no_recipient' }
+  /** Bloqueado por el entorno (pausa, dry-run, lista blanca, ventana). No consume la clave. */
+  | {
+      outcome: 'deferred'
+      reason: 'paused' | 'dry_run' | 'not_allowlisted' | 'quiet_hours' | 'no_recipient'
+    }
 
 export interface ClaimAndSendInput {
   /** Tipo + paso, p. ej. '06_payment_due_24h'. */
@@ -184,7 +187,8 @@ export function isWithinSendWindow(date: Date = new Date()): boolean {
 export function emailGatesStatus(): Record<string, unknown> {
   const allowlist = (process.env.EMAIL_ALLOWLIST || '').split(',').map(normalizeEmail).filter(Boolean)
   return {
-    sending_enabled: process.env.EMAIL_SENDING_ENABLED === '1',
+    // Encendido por defecto: solo EMAIL_PAUSED lo detiene.
+    paused: process.env.EMAIL_PAUSED === '1' || process.env.EMAIL_PAUSED === 'true',
     dry_run: process.env.EMAIL_DRY_RUN === '1' || process.env.EMAIL_DRY_RUN === 'true',
     allowlist_size: allowlist.length,
     recovery_enabled: process.env.EMAIL_RECOVERY_ENABLED === '1',
@@ -369,16 +373,23 @@ function toIso(value: Date | string): string {
 function environmentGate(
   recipient: string,
   transactional: boolean
-): 'dry_run' | 'not_allowlisted' | 'quiet_hours' | null {
-  // FAIL-SAFE, no fail-open: sin EMAIL_SENDING_ENABLED=1 esto NO manda nada.
+): 'paused' | 'dry_run' | 'not_allowlisted' | 'quiet_hours' | null {
+  // ENCENDIDO POR DEFECTO, y se apaga con EMAIL_PAUSED=1.
   //
-  // El motivo es concreto: mientras el workflow de n8n no tenga las ramas de estos
-  // `event`, su fallbackOutput responde {success:true} SIN enviar. Con el envío
-  // abierto por defecto, la primera corrida del cron marcaría todo como 'sent' y
-  // quemaría las claves de idempotencia — y como una clave gastada no se vuelve a
-  // intentar, esos clientes no recibirían su correo NUNCA. Un deploy prematuro sería
-  // irreversible, así que el default es no mandar.
-  if (process.env.EMAIL_SENDING_ENABLED !== '1') return 'dry_run'
+  // Antes era al revés: hacía falta EMAIL_SENDING_ENABLED=1 para que saliera algo.
+  // Ese fail-safe existía por un motivo concreto — mientras el workflow de n8n no
+  // tuviera las ramas de estos `event`, su fallback respondía {success:true} SIN
+  // enviar, así que un deploy prematuro habría marcado todo como 'sent' y quemado
+  // claves de idempotencia que no se reintentan. **Ese riesgo ya no existe**: desde
+  // el 2026-08-12 un correo solo cuenta como enviado si n8n confirma con
+  // {"success": true}, y el fallback devuelve 422.
+  //
+  // Lo que sí quedó demostrado es el costo del otro lado: el proyecto de Vercel vive
+  // en la cuenta del cliente, la variable nunca llegó, y el sistema pasó cinco días
+  // apagado viendo desfilar pre-reservas impagas que después se borraban solas. Un
+  // interruptor que solo se puede accionar desde donde no tenés acceso no es una
+  // protección, es un punto único de falla.
+  if (process.env.EMAIL_PAUSED === '1' || process.env.EMAIL_PAUSED === 'true') return 'paused'
   if (process.env.EMAIL_DRY_RUN === '1' || process.env.EMAIL_DRY_RUN === 'true') return 'dry_run'
 
   const allowlist = (process.env.EMAIL_ALLOWLIST || '')
