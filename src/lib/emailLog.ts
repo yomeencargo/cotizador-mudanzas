@@ -174,6 +174,25 @@ export function isWithinSendWindow(date: Date = new Date()): boolean {
   return hour >= SEND_WINDOW_START_HOUR && hour < SEND_WINDOW_END_HOUR
 }
 
+/**
+ * Estado efectivo de las puertas de envío, para diagnosticar desde afuera.
+ *
+ * No expone valores, solo si están puestas: alcanza para saber por qué no salió un
+ * correo sin tener que leer las variables de entorno de Vercel, que es justo lo que
+ * no se puede hacer cuando el proyecto vive en la cuenta de otro.
+ */
+export function emailGatesStatus(): Record<string, unknown> {
+  const allowlist = (process.env.EMAIL_ALLOWLIST || '').split(',').map(normalizeEmail).filter(Boolean)
+  return {
+    sending_enabled: process.env.EMAIL_SENDING_ENABLED === '1',
+    dry_run: process.env.EMAIL_DRY_RUN === '1' || process.env.EMAIL_DRY_RUN === 'true',
+    allowlist_size: allowlist.length,
+    recovery_enabled: process.env.EMAIL_RECOVERY_ENABLED === '1',
+    within_send_window: isWithinSendWindow(),
+    chile_hour: chileHour(),
+  }
+}
+
 /** Correos efectivamente enviados en un mes 'AAAA-MM'. Define el tramo del fee. */
 export async function countSentInMonth(yearMonth: string): Promise<number> {
   const from = `${yearMonth}-01T00:00:00Z`
