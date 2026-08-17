@@ -7,6 +7,7 @@ import { sendBookingConfirmed } from '@/lib/transactionalEmails'
 import {
   bookingScope,
   claimAndSend,
+  emailGatesStatus,
   isWithinSendWindow,
   markSuperseded,
   type SendOutcome,
@@ -83,10 +84,13 @@ function hoursSince(iso: string): number {
 }
 
 function tallyUp(tally: Tally, emailType: string, outcome: SendOutcome): void {
-  const key = `${emailType}.${outcome.outcome}${
-    outcome.outcome === 'skipped' ? `:${outcome.reason}` : ''
-  }`
-  tally[key] = (tally[key] || 0) + 1
+  // El motivo se incluye también para 'deferred'. Agruparlos costó cinco días de
+  // no poder distinguir "el envío está apagado" de "la lista blanca lo filtró":
+  // los dos casos no dejan fila en email_log, así que el contador es la ÚNICA
+  // señal disponible desde afuera.
+  const reason =
+    outcome.outcome === 'skipped' || outcome.outcome === 'deferred' ? `:${outcome.reason}` : ''
+  tally[`${emailType}.${outcome.outcome}${reason}`] = (tally[`${emailType}.${outcome.outcome}${reason}`] || 0) + 1
 }
 
 function clientBlock(b: BookingRow) {
@@ -351,7 +355,7 @@ async function runEmailCron(force: boolean): Promise<Record<string, unknown>> {
   // vía (el #05 en línea desde paymentSync). Acá, fuera de horario, no se barre nada:
   // ninguna de estas reglas es tan urgente como para escribirle a alguien a las 03:00.
   if (!force && !isWithinSendWindow()) {
-    return { skipped: 'quiet_hours', window: '09:00-21:00 America/Santiago' }
+    return { skipped: 'quiet_hours', window: '09:00-21:00 America/Santiago', config: emailGatesStatus() }
   }
 
   const tally: Tally = {}
@@ -365,7 +369,7 @@ async function runEmailCron(force: boolean): Promise<Record<string, unknown>> {
     .reduce((n, [, v]) => n + v, 0)
 
   console.log(`[cron/emails] ${sent} enviados. Detalle: ${JSON.stringify(tally)}`)
-  return { sent, detail: tally }
+  return { sent, detail: tally, config: emailGatesStatus() }
 }
 
 /** Disparo automático por Vercel Cron. */
