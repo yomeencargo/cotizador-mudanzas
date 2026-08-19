@@ -156,7 +156,8 @@ export default function ProspectsManagement() {
         : '/api/admin/prospects'
       const response = await fetch(url)
       const data = await response.json()
-      setProspects(data)
+      if (!response.ok) throw new Error(data?.error || 'Error al cargar')
+      setProspects(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Error fetching prospects:', error)
       if (!options.silent) toast.error('Error al cargar los prospectos')
@@ -255,6 +256,19 @@ export default function ProspectsManagement() {
   }, [filterProspects])
 
   const updateProspectStatus = async (id: string, newStatus: string) => {
+    const before = prospects
+    const updateLocal = (rows: Prospect[]) =>
+      rows.map((prospect) =>
+        prospect.id === id ? { ...prospect, status: newStatus as Prospect['status'] } : prospect
+      )
+
+    // Optimista: la tabla nunca se desmonta, así se conserva scroll, filtros y orden.
+    setProspects(updateLocal)
+    setSelectedProspect((prospect) =>
+      prospect?.id === id
+        ? { ...prospect, status: newStatus as Prospect['status'] }
+        : prospect
+    )
     try {
       const response = await fetch('/api/admin/prospects', {
         method: 'PATCH',
@@ -264,9 +278,9 @@ export default function ProspectsManagement() {
 
       if (!response.ok) throw new Error('Error al actualizar')
       toast.success('Estado actualizado')
-      fetchProspects()
     } catch (error) {
       console.error('Error updating prospect:', error)
+      setProspects(before)
       toast.error('Error al actualizar el estado')
     }
   }
@@ -293,6 +307,16 @@ export default function ProspectsManagement() {
     const ids = Array.from(selectedProspectIds)
     if (ids.length === 0) return
     setBulkUpdating(true)
+    const previousStatuses = new Map(
+      prospects.filter((prospect) => selectedProspectIds.has(prospect.id)).map((prospect) => [prospect.id, prospect.status])
+    )
+    setProspects((rows) =>
+      rows.map((prospect) =>
+        selectedProspectIds.has(prospect.id)
+          ? { ...prospect, status: newStatus as Prospect['status'] }
+          : prospect
+      )
+    )
     const results = await Promise.allSettled(
       ids.map(id =>
         fetch('/api/admin/prospects', {
@@ -306,11 +330,22 @@ export default function ProspectsManagement() {
     )
     const ok = results.filter(r => r.status === 'fulfilled').length
     const fail = results.length - ok
+    if (fail) {
+      const failedIds = new Set(
+        results.flatMap((result, index) => (result.status === 'rejected' ? [ids[index]] : []))
+      )
+      setProspects((rows) =>
+        rows.map((prospect) =>
+          failedIds.has(prospect.id)
+            ? { ...prospect, status: previousStatuses.get(prospect.id) || prospect.status }
+            : prospect
+        )
+      )
+    }
     if (ok) toast.success(`${ok} prospecto${ok !== 1 ? 's' : ''} actualizado${ok !== 1 ? 's' : ''}`)
     if (fail) toast.error(`${fail} con error`)
     setSelectedProspectIds(new Set())
     setBulkUpdating(false)
-    fetchProspects()
   }
 
   const toggleFrequent = async (p: Prospect) => {
@@ -347,7 +382,7 @@ export default function ProspectsManagement() {
       if (!response.ok) throw new Error('Error al guardar')
       toast.success('Notas guardadas')
       setShowNotesModal(false)
-      fetchProspects()
+      fetchProspects({ silent: true })
     } catch (error) {
       console.error('Error saving notes:', error)
       toast.error('Error al guardar las notas')
@@ -479,7 +514,7 @@ export default function ProspectsManagement() {
       })
       if (!response.ok) throw new Error('Error al guardar el ajuste')
       toast.success('Ajuste guardado')
-      fetchProspects()
+      fetchProspects({ silent: true })
     } catch (error) {
       console.error('Error saving adjustment:', error)
       toast.error('No se pudo guardar el ajuste')
@@ -514,7 +549,7 @@ export default function ProspectsManagement() {
       }
       toast.success('Cotización enviada por correo (50% y 100%)')
       setShowQuoteModal(false)
-      fetchProspects()
+      fetchProspects({ silent: true })
     } catch (error) {
       console.error('Error sending adjusted quote:', error)
       toast.error(error instanceof Error ? error.message : 'No se pudo enviar la cotización')
@@ -560,7 +595,15 @@ export default function ProspectsManagement() {
       }
       toast.success('Reserva creada y prospecto convertido')
       setShowQuoteModal(false)
-      fetchProspects()
+      // La fila queda visible y marcada como convertida hasta el próximo refresco
+      // explícito/foco. Así el usuario no pierde el contexto de la lista al cerrar.
+      setProspects((rows) =>
+        rows.map((prospect) =>
+          prospect.id === selectedProspect.id
+            ? { ...prospect, status: 'converted', converted_booking_id: data.bookingId }
+            : prospect
+        )
+      )
     } catch (error) {
       console.error('Error creating booking:', error)
       toast.error(error instanceof Error ? error.message : 'No se pudo crear la reserva')
@@ -575,7 +618,7 @@ export default function ProspectsManagement() {
       const response = await fetch(`/api/admin/prospects?id=${id}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Error al eliminar')
       toast.success('Prospecto eliminado')
-      fetchProspects()
+      setProspects((rows) => rows.filter((prospect) => prospect.id !== id))
     } catch (error) {
       console.error('Error deleting prospect:', error)
       toast.error('Error al eliminar el prospecto')
@@ -617,7 +660,7 @@ export default function ProspectsManagement() {
       if (!response.ok) throw new Error('Error al actualizar')
       toast.success('Origen actualizado')
       setSelectedProspect(prev => (prev && prev.id === id ? { ...prev, source: newSource } : prev))
-      fetchProspects()
+      setProspects((rows) => rows.map((prospect) => prospect.id === id ? { ...prospect, source: newSource } : prospect))
     } catch (error) {
       console.error('Error updating source:', error)
       toast.error('No se pudo actualizar el origen')

@@ -55,6 +55,15 @@ interface DashboardStats {
     pending: number
     pendingCount: number
     booked: number
+    byOrigin?: Array<{
+      source: string
+      label: string
+      paid: number
+      paidCount: number
+      pending: number
+      pendingCount: number
+      booked: number
+    }>
   }
   outstandingQuotes?: { total: number; count: number }
 }
@@ -569,6 +578,45 @@ export default function AdminDashboard() {
                   </button>
                 </Card>
               </div>
+
+              {stats?.revenue?.byOrigin && (
+                <Card className="mt-4 overflow-hidden">
+                  <div className="border-b border-gray-100 px-5 py-4">
+                    <h4 className="font-semibold text-gray-900">Facturación por origen</h4>
+                    <p className="text-xs text-gray-500">
+                      Cliente antiguo se contabiliza aparte de quienes llegaron por la web.
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-100 text-sm">
+                      <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                        <tr>
+                          <th className="px-5 py-3 text-left">Origen</th>
+                          <th className="px-5 py-3 text-right">Pagado</th>
+                          <th className="px-5 py-3 text-right">Por cobrar</th>
+                          <th className="px-5 py-3 text-right">Reservado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {stats.revenue.byOrigin.map((row) => (
+                          <tr key={row.source}>
+                            <td className="px-5 py-3 font-medium text-gray-800">{row.label}</td>
+                            <td className="px-5 py-3 text-right text-green-700">
+                              ${row.paid.toLocaleString('es-CL')}
+                            </td>
+                            <td className="px-5 py-3 text-right text-amber-700">
+                              ${row.pending.toLocaleString('es-CL')}
+                            </td>
+                            <td className="px-5 py-3 text-right font-medium text-gray-800">
+                              ${row.booked.toLocaleString('es-CL')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
             </div>
 
             {/* Reservas de Hoy */}

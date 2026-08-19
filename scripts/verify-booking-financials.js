@@ -28,6 +28,7 @@ const {
   pendingAmount,
   servicePrice,
   summarizeBookings,
+  summarizeBookingsByOrigin,
 } = loadHelper()
 
 const historicHalf = {
@@ -70,5 +71,14 @@ const summary = summarizeBookings([adjustedInField])
 assert.equal(summary.booked, 135000)
 assert.equal(summary.paid, 50000)
 assert.equal(summary.pending, 85000)
+
+const [webRevenue, legacyRevenue] = summarizeBookingsByOrigin([
+  { ...adjustedInField, source: 'web' },
+  { ...paidInFull, source: 'cliente_antiguo' },
+])
+assert.equal(webRevenue.source, 'web')
+assert.equal(webRevenue.paid, 50000)
+assert.equal(legacyRevenue.source, 'cliente_antiguo')
+assert.equal(legacyRevenue.paid, 135000)
 
 console.log('booking financial verification passed')

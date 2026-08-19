@@ -29,6 +29,7 @@ export interface BookingQuoteDetails {
   destination_parking_distance?: number | null
   items_summary?: unknown
   additional_services?: unknown
+  lead_key?: string | null
 }
 
 export interface AdminBookingQuoteSource {
@@ -103,6 +104,12 @@ function normalizeTime(value: unknown): string {
 
 function normalizeEmail(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function normalizeCustomerOrigin(value: unknown): string {
+  return value === 'cliente_antiguo' || value === 'rrss' || value === 'recomendacion'
+    ? value
+    : 'web'
 }
 
 function scheduleKey(email: unknown, date: unknown, time: unknown): string {
@@ -208,6 +215,10 @@ export function mergeBookingQuoteDetails<T extends AdminBookingQuoteSource>(
   const byBookingId = new Map<string, BookingQuoteDetails>()
   const byQuoteId = new Map<string, BookingQuoteDetails>()
   const bySchedule = new Map<string, BookingQuoteDetails>()
+  const customerByEmail = new Map<
+    string,
+    Pick<BookingQuoteDetails, 'source' | 'is_frequent'> & { priority: number }
+  >()
 
   prospects.forEach((prospect) => {
     const convertedBookingId = normalizeText(prospect.converted_booking_id)
@@ -224,6 +235,19 @@ export function mergeBookingQuoteDetails<T extends AdminBookingQuoteSource>(
     if (key && !bySchedule.has(key)) {
       bySchedule.set(key, prospect)
     }
+
+    const email = normalizeEmail(prospect.email)
+    if (email) {
+      const existing = customerByEmail.get(email)
+      const nextOrigin = normalizeCustomerOrigin(prospect.source)
+      const isManualCustomer = String(prospect.lead_key || '').startsWith('manual_customer:')
+      const priority = isManualCustomer ? 3 : nextOrigin === 'cliente_antiguo' ? 2 : 1
+      customerByEmail.set(email, {
+        source: !existing || priority >= existing.priority ? nextOrigin : existing.source,
+        is_frequent: Boolean(existing?.is_frequent) || Boolean(prospect.is_frequent),
+        priority: Math.max(priority, existing?.priority || 0),
+      })
+    }
   })
 
   return bookings.map((booking) => {
@@ -232,11 +256,19 @@ export function mergeBookingQuoteDetails<T extends AdminBookingQuoteSource>(
       (booking.quote_id ? byQuoteId.get(booking.quote_id) : undefined) ||
       bySchedule.get(scheduleKey(booking.client_email, booking.scheduled_date, booking.scheduled_time))
 
-    if (!prospect) return booking
-    return {
+    const customer = customerByEmail.get(normalizeEmail(booking.client_email))
+    if (!prospect && !customer) return booking
+
+    const merged = {
       ...booking,
       ...pickQuoteDetails(prospect),
     }
+    if (customer?.priority === 3 || customer?.source === 'cliente_antiguo' || !merged.source) {
+      merged.source = customer?.source || merged.source
+    }
+    if (customer?.is_frequent) merged.is_frequent = true
+    if (!merged.from_prospect && customer) merged.from_prospect = true
+    return merged
   })
 }
 

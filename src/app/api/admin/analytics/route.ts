@@ -17,7 +17,7 @@ export async function GET() {
       supabaseAdmin
         .from('bookings')
         .select('scheduled_date, status, total_price, original_price, adjusted_price, amount_paid'),
-      supabaseAdmin.from('quote_prospects').select('source, status'),
+      supabaseAdmin.from('quote_prospects').select('source, status, lead_key'),
     ])
 
     if (bookingsRes.error) {
@@ -28,7 +28,10 @@ export async function GET() {
     }
 
     const bookings = bookingsRes.data || []
-    const prospects = prospectsRes.data || []
+    const prospects = (prospectsRes.data || []).filter((prospect) => {
+      const key = String(prospect.lead_key || '')
+      return !key.startsWith('manual_customer:') && !key.startsWith('admin_booking:')
+    })
 
     return NextResponse.json({
       monthly: groupBookingsByMonth(bookings, MONTHS_BACK),

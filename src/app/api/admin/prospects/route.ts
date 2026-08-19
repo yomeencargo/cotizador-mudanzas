@@ -38,7 +38,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(prospects || [])
+    // Las fichas creadas desde Clientes/Reservas comparten la base de contactos,
+    // pero no son oportunidades del embudo y no deben reaparecer en Prospectos.
+    const visibleProspects = (prospects || []).filter((prospect) => {
+      const key = String(prospect.lead_key || '')
+      return !key.startsWith('manual_customer:') && !key.startsWith('admin_booking:')
+    })
+
+    return NextResponse.json(visibleProspects)
   } catch (error) {
     console.error('[Admin Prospects] Exception:', error)
     return NextResponse.json(

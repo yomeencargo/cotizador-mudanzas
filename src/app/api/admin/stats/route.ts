@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
-import { summarizeBookings, summarizeOutstandingQuotes } from '@/lib/revenueBreakdown'
+import {
+  summarizeBookings,
+  summarizeBookingsByOrigin,
+  summarizeOutstandingQuotes,
+} from '@/lib/revenueBreakdown'
+import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
 
 // Lee datos en vivo: no debe prerenderizarse/cachearse en build.
 export const dynamic = 'force-dynamic'
@@ -53,7 +58,7 @@ export async function GET() {
     const { data: monthlyBookings, error: monthlyError } = await supabaseAdmin
       .from('bookings')
       .select(
-        'id, original_price, total_price, adjusted_price, amount_paid, payment_type, payment_status, status, is_provisional, flow_token, payment_method'
+        'id, quote_id, client_name, client_email, client_phone, scheduled_date, scheduled_time, original_price, total_price, adjusted_price, amount_paid, payment_type, payment_status, status, is_provisional, flow_token, payment_method'
       )
       .gte('scheduled_date', startOfMonth)
       .lte('scheduled_date', endOfMonth)
@@ -63,7 +68,23 @@ export async function GET() {
       console.error('[API] Error fetching monthly bookings:', monthlyError)
     }
 
-    const revenue = summarizeBookings(monthlyBookings || [])
+    const { data: originProspects, error: originError } = await supabaseAdmin
+      .from('quote_prospects')
+      .select(
+        'quote_id, email, source, scheduled_date, scheduled_time, converted_booking_id, lead_key, created_at'
+      )
+      .eq('status', 'converted')
+
+    if (originError) {
+      console.error('[API] Error fetching customer origins:', originError)
+    }
+
+    const monthlyWithOrigin = mergeBookingQuoteDetails(
+      monthlyBookings || [],
+      originProspects || []
+    )
+    const revenue = summarizeBookings(monthlyWithOrigin)
+    const revenueByOrigin = summarizeBookingsByOrigin(monthlyWithOrigin)
     // Se mantiene `monthlyRevenue` por compatibilidad: ahora es la plata realmente
     // recibida, no el valor nominal de las reservas.
     const monthlyRevenue = revenue.paid
@@ -119,6 +140,7 @@ export async function GET() {
         pending: revenue.pending,
         pendingCount: revenue.pendingCount,
         booked: revenue.booked,
+        byOrigin: revenueByOrigin,
       },
       outstandingQuotes: {
         total: quotes.total,

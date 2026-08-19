@@ -42,7 +42,12 @@ import {
   pendingAmount,
   servicePrice,
 } from '@/lib/revenueBreakdown'
-import { getSourceLabel, getSourceBadge } from '@/lib/prospectSource'
+import {
+  SOURCE_OPTIONS,
+  getSourceLabel,
+  getSourceBadge,
+  normalizeOrigin,
+} from '@/lib/prospectSource'
 import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
 import { resolveVehicleColor, UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
 
@@ -52,6 +57,17 @@ interface FleetVehicleOption {
   driver?: string
   status?: string
   color: VehicleColor
+}
+
+interface CustomerOption {
+  email: string
+  name: string
+  phone: string
+  origin: string
+  isCompany?: boolean
+  companyName?: string
+  companyRut?: string
+  isFrequent?: boolean
 }
 
 interface Booking extends AdminBookingQuoteSource {
@@ -120,6 +136,7 @@ const EMPTY_NEW_BOOKING = {
   origin_address: '',
   destination_address: '',
   notes: '',
+  customer_origin: 'web',
 }
 
 /** Normaliza un teléfono chileno a formato wa.me (569XXXXXXXX). */
@@ -150,8 +167,10 @@ export default function BookingsManagement({
   const [statusFilter, setStatusFilter] = useState('all')
   const [bookingTypeFilter, setBookingTypeFilter] = useState('all') // Nuevo filtro
   const [clientTypeFilter, setClientTypeFilter] = useState('') // '' | company | person
+  const [sourceFilter, setSourceFilter] = useState('all')
   const [vehicleFilter, setVehicleFilter] = useState('all') // 'all' | 'unassigned' | id
   const [fleet, setFleet] = useState<FleetVehicleOption[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [selectedBookingIds, setSelectedBookingIds] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [dateFilter, setDateFilter] = useState('all')
@@ -169,6 +188,7 @@ export default function BookingsManagement({
   const [creating, setCreating] = useState(false)
   const [blockOnly, setBlockOnly] = useState(false)
   const [newBooking, setNewBooking] = useState({ ...EMPTY_NEW_BOOKING })
+  const [selectedCustomerEmail, setSelectedCustomerEmail] = useState('manual')
   // Link de pago recién generado, para copiarlo o mandarlo por WhatsApp.
   const [paymentLink, setPaymentLink] = useState<{
     url: string
@@ -222,6 +242,29 @@ export default function BookingsManagement({
     } catch (error) {
       console.error('Error fetching fleet config:', error)
     }
+  }
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch('/api/admin/customers/attended')
+      const data = await response.json().catch(() => ([]))
+      if (response.ok && Array.isArray(data)) setCustomers(data)
+    } catch (error) {
+      console.error('Error fetching customers for booking form:', error)
+    }
+  }
+
+  const selectExistingCustomer = (email: string) => {
+    setSelectedCustomerEmail(email)
+    const customer = customers.find((item) => item.email === email)
+    if (!customer) return
+    setNewBooking((previous) => ({
+      ...previous,
+      client_name: customer.name,
+      client_email: customer.email,
+      client_phone: customer.phone,
+      customer_origin: normalizeOrigin(customer.origin),
+    }))
   }
 
   const vehicleOf = useCallback(
@@ -341,6 +384,10 @@ export default function BookingsManagement({
       filtered = filtered.filter(b => b.is_company !== true)
     }
 
+    if (sourceFilter !== 'all') {
+      filtered = filtered.filter((booking) => normalizeOrigin(booking.source) === sourceFilter)
+    }
+
     // Orden por fecha del TRABAJO (no por cuándo se creó el registro): las próximas primero
     // (la más cercana arriba), y más abajo las pasadas (la más reciente primero). Antes
     // dependía del orden de llegada de la API (created_at), mezclando un trabajo de hoy con
@@ -356,11 +403,12 @@ export default function BookingsManagement({
     })
 
     setFilteredBookings(filtered)
-  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, clientTypeFilter, vehicleFilter, dateFilter, customStartDate, customEndDate])
+  }, [bookings, searchTerm, statusFilter, bookingTypeFilter, clientTypeFilter, sourceFilter, vehicleFilter, dateFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchBookings()
     fetchFleet()
+    fetchCustomers()
     // Refresco silencioso al volver a la pestaña/ventana: los pagos confirmados por el
     // webhook aparecen sin necesidad de pulsar "Actualizar".
     const refreshOnFocus = () => {
@@ -698,7 +746,8 @@ export default function BookingsManagement({
           original_price: newBooking.original_price ? Number(newBooking.original_price) : null,
           origin_address: null,
           destination_address: null,
-          notes: newBooking.notes || 'Reserva de cupo sin cliente (admin)'
+          notes: newBooking.notes || 'Reserva de cupo sin cliente (admin)',
+          skip_customer_record: true,
         }
         const response = await fetch('/api/admin/bookings', {
           method: 'POST',
@@ -713,6 +762,7 @@ export default function BookingsManagement({
         setShowAddModal(false)
         setBlockOnly(false)
         setNewBooking({ ...EMPTY_NEW_BOOKING })
+        setSelectedCustomerEmail('manual')
         fetchBookings()
         return
       }
@@ -741,6 +791,7 @@ export default function BookingsManagement({
         origin_address: newBooking.origin_address || null,
         destination_address: newBooking.destination_address || null,
         notes: newBooking.notes || null,
+        customer_origin: newBooking.customer_origin,
       }
 
       const response = await fetch('/api/admin/bookings', {
@@ -806,6 +857,7 @@ export default function BookingsManagement({
 
       setShowAddModal(false)
       setNewBooking({ ...EMPTY_NEW_BOOKING })
+      setSelectedCustomerEmail('manual')
       fetchBookings()
     } catch (error) {
       console.error('Error creating booking:', error)
@@ -863,6 +915,7 @@ export default function BookingsManagement({
       { header: 'Cliente', value: (b) => b.client_name },
       { header: 'Email', value: (b) => b.client_email },
       { header: 'Teléfono', value: (b) => b.client_phone },
+      { header: 'Origen cliente', value: (b) => getSourceLabel(b.source) },
       { header: 'Tipo cliente', value: (b) => (b.is_company ? 'Empresa' : 'Persona') },
       { header: 'Razón social', value: (b) => b.company_name || '' },
       { header: 'RUT empresa', value: (b) => b.company_rut || '' },
@@ -1039,6 +1092,17 @@ export default function BookingsManagement({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Origen cliente
+            </label>
+            <Select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              options={[{ value: 'all', label: 'Todos los orígenes' }, ...SOURCE_OPTIONS]}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Camión
             </label>
             <Select
@@ -1108,6 +1172,7 @@ export default function BookingsManagement({
                 setStatusFilter('all')
                 setBookingTypeFilter('all')
                 setClientTypeFilter('')
+                setSourceFilter('all')
                 setVehicleFilter('all')
                 setDateFilter('all')
                 setCustomStartDate('')
@@ -1248,9 +1313,9 @@ export default function BookingsManagement({
                         {booking.from_prospect && (
                           <span
                             className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${getSourceBadge(booking.source)}`}
-                            title="Reserva originada desde un prospecto"
+                            title="Origen comercial del cliente"
                           >
-                            👤 Prospecto · {getSourceLabel(booking.source)}
+                            👤 Cliente · {getSourceLabel(booking.source)}
                           </span>
                         )}
                       </div>
@@ -1593,7 +1658,35 @@ export default function BookingsManagement({
           </div>
 
           {!blockOnly && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cliente existente (opcional)</label>
+                  <Select
+                    value={selectedCustomerEmail}
+                    onChange={(e) => selectExistingCustomer(e.target.value)}
+                    options={[
+                      { value: 'manual', label: 'Ingresar datos manualmente' },
+                      ...customers.map((customer) => ({
+                        value: customer.email,
+                        label: `${customer.name}${customer.isFrequent ? ' · Frecuente' : ''}`,
+                      })),
+                    ]}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Al elegirlo se completan sus datos y origen.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Origen del cliente</label>
+                  <Select
+                    value={newBooking.customer_origin}
+                    onChange={(e) => setNewBooking({ ...newBooking, customer_origin: e.target.value })}
+                    options={SOURCE_OPTIONS}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Define dónde se contabilizará esta reserva.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Cliente</label>
                 <Input
@@ -1625,6 +1718,7 @@ export default function BookingsManagement({
                   value={newBooking.quote_id}
                   onChange={(e) => setNewBooking({ ...newBooking, quote_id: e.target.value })}
                 />
+              </div>
               </div>
             </div>
           )}

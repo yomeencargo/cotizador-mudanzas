@@ -30,6 +30,7 @@ export interface AttendedCustomer {
   lastMoveDate: string | null   // 'YYYY-MM-DD'
   firstMoveDate: string | null
   totalSpent: number
+  origin: string
 }
 
 export interface BookingLike {
@@ -47,6 +48,7 @@ export interface BookingLike {
   company_rut?: string | null
   payment_status?: string | null
   payment_type?: string | null
+  source?: string | null
 }
 
 // Un booking cuenta como "cliente atendido" si el servicio se marcó completado,
@@ -138,6 +140,7 @@ export function groupProspectsBySource(prospects: ProspectLike[]): SourceCount[]
     domicilio: 'Domicilio',
     rrss: 'RRSS',
     recomendacion: 'Recomendación',
+    cliente_antiguo: 'Cliente antiguo',
     sin_origen: 'Sin origen'
   }
 
@@ -182,7 +185,8 @@ export function aggregateAttendedCustomers(bookings: BookingLike[]): AttendedCus
     movesCount: number,
     lastMoveDate: string | null,
     firstMoveDate: string | null,
-    totalSpent: number
+    totalSpent: number,
+    origin: string
   }>()
 
   for (const booking of bookings) {
@@ -206,7 +210,8 @@ export function aggregateAttendedCustomers(bookings: BookingLike[]): AttendedCus
         movesCount: 1,
         lastMoveDate: booking.scheduled_date ?? null,
         firstMoveDate: booking.scheduled_date ?? null,
-        totalSpent: servicePrice(booking)
+        totalSpent: servicePrice(booking),
+        origin: booking.source || 'web'
       })
     } else {
       // Actualizar existente
@@ -215,6 +220,7 @@ export function aggregateAttendedCustomers(bookings: BookingLike[]): AttendedCus
       const d = booking.scheduled_date ?? null
       existing.movesCount += 1
       existing.totalSpent += price
+      if (booking.source === 'cliente_antiguo') existing.origin = 'cliente_antiguo'
 
       // Datos de identidad: los del booking más reciente (>= para que el primero gane empates)
       if (d && (!existing.lastMoveDate || d >= existing.lastMoveDate)) {

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
+import { normalizeOrigin } from '@/lib/prospectSource'
 import {
   ensureVehicleAssignments,
   getAllVehicleAssignments,
@@ -32,6 +33,7 @@ const PROSPECT_QUOTE_FIELDS = `
   destination_parking_distance,
   items_summary,
   additional_services,
+  lead_key,
   created_at
 `
 
@@ -79,6 +81,17 @@ async function fetchProspectQuoteDetails(bookings: any[]) {
         .order('created_at', { ascending: false })
     )
   }
+
+  // Las fichas "Cliente antiguo" clasifican a la persona completa y pueden no
+  // compartir quote_id/fecha con reservas históricas. Se traen como catálogo pequeño
+  // y el merge las cruza por email normalizado.
+  queries.push(
+    supabaseAdmin
+      .from('quote_prospects')
+      .select(PROSPECT_QUOTE_FIELDS)
+      .eq('source', 'cliente_antiguo')
+      .order('created_at', { ascending: false })
+  )
 
   const results = await Promise.all(queries)
   const byId = new Map<string, any>()
@@ -227,6 +240,8 @@ export async function POST(request: NextRequest) {
       is_company = false,
       company_name,
       company_rut,
+      customer_origin,
+      skip_customer_record = false,
     } = body
 
     if (!client_name || !client_email || !client_phone || !scheduled_date || !scheduled_time) {
@@ -278,11 +293,61 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const bookingQuoteId = quote_id || `ADMIN-${Date.now()}`
+    const customerOrigin = normalizeOrigin(customer_origin)
+    let customerRecordId: string | null = null
+
+    // Una reserva manual normal deja primero una ficha vinculable en la misma base de
+    // contactos. Los bloqueos de agenda usan esta misma API pero no son clientes.
+    if (!skip_customer_record) {
+      const normalizedEmail = String(client_email).trim().toLowerCase()
+      const { data: customerRecord, error: customerError } = await supabaseAdmin
+        .from('quote_prospects')
+        .upsert(
+          {
+            quote_id: bookingQuoteId,
+            name: client_name,
+            email: normalizedEmail,
+            phone: client_phone,
+            source: customerOrigin,
+            status: 'converted',
+            scheduled_date,
+            scheduled_time,
+            total_price: original_price || total_price || null,
+            origin_address: origin_address || null,
+            destination_address: destination_address || null,
+            is_company,
+            company_name: is_company ? company_name || null : null,
+            company_rut: is_company ? company_rut || null : null,
+            notes: notes || null,
+            lead_key: `admin_booking:${bookingQuoteId}`,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'lead_key' }
+        )
+        .select('id')
+        .single()
+
+      if (customerError || !customerRecord) {
+        console.error('[API] Error linking manual booking origin:', customerError)
+        return NextResponse.json(
+          {
+            error:
+              customerError?.code === '23514'
+                ? 'Falta aplicar la migración de origen Cliente antiguo'
+                : 'No se pudo guardar el origen del cliente',
+          },
+          { status: 500 }
+        )
+      }
+      customerRecordId = customerRecord.id
+    }
+
     // Crear la reserva
     const { data: booking, error: createError } = await supabaseAdmin
       .from('bookings')
       .insert({
-        quote_id,
+        quote_id: bookingQuoteId,
         client_name,
         client_email,
         client_phone,
@@ -321,6 +386,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (customerRecordId) {
+      const { error: linkError } = await supabaseAdmin
+        .from('quote_prospects')
+        .update({ converted_booking_id: booking.id, updated_at: new Date().toISOString() })
+        .eq('id', customerRecordId)
+      if (linkError) {
+        // El match por quote_id sigue conservando el origen; no deshacemos una reserva
+        // ya creada por un fallo secundario del enlace directo.
+        console.error('[API] Error linking customer record to booking:', linkError)
+      }
+    }
+
     const methodLabels: Record<string, string> = {
       flow: 'link de pago',
       transfer: 'transferencia',
@@ -348,6 +425,7 @@ export async function POST(request: NextRequest) {
             total_price: booking.total_price,
             payment_method: booking.payment_method,
             status: booking.status,
+            customer_origin: customerOrigin,
           },
         },
       },

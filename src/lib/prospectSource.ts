@@ -4,7 +4,7 @@
 export type ProspectOrigin = 'web' | 'rrss' | 'recomendacion' | 'cliente_antiguo'
 
 export const SOURCE_OPTIONS: { value: ProspectOrigin; label: string }[] = [
-  { value: 'web', label: 'Web' },
+  { value: 'web', label: 'Web / cliente nuevo' },
   { value: 'rrss', label: 'RRSS' },
   { value: 'recomendacion', label: 'Recomendación' },
   { value: 'cliente_antiguo', label: 'Cliente antiguo' },

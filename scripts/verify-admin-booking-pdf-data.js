@@ -73,7 +73,14 @@ const prospect = {
   },
 }
 
-const [enriched] = mergeBookingQuoteDetails([booking], [prospect])
+const legacyCustomer = {
+  email: 'cliente@example.com',
+  source: 'cliente_antiguo',
+  status: 'converted',
+  lead_key: 'manual_customer:cliente@example.com',
+}
+
+const [enriched] = mergeBookingQuoteDetails([booking], [prospect, legacyCustomer])
 const pdfData = bookingToAdminQuoteData(enriched)
 
 assert.equal(pdfData.name, 'Cliente Test')
@@ -82,6 +89,16 @@ assert.equal(pdfData.totalVolume, 3)
 assert.equal(pdfData.totalWeight, 80)
 assert.equal(pdfData.totalDistance, 12.4)
 assert.equal(pdfData.isFlexible, true)
+assert.equal(enriched.source, 'cliente_antiguo')
+
+const [reclassifiedAsWeb] = mergeBookingQuoteDetails(
+  [booking],
+  [
+    { ...prospect, source: 'cliente_antiguo' },
+    { ...legacyCustomer, source: 'web' },
+  ]
+)
+assert.equal(reclassifiedAsWeb.source, 'web')
 assert.deepEqual(pdfData.additionalServices, prospect.additional_services)
 assert.equal(pdfData.additionalServices.extraHelpers, 2)
 assert.equal(pdfData.additionalServices.totalCrew, 4)

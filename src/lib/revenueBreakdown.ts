@@ -37,6 +37,8 @@ export interface BookingLike {
   is_provisional?: boolean | null
   flow_token?: string | null
   payment_method?: string | null
+  /** Origen comercial heredado de la ficha/prospecto vinculado. */
+  source?: string | null
 }
 
 export interface ProspectLike {
@@ -140,6 +142,23 @@ export interface RevenueBreakdown {
   booked: number
 }
 
+export interface RevenueByOrigin extends RevenueBreakdown {
+  source: string
+  label: string
+}
+
+const REVENUE_ORIGINS = [
+  { source: 'web', label: 'Web / cliente nuevo' },
+  { source: 'cliente_antiguo', label: 'Cliente antiguo' },
+  { source: 'rrss', label: 'RRSS' },
+  { source: 'recomendacion', label: 'Recomendación' },
+] as const
+
+const revenueOrigin = (source?: string | null) =>
+  source === 'cliente_antiguo' || source === 'rrss' || source === 'recomendacion'
+    ? source
+    : 'web'
+
 export function summarizeBookings(bookings: BookingLike[]): RevenueBreakdown {
   const out: RevenueBreakdown = {
     paid: 0,
@@ -170,6 +189,17 @@ export function summarizeBookings(bookings: BookingLike[]): RevenueBreakdown {
   }
 
   return out
+}
+
+/** Mismo cálculo financiero, separado por origen comercial del cliente. */
+export function summarizeBookingsByOrigin(bookings: BookingLike[]): RevenueByOrigin[] {
+  return REVENUE_ORIGINS.map(({ source, label }) => ({
+    source,
+    label,
+    ...summarizeBookings(
+      bookings.filter((booking) => revenueOrigin(booking.source) === source)
+    ),
+  }))
 }
 
 export interface QuotesOutstanding {
