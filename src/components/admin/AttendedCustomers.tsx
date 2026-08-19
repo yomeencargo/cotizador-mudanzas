@@ -233,9 +233,9 @@ export default function AttendedCustomers() {
           <p className="text-sm text-gray-500">Web / nuevos</p>
           <p className="text-2xl font-bold text-blue-700">{clp(webRevenue)}</p>
         </Card>
-        <Card className="p-4 border-l-4 border-l-purple-500">
+        <Card className="p-4 border-l-4 border-l-emerald-500">
           <p className="text-sm text-gray-500">Clientes antiguos</p>
-          <p className="text-2xl font-bold text-purple-700">{clp(legacyRevenue)}</p>
+          <p className="text-2xl font-bold text-emerald-700">{clp(legacyRevenue)}</p>
         </Card>
       </div>
 

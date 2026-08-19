@@ -77,7 +77,17 @@ export function computeQuoteAmounts(estimatedPrice: number) {
 export async function ensureProvisionalBooking(
   input: EnsureBookingInput
 ): Promise<{ quoteId: string; bookingRowId: string; existed: boolean; locked: boolean }> {
-  const { quoteId, client, schedule, addresses, propertyDetails, estimatedPrice, paymentType, photoUrls, attribution } = input
+  const {
+    quoteId,
+    client,
+    schedule,
+    addresses,
+    propertyDetails,
+    estimatedPrice,
+    paymentType,
+    photoUrls,
+    attribution,
+  } = input
 
   if (!quoteId || !client?.name || !client?.email || !client?.phone) {
     throw new Error('Datos de cliente incompletos para crear la reserva')
@@ -103,7 +113,8 @@ export async function ensureProvisionalBooking(
     // siempre, incluso después de pagar. Una vez que dejó de ser provisional o ya se aprobó
     // el pago, no se toca aquí: cualquier cambio a esa reserva debe hacerse explícitamente
     // desde el panel admin.
-    const stillEditable = existing.is_provisional !== false && existing.payment_status !== 'approved'
+    const stillEditable =
+      existing.is_provisional !== false && existing.payment_status !== 'approved'
     if (stillEditable) {
       const { error: refreshError } = await supabaseAdmin
         .from('bookings')
@@ -172,7 +183,7 @@ export async function ensureProvisionalBooking(
     .insert({
       quote_id: quoteId,
       client_name: client.name,
-      client_email: client.email,
+      client_email: client.email.trim().toLowerCase(),
       client_phone: client.phone,
       scheduled_date: schedule.date,
       scheduled_time: schedule.time,

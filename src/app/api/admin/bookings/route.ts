@@ -121,12 +121,13 @@ async function fetchProspectQuoteDetails(bookings: any[]) {
 export async function GET() {
   try {
     console.log('[API] Fetching bookings from database...')
-    
+
     // Obtener todas las reservas con paginación
     // EXCLUIR reservas canceladas (pagos rechazados)
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
-      .select(`
+      .select(
+        `
         id,
         quote_id,
         client_name,
@@ -169,7 +170,8 @@ export async function GET() {
         confirmed_at,
         completed_at,
         cancelled_at
-      `)
+      `
+      )
       .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
       .order('created_at', { ascending: false }) // Más recientes primero
 
@@ -178,7 +180,7 @@ export async function GET() {
         error: error.message,
         code: error.code,
         details: error.details,
-        hint: error.hint
+        hint: error.hint,
       })
       return NextResponse.json(
         { error: 'Error obteniendo reservas', details: error.message },
@@ -208,7 +210,10 @@ export async function GET() {
   } catch (error) {
     console.error('[API] Exception in /api/admin/bookings:', error)
     return NextResponse.json(
-      { error: 'Error obteniendo reservas', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: 'Error obteniendo reservas',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     )
   }
@@ -245,10 +250,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!client_name || !client_email || !client_phone || !scheduled_date || !scheduled_time) {
-      return NextResponse.json(
-        { error: 'Datos incompletos' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
     // Obtener capacidad de flota (vehículos activos, no total)
@@ -287,10 +289,7 @@ export async function POST(request: NextRequest) {
     const isBlocked = !!(blockedData && blockedData.length > 0)
 
     if (availableSlots <= 0 || isBlocked) {
-      return NextResponse.json(
-        { error: 'Este horario ya no está disponible' },
-        { status: 409 }
-      )
+      return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
     }
 
     const bookingQuoteId = quote_id || `ADMIN-${Date.now()}`
@@ -349,7 +348,7 @@ export async function POST(request: NextRequest) {
       .insert({
         quote_id: bookingQuoteId,
         client_name,
-        client_email,
+        client_email: String(client_email).trim().toLowerCase(),
         client_phone,
         scheduled_date,
         scheduled_time,
@@ -380,10 +379,7 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error('[API] Error creating booking:', createError)
-      return NextResponse.json(
-        { error: 'Error al crear la reserva' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
     }
 
     if (customerRecordId) {
@@ -442,9 +438,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('[API] Exception in /api/admin/bookings POST:', error)
-    return NextResponse.json(
-      { error: 'Error al crear la reserva' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
   }
 }

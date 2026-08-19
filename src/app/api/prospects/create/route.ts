@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pickAttribution, backfillAttribution } from '@/lib/attributionServer'
+import {
+  buildCustomerIdentityIndex,
+  normalizeCustomerEmail,
+  resolveIncomingCustomerSource,
+} from '@/lib/prospectSource'
 import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
@@ -38,23 +43,49 @@ export async function POST(request: NextRequest) {
       additional_services,
     } = body
 
-    if (!name || !email || !phone) {
+    const normalizedEmail = normalizeCustomerEmail(email)
+
+    if (!name || !normalizedEmail || !phone) {
       return NextResponse.json(
         { error: 'Se requiere al menos nombre, email y teléfono' },
         { status: 400 }
       )
     }
 
-    // Generar lead_key para upsert (evitar duplicados del mismo prospecto)
-    const rawKey = `${email.toLowerCase().trim()}|${scheduled_date || ''}|${origin_address || ''}|${destination_address || ''}|${visit_address || ''}`
+    // Una nueva cotización sigue siendo una oportunidad propia, pero la persona se
+    // reconoce por email. Así hereda su clasificación/frecuencia y nunca aparece como
+    // un segundo cliente en las vistas consolidadas.
+    const [identityResult, bookingResult] = await Promise.all([
+      supabaseAdmin
+        .from('quote_prospects')
+        .select('email, source, status, is_frequent, converted_booking_id, lead_key')
+        .eq('email', normalizedEmail),
+      supabaseAdmin.from('bookings').select('id').ilike('client_email', normalizedEmail).limit(1),
+    ])
+
+    const { data: previousRows, error: identityError } = identityResult
+
+    if (identityError) {
+      console.error('[Prospects] Error resolving customer identity:', identityError)
+    }
+    if (bookingResult.error) {
+      console.error('[Prospects] Error checking existing booking email:', bookingResult.error)
+    }
+
+    const existingIdentity = buildCustomerIdentityIndex(previousRows || []).get(normalizedEmail)
+    const effectiveSource = resolveIncomingCustomerSource(source, existingIdentity)
+
+    // Generar lead_key para upsert (evitar duplicados de la misma cotización)
+    const rawKey = `${normalizedEmail}|${scheduled_date || ''}|${origin_address || ''}|${destination_address || ''}|${visit_address || ''}`
     const leadKey = crypto.createHash('md5').update(rawKey).digest('hex')
 
     const prospectData = {
-      source,
+      source: effectiveSource,
       quote_id: quote_id || null,
       name,
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       phone,
+      is_frequent: Boolean(existingIdentity?.isFrequent),
       is_company,
       company_name: is_company ? company_name : null,
       company_rut: is_company ? company_rut : null,
@@ -94,10 +125,7 @@ export async function POST(request: NextRequest) {
 
     if (upsertError) {
       console.error('[Prospects] Error upserting prospect:', upsertError)
-      return NextResponse.json(
-        { error: 'Error al guardar el prospecto' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Error al guardar el prospecto' }, { status: 500 })
     }
 
     // Atribucion de Google Ads: se guarda aparte del upsert para NO sobrescribir un
@@ -108,15 +136,15 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         prospectId: prospect.id,
+        existingCustomer:
+          Boolean(existingIdentity?.isCustomer) || Boolean(bookingResult.data?.length),
+        customerOrigin: existingIdentity?.origin || effectiveSource,
         message: 'Prospecto guardado exitosamente',
       },
       { status: 201 }
     )
   } catch (error) {
     console.error('[Prospects] Error in /api/prospects/create:', error)
-    return NextResponse.json(
-      { error: 'Error al guardar el prospecto' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al guardar el prospecto' }, { status: 500 })
   }
 }

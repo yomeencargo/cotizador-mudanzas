@@ -29,10 +29,7 @@ export async function POST(request: NextRequest) {
       !visit_address ||
       !total_price
     ) {
-      return NextResponse.json(
-        { error: 'Datos incompletos' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
     // Atribucion de Google Ads: la del cliente o, si no trae, la heredada del prospecto
@@ -45,7 +42,7 @@ export async function POST(request: NextRequest) {
       .insert({
         quote_id,
         client_name,
-        client_email,
+        client_email: String(client_email).trim().toLowerCase(),
         client_phone,
         booking_type,
         visit_address,

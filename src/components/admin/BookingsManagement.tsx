@@ -1273,9 +1273,15 @@ export default function BookingsManagement({
                   const isDomicilio = booking.booking_type === 'domicilio' || 
                                      (booking.quote_id && booking.quote_id.startsWith('DOMICILIO-'))
                   const bookingType = isDomicilio ? 'domicilio' : 'online'
+                  const isLegacyCustomer = normalizeOrigin(booking.source) === 'cliente_antiguo'
                   
                   return (
-                  <tr key={booking.id} className="hover:bg-gray-50">
+                  <tr
+                    key={booking.id}
+                    className={isLegacyCustomer
+                      ? 'bg-emerald-50/70 hover:bg-emerald-100/80 transition-colors'
+                      : 'hover:bg-gray-50 transition-colors'}
+                  >
                     <td className="px-4 py-3 align-top">
                       <input
                         type="checkbox"
@@ -1292,6 +1298,11 @@ export default function BookingsManagement({
                           {booking.is_frequent && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Cliente frecuente">
                               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Frecuente
+                            </span>
+                          )}
+                          {isLegacyCustomer && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Cliente antiguo
                             </span>
                           )}
                           {booking.is_company ? (

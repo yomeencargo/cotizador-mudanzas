@@ -6,6 +6,11 @@ import {
   statusLabel,
   type FieldChange,
 } from '@/lib/activityLog'
+import {
+  buildCustomerIdentityIndex,
+  normalizeCustomerEmail,
+  normalizeOrigin,
+} from '@/lib/prospectSource'
 
 /** Etiqueta legible del lead, duplicada en el log para poder leerlo si se borra. */
 function prospectLabel(p: { name?: string | null; email?: string | null }) {
@@ -16,17 +21,12 @@ export async function GET(request: NextRequest) {
   try {
     // Por defecto solo leads por convertir. Con ?includeConverted=1 también trae los
     // convertidos (para consultarlos desde el panel sin perderlos de vista).
-    const includeConverted =
-      new URL(request.url).searchParams.get('includeConverted') === '1'
+    const includeConverted = new URL(request.url).searchParams.get('includeConverted') === '1'
 
-    let query = supabaseAdmin
+    const query = supabaseAdmin
       .from('quote_prospects')
       .select('*')
       .order('created_at', { ascending: false })
-
-    if (!includeConverted) {
-      query = query.neq('status', 'converted')
-    }
 
     const { data: prospects, error } = await query
 
@@ -40,31 +40,49 @@ export async function GET(request: NextRequest) {
 
     // Las fichas creadas desde Clientes/Reservas comparten la base de contactos,
     // pero no son oportunidades del embudo y no deben reaparecer en Prospectos.
-    const visibleProspects = (prospects || []).filter((prospect) => {
-      const key = String(prospect.lead_key || '')
-      return !key.startsWith('manual_customer:') && !key.startsWith('admin_booking:')
-    })
+    const allProspects = prospects || []
+    const identities = buildCustomerIdentityIndex(allProspects)
+    const visibleProspects = allProspects
+      .filter((prospect) => {
+        const key = String(prospect.lead_key || '')
+        const isCustomerRecord =
+          key.startsWith('manual_customer:') || key.startsWith('admin_booking:')
+        return !isCustomerRecord && (includeConverted || prospect.status !== 'converted')
+      })
+      .map((prospect) => {
+        const identity = identities.get(normalizeCustomerEmail(prospect.email))
+        return {
+          ...prospect,
+          customer_origin: identity?.origin || normalizeOrigin(prospect.source),
+          is_existing_customer: Boolean(identity?.isCustomer),
+          is_frequent: Boolean(prospect.is_frequent) || Boolean(identity?.isFrequent),
+        }
+      })
 
     return NextResponse.json(visibleProspects)
   } catch (error) {
     console.error('[Admin Prospects] Exception:', error)
-    return NextResponse.json(
-      { error: 'Error obteniendo prospectos' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error obteniendo prospectos' }, { status: 500 })
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, status, notes, source, adjusted_price, adjustment_comment, scheduled_date, scheduled_time, is_frequent } = body
+    const {
+      id,
+      status,
+      notes,
+      source,
+      adjusted_price,
+      adjustment_comment,
+      scheduled_date,
+      scheduled_time,
+      is_frequent,
+    } = body
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'ID del prospecto requerido' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'ID del prospecto requerido' }, { status: 400 })
     }
 
     const updateData: Record<string, any> = {
@@ -99,10 +117,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('[Admin Prospects] Error updating:', error)
-      return NextResponse.json(
-        { error: 'Error al actualizar prospecto' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Error al actualizar prospecto' }, { status: 500 })
     }
 
     const actor = getActorFromRequest(request)
@@ -156,10 +171,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true, prospect: data })
   } catch (error) {
     console.error('[Admin Prospects] Exception updating:', error)
-    return NextResponse.json(
-      { error: 'Error al actualizar prospecto' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al actualizar prospecto' }, { status: 500 })
   }
 }
 
@@ -169,10 +181,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'ID del prospecto requerido' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'ID del prospecto requerido' }, { status: 400 })
     }
 
     // Se leen los datos ANTES de borrar: es la única copia que quedará en el log.
@@ -182,17 +191,11 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
       .maybeSingle()
 
-    const { error } = await supabaseAdmin
-      .from('quote_prospects')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabaseAdmin.from('quote_prospects').delete().eq('id', id)
 
     if (error) {
       console.error('[Admin Prospects] Error deleting:', error)
-      return NextResponse.json(
-        { error: 'Error al eliminar prospecto' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Error al eliminar prospecto' }, { status: 500 })
     }
 
     await logAdminAction({
@@ -209,9 +212,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[Admin Prospects] Exception deleting:', error)
-    return NextResponse.json(
-      { error: 'Error al eliminar prospecto' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Error al eliminar prospecto' }, { status: 500 })
   }
 }

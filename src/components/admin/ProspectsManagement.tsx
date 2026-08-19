@@ -80,9 +80,13 @@ interface Prospect {
   adjustment_comment?: string
   quote_sent_at?: string
   is_frequent?: boolean
+  customer_origin?: string
+  is_existing_customer?: boolean
   created_at: string
   updated_at: string
 }
+
+const customerOriginOf = (prospect: Prospect) => prospect.customer_origin || prospect.source
 
 function prospectToQuoteData(p: Prospect): AdminQuoteData {
   return {
@@ -183,7 +187,7 @@ export default function ProspectsManagement() {
     }
 
     if (sourceFilter !== 'all') {
-      filtered = filtered.filter(p => normalizeOrigin(p.source) === sourceFilter)
+      filtered = filtered.filter(p => normalizeOrigin(customerOriginOf(p)) === sourceFilter)
     }
 
     if (dateFilter !== 'all') {
@@ -659,8 +663,8 @@ export default function ProspectsManagement() {
       })
       if (!response.ok) throw new Error('Error al actualizar')
       toast.success('Origen actualizado')
-      setSelectedProspect(prev => (prev && prev.id === id ? { ...prev, source: newSource } : prev))
-      setProspects((rows) => rows.map((prospect) => prospect.id === id ? { ...prospect, source: newSource } : prospect))
+      setSelectedProspect(prev => (prev && prev.id === id ? { ...prev, source: newSource, customer_origin: newSource } : prev))
+      setProspects((rows) => rows.map((prospect) => prospect.id === id ? { ...prospect, source: newSource, customer_origin: newSource } : prospect))
     } catch (error) {
       console.error('Error updating source:', error)
       toast.error('No se pudo actualizar el origen')
@@ -712,7 +716,7 @@ export default function ProspectsManagement() {
       { header: 'Nombre', value: (p) => p.name },
       { header: 'Email', value: (p) => p.email },
       { header: 'Teléfono', value: (p) => p.phone },
-      { header: 'Origen', value: (p) => p.source },
+      { header: 'Origen del cliente', value: (p) => getSourceLabel(customerOriginOf(p)) },
       { header: 'Estado', value: (p) => p.status },
       { header: 'Tipo cliente', value: (p) => (p.is_company ? 'Empresa' : 'Persona') },
       { header: 'Razón social', value: (p) => p.company_name || '' },
@@ -1043,8 +1047,15 @@ export default function ProspectsManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProspects.map((prospect) => (
-                  <tr key={prospect.id} className="hover:bg-gray-50">
+                {filteredProspects.map((prospect) => {
+                  const isLegacyCustomer = normalizeOrigin(customerOriginOf(prospect)) === 'cliente_antiguo'
+                  return (
+                  <tr
+                    key={prospect.id}
+                    className={isLegacyCustomer
+                      ? 'bg-emerald-50/70 hover:bg-emerald-100/80 transition-colors'
+                      : 'hover:bg-gray-50 transition-colors'}
+                  >
                     <td className="px-4 py-3 align-top">
                       <input
                         type="checkbox"
@@ -1060,6 +1071,11 @@ export default function ProspectsManagement() {
                         {prospect.is_frequent && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                             <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" /> Frecuente
+                          </span>
+                        )}
+                        {isLegacyCustomer && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            Cliente antiguo
                           </span>
                         )}
                         {prospect.is_company ? (
@@ -1079,8 +1095,8 @@ export default function ProspectsManagement() {
                       <div className="text-xs text-gray-400">{prospect.phone}</div>
                     </td>
                     <td className="hidden md:table-cell px-4 py-3 align-top whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getSourceBadge(prospect.source)}`}>
-                        {getSourceLabel(prospect.source)}
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getSourceBadge(customerOriginOf(prospect))}`}>
+                        {getSourceLabel(customerOriginOf(prospect))}
                       </span>
                     </td>
                     <td className="hidden lg:table-cell px-4 py-3 align-top whitespace-nowrap">
@@ -1261,7 +1277,8 @@ export default function ProspectsManagement() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -1282,8 +1299,8 @@ export default function ProspectsManagement() {
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(selectedProspect.status)}`}>
                 {getStatusLabel(selectedProspect.status)}
               </span>
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getSourceBadge(selectedProspect.source)}`}>
-                {getSourceLabel(selectedProspect.source)}
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getSourceBadge(customerOriginOf(selectedProspect))}`}>
+                {getSourceLabel(customerOriginOf(selectedProspect))}
               </span>
               <span className="text-sm text-gray-500">
                 {format(new Date(selectedProspect.created_at), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}
@@ -1292,13 +1309,13 @@ export default function ProspectsManagement() {
 
             {/* Origen editable (CRM) */}
             <div className="max-w-xs">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Origen del lead</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Origen del cliente</label>
               <Select
-                value={normalizeOrigin(selectedProspect.source)}
+                value={normalizeOrigin(customerOriginOf(selectedProspect))}
                 onChange={(e) => updateProspectSource(selectedProspect.id, e.target.value)}
                 options={SOURCE_OPTIONS}
               />
-              <p className="text-xs text-gray-500 mt-1">Cámbialo a Web, RRSS, Recomendación o Cliente antiguo según de dónde vino.</p>
+              <p className="text-xs text-gray-500 mt-1">Si el email ya tiene una ficha en Clientes, esa clasificación prevalece automáticamente.</p>
             </div>
 
             {/* Contacto */}
