@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import BookingsManagement from '@/components/admin/BookingsManagement'
+import CalendarView from '@/components/admin/CalendarView'
 import FleetManagement from '@/components/admin/FleetManagement'
 import ScheduleManagement from '@/components/admin/ScheduleManagement'
 import PricingConfiguration from '@/components/admin/PricingConfiguration'
@@ -17,9 +18,10 @@ import DriverAccessCard from '@/components/admin/DriverAccessCard'
 import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
 import ActivityLog from '@/components/admin/ActivityLog'
 import UsersManagement from '@/components/admin/UsersManagement'
-import { 
-  Calendar, 
-  Truck, 
+import {
+  Calendar,
+  CalendarDays,
+  Truck,
   Clock, 
   BarChart3, 
   Settings, 
@@ -185,6 +187,7 @@ export default function AdminDashboard() {
 
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
+    { id: 'calendar', name: 'Calendario', icon: CalendarDays },
     { id: 'bookings', name: 'Reservas', icon: Calendar },
     { id: 'prospects', name: 'Prospectos', icon: UserPlus },
     { id: 'customers', name: 'Clientes', icon: Users },
@@ -688,6 +691,9 @@ export default function AdminDashboard() {
             </Card>
           </div>
         )}
+
+        {/* Calendar Tab */}
+        {activeTab === 'calendar' && <CalendarView />}
 
         {/* Bookings Tab */}
         {activeTab === 'bookings' && (
