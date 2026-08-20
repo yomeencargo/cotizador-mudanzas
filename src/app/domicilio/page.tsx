@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import HomePersonalInfoStep from '@/components/steps/home/HomePersonalInfoStep'
 import HomeAddressStep from '@/components/steps/home/HomeAddressStep'
+import HomeDateTimeStep from '@/components/steps/home/HomeDateTimeStep'
 import HomeSummaryStep from '@/components/steps/home/HomeSummaryStep'
 import { useHomeQuoteStore } from '@/store/homeQuoteStore'
 import ProgressBar from '@/components/ui/ProgressBar'
@@ -11,7 +12,8 @@ import ChatBot from '@/components/ui/ChatBot'
 const steps = [
   { id: 0, name: 'Datos Personales', component: HomePersonalInfoStep },
   { id: 1, name: 'Dirección de Visita', component: HomeAddressStep },
-  { id: 2, name: 'Resumen y Pago', component: HomeSummaryStep },
+  { id: 2, name: 'Fecha y Hora', component: HomeDateTimeStep },
+  { id: 3, name: 'Resumen y Pago', component: HomeSummaryStep },
 ]
 
 export default function DomicilioPage() {

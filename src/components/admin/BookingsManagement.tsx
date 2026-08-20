@@ -26,7 +26,8 @@ import {
   Star,
   UserX,
   Copy,
-  Link2
+  Link2,
+  AlertTriangle
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -68,6 +69,13 @@ interface CustomerOption {
   companyName?: string
   companyRut?: string
   isFrequent?: boolean
+}
+
+interface CapacityWarning {
+  message: string
+  reason: 'blocked' | 'full'
+  activeBookings: number
+  capacity: number
 }
 
 interface Booking extends AdminBookingQuoteSource {
@@ -186,6 +194,7 @@ export default function BookingsManagement({
     comment: '',
   })
   const [creating, setCreating] = useState(false)
+  const [capacityWarning, setCapacityWarning] = useState<CapacityWarning | null>(null)
   const [blockOnly, setBlockOnly] = useState(false)
   const [newBooking, setNewBooking] = useState({ ...EMPTY_NEW_BOOKING })
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState('manual')
@@ -726,7 +735,7 @@ export default function BookingsManagement({
     return `${hh}:${mm}`
   }
 
-  const handleCreate = async () => {
+  const handleCreate = async (overrideCapacity = false) => {
     try {
       setCreating(true)
       if (blockOnly) {
@@ -748,6 +757,7 @@ export default function BookingsManagement({
           destination_address: null,
           notes: newBooking.notes || 'Reserva de cupo sin cliente (admin)',
           skip_customer_record: true,
+          override_capacity: overrideCapacity,
         }
         const response = await fetch('/api/admin/bookings', {
           method: 'POST',
@@ -756,6 +766,15 @@ export default function BookingsManagement({
         })
         if (!response.ok) {
           const err = await response.json().catch(() => ({}))
+          if (response.status === 409 && err?.requiresOverride) {
+            setCapacityWarning({
+              message: err.warning || 'El horario ya no tiene disponibilidad normal.',
+              reason: err.reason === 'blocked' ? 'blocked' : 'full',
+              activeBookings: Number(err.activeBookings) || 0,
+              capacity: Number(err.capacity) || 0,
+            })
+            return
+          }
           throw new Error(err?.error || 'Error al reservar el cupo')
         }
         toast.success('Cupo reservado correctamente (1 camión)')
@@ -792,6 +811,7 @@ export default function BookingsManagement({
         destination_address: newBooking.destination_address || null,
         notes: newBooking.notes || null,
         customer_origin: newBooking.customer_origin,
+        override_capacity: overrideCapacity,
       }
 
       const response = await fetch('/api/admin/bookings', {
@@ -801,6 +821,15 @@ export default function BookingsManagement({
       })
       if (!response.ok) {
         const err = await response.json().catch(() => ({}))
+        if (response.status === 409 && err?.requiresOverride) {
+          setCapacityWarning({
+            message: err.warning || 'El horario ya no tiene disponibilidad normal.',
+            reason: err.reason === 'blocked' ? 'blocked' : 'full',
+            activeBookings: Number(err.activeBookings) || 0,
+            capacity: Number(err.capacity) || 0,
+          })
+          return
+        }
         throw new Error(err?.error || 'Error al crear la reserva')
       }
 
@@ -1610,9 +1639,53 @@ export default function BookingsManagement({
       {/* Add Modal */}
       <Modal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title={blockOnly ? 'Bloquear Horario' : 'Nueva Reserva'}
+        onClose={() => {
+          if (capacityWarning) setCapacityWarning(null)
+          else setShowAddModal(false)
+        }}
+        title={capacityWarning ? 'Confirmar sobrecupo' : (blockOnly ? 'Bloquear Horario' : 'Nueva Reserva')}
       >
+        {capacityWarning ? (
+          <div className="space-y-5">
+            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+              <AlertTriangle className="mt-0.5 h-6 w-6 flex-none text-amber-700" />
+              <div>
+                <p className="font-semibold text-amber-950">
+                  {capacityWarning.reason === 'blocked'
+                    ? 'Este horario está bloqueado'
+                    : 'Este horario alcanzó su capacidad'}
+                </p>
+                <p className="mt-1 text-sm text-amber-900">{capacityWarning.message}</p>
+                <p className="mt-3 text-sm text-amber-900">
+                  Estás por agendar igualmente el{' '}
+                  <strong>{newBooking.scheduled_date}</strong> a las{' '}
+                  <strong>{newBooking.scheduled_time}</strong>. La reserva quedará registrada como
+                  sobrecupo administrativo.
+                </p>
+                {capacityWarning.reason === 'full' && (
+                  <p className="mt-2 text-xs text-amber-800">
+                    Ocupación actual: {capacityWarning.activeBookings}/{capacityWarning.capacity}.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setCapacityWarning(null)} variant="outline" disabled={creating}>
+                Volver y cambiar horario
+              </Button>
+              <Button
+                onClick={() => {
+                  setCapacityWarning(null)
+                  void handleCreate(true)
+                }}
+                disabled={creating}
+                className="bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-500"
+              >
+                {creating ? 'Guardando...' : 'Agendar de todos modos'}
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <input
@@ -1846,9 +1919,10 @@ export default function BookingsManagement({
 
           <div className="flex justify-end gap-2 pt-2">
             <Button onClick={() => setShowAddModal(false)} variant="outline">Cancelar</Button>
-            <Button onClick={handleCreate} disabled={creating}>{creating ? 'Guardando...' : (blockOnly ? 'Bloquear' : 'Crear Reserva')}</Button>
+            <Button onClick={() => void handleCreate(false)} disabled={creating}>{creating ? 'Guardando...' : (blockOnly ? 'Bloquear' : 'Crear Reserva')}</Button>
           </div>
         </div>
+        )}
       </Modal>
 
       {/* Link de pago recién generado */}

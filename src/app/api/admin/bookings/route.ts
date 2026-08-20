@@ -247,7 +247,9 @@ export async function POST(request: NextRequest) {
       company_rut,
       customer_origin,
       skip_customer_record = false,
+      override_capacity = false,
     } = body
+    const capacityOverrideApproved = override_capacity === true
 
     if (!client_name || !client_email || !client_phone || !scheduled_date || !scheduled_time) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
@@ -288,8 +290,22 @@ export async function POST(request: NextRequest) {
     const availableSlots = (capacity || 0) - activeBookings
     const isBlocked = !!(blockedData && blockedData.length > 0)
 
-    if (availableSlots <= 0 || isBlocked) {
-      return NextResponse.json({ error: 'Este horario ya no está disponible' }, { status: 409 })
+    if ((availableSlots <= 0 || isBlocked) && !capacityOverrideApproved) {
+      const conflictReason = isBlocked ? 'blocked' : 'full'
+      const warning = isBlocked
+        ? 'El horario está bloqueado en la agenda.'
+        : `El horario ya tiene ${activeBookings} reserva${activeBookings === 1 ? '' : 's'} para una capacidad de ${capacity}.`
+      return NextResponse.json(
+        {
+          error: 'Este horario requiere confirmación para crear un sobrecupo',
+          requiresOverride: true,
+          reason: conflictReason,
+          warning,
+          activeBookings,
+          capacity,
+        },
+        { status: 409 }
+      )
     }
 
     const bookingQuoteId = quote_id || `ADMIN-${Date.now()}`
@@ -405,7 +421,7 @@ export async function POST(request: NextRequest) {
       entityType: 'booking',
       entityId: booking.id,
       entityLabel: [booking.client_name, booking.scheduled_date].filter(Boolean).join(' · '),
-      summary: `Creó una reserva manual para ${booking.scheduled_date} ${String(
+      summary: `Creó una reserva manual${capacityOverrideApproved ? ' con sobrecupo confirmado' : ''} para ${booking.scheduled_date} ${String(
         booking.scheduled_time || ''
       ).slice(0, 5)}${
         payment_method ? ` (cobro: ${methodLabels[payment_method] || payment_method})` : ''
@@ -422,6 +438,7 @@ export async function POST(request: NextRequest) {
             payment_method: booking.payment_method,
             status: booking.status,
             customer_origin: customerOrigin,
+            override_capacity: capacityOverrideApproved,
           },
         },
       },

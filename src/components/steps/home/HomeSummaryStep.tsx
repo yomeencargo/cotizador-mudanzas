@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useHomeQuoteStore } from '@/store/homeQuoteStore'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { User, Mail, Phone, MapPin, DollarSign, CheckCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { User, Mail, Phone, MapPin, DollarSign, CheckCircle, CalendarDays, Clock } from 'lucide-react'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { pushDataLayerMonto } from '@/lib/tracking'
 import { attributionForSubmit } from '@/lib/attribution'
@@ -18,8 +19,7 @@ interface HomeSummaryStepProps {
 const FIXED_PRICE = 23000
 
 export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStepProps) {
-  const router = useRouter()
-  const { personalInfo, visitAddress, setConfirmed } = useHomeQuoteStore()
+  const { personalInfo, visitAddress, visitSchedule, setConfirmed } = useHomeQuoteStore()
   const [loading, setLoading] = useState(false)
 
   // Monto de la visita a domicilio al dataLayer (para GTM: evento "Pagar")
@@ -28,7 +28,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
   }, [])
 
   const handlePayment = async () => {
-    if (!personalInfo || !visitAddress) {
+    if (!personalInfo || !visitAddress || !visitSchedule) {
       toast.error('Faltan datos requeridos')
       return
     }
@@ -52,6 +52,8 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
           email: personalInfo.email,
           phone: personalInfo.phone,
           visit_address: visitAddr,
+          scheduled_date: visitSchedule.date,
+          scheduled_time: visitSchedule.time,
           total_price: FIXED_PRICE,
           original_price: FIXED_PRICE,
           attribution: attributionForSubmit(),
@@ -68,9 +70,8 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
         visit_address: `${visitAddress.street} ${visitAddress.number}, ${visitAddress.commune}, ${visitAddress.region}${visitAddress.additionalInfo ? ` (${visitAddress.additionalInfo})` : ''}`,
         total_price: FIXED_PRICE,
         original_price: FIXED_PRICE,
-        // Datos dummy requeridos por la API actual
-        scheduled_date: new Date().toISOString().split('T')[0],
-        scheduled_time: '09:00',
+        scheduled_date: visitSchedule.date,
+        scheduled_time: visitSchedule.time,
         duration_hours: 1,
         attribution: attributionForSubmit(),
       }
@@ -119,7 +120,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
     }
   }
 
-  if (!personalInfo || !visitAddress) {
+  if (!personalInfo || !visitAddress || !visitSchedule) {
     return (
       <div className="max-w-2xl mx-auto">
         <Card>
@@ -200,6 +201,23 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
             </div>
           </div>
 
+          {/* Horario de visita */}
+          <div className="rounded-lg border border-primary-200 bg-primary-50 p-6">
+            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <CalendarDays className="h-5 w-5 text-primary-600" />
+              Fecha y hora reservadas
+            </h3>
+            <div className="flex flex-col gap-2 text-gray-700 sm:flex-row sm:items-center sm:gap-6">
+              <span className="capitalize">
+                {format(new Date(`${visitSchedule.date}T12:00:00`), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })}
+              </span>
+              <span className="flex items-center gap-2 font-semibold text-primary-700">
+                <Clock className="h-4 w-4" />
+                {visitSchedule.time.slice(0, 5)} hrs
+              </span>
+            </div>
+          </div>
+
           {/* Precio */}
           <div className="bg-green-50 rounded-lg p-6 border-2 border-green-200">
             <div className="flex items-center justify-between">
@@ -251,8 +269,8 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
           {/* Información importante */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-sm text-yellow-800">
-              <strong>⚠️ Nota:</strong> Después del pago, nos contactaremos
-              contigo para coordinar la fecha y hora de la visita.
+              <strong>⚠️ Nota:</strong> Tu horario quedará reservado al completar el pago.
+              Si necesitamos confirmar algún detalle de acceso, nos contactaremos contigo.
             </p>
           </div>
         </div>
