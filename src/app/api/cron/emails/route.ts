@@ -595,11 +595,7 @@ async function ruleServiceD1(tally: Tally): Promise<void> {
  * terminado en el panel. Colgarlo de ahí sería construir un correo que no sale.
  */
 async function ruleReviewRequest(tally: Tally): Promise<void> {
-  const url = process.env.GOOGLE_REVIEW_URL
-  if (!url) {
-    console.warn('[cron/emails] GOOGLE_REVIEW_URL sin configurar: se omite el #10.')
-    return
-  }
+  const url = process.env.GOOGLE_REVIEW_URL?.trim() || 'https://g.page/r/CedSh402D-Z9EAE/review'
   for (const b of await bookingsOnDate(chileDateOffset(-1))) {
     tallyUp(
       tally,
