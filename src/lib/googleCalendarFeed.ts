@@ -22,7 +22,9 @@ export const N8N_CALENDAR_WEBHOOK_URL = process.env.N8N_CALENDAR_WEBHOOK_URL || 
 const N8N_CALENDAR_TOKEN = process.env.N8N_CALENDAR_TOKEN || ''
 
 /** Clave interna de cada calendario; el color en el panel se elige por esta clave. */
-export type GoogleCalendarKey = 'personal' | 'trabajo'
+export type GoogleCalendarKey = 'personal' | 'trabajo' | 'contacto'
+
+const CLAVES_VALIDAS: GoogleCalendarKey[] = ['personal', 'trabajo', 'contacto']
 
 export interface GoogleCalendarEvent {
   /** Único en todo el feed: viene como "<calendar>:<id de Google>". */
@@ -114,7 +116,7 @@ export async function fetchGoogleCalendarEvents(
       .filter((e: any) => e && e.id && e.start)
       .map((e: any) => ({
         id: String(e.id),
-        calendar: e.calendar === 'trabajo' ? 'trabajo' : 'personal',
+        calendar: CLAVES_VALIDAS.includes(e.calendar) ? e.calendar : 'personal',
         calendarLabel: String(e.calendarLabel || ''),
         title: String(e.title || '(sin título)'),
         start: e.start ?? null,

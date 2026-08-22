@@ -111,7 +111,7 @@ interface Reserva {
 
 interface EventoGoogle {
   id: string
-  calendar: 'personal' | 'trabajo'
+  calendar: 'personal' | 'trabajo' | 'contacto'
   calendarLabel: string
   title: string
   start: string | null
@@ -133,7 +133,7 @@ interface RespuestaCalendario {
   }
 }
 
-type CapaId = 'reservas' | 'personal' | 'trabajo'
+type CapaId = 'reservas' | 'personal' | 'trabajo' | 'contacto'
 
 interface Chip {
   key: string
@@ -152,11 +152,19 @@ interface Chip {
 const COLOR_RESERVA: VehicleColor = { hex: '#6FA8DC', soft: '#E1F0FA', ink: '#2C5282' }
 const COLOR_PERSONAL: VehicleColor = { hex: '#F59E0B', soft: '#FEF3C7', ink: '#92400E' }
 const COLOR_TRABAJO: VehicleColor = { hex: '#8B5CF6', soft: '#EDE9FE', ink: '#5B21B6' }
+const COLOR_CONTACTO: VehicleColor = { hex: '#0D9488', soft: '#CCFBF1', ink: '#115E59' }
+
+const COLOR_POR_CAPA: Record<Exclude<CapaId, 'reservas'>, VehicleColor> = {
+  personal: COLOR_PERSONAL,
+  trabajo: COLOR_TRABAJO,
+  contacto: COLOR_CONTACTO,
+}
 
 const CAPAS: Array<{ id: CapaId; nombre: string; color: VehicleColor }> = [
   { id: 'reservas', nombre: 'Reservas', color: COLOR_RESERVA },
-  { id: 'personal', nombre: 'tomashaichelis@gmail.com', color: COLOR_PERSONAL },
+  { id: 'contacto', nombre: 'contacto@yomeencargo.cl', color: COLOR_CONTACTO },
   { id: 'trabajo', nombre: 'tomas@yomeencargo.cl', color: COLOR_TRABAJO },
+  { id: 'personal', nombre: 'tomashaichelis@gmail.com', color: COLOR_PERSONAL },
 ]
 
 const MAX_CHIPS_POR_DIA = 3
@@ -169,8 +177,9 @@ export default function CalendarView() {
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null)
   const [capas, setCapas] = useState<Record<CapaId, boolean>>({
     reservas: true,
-    personal: true,
+    contacto: true,
     trabajo: true,
+    personal: true,
   })
 
   // Rejilla de 6 semanas que empieza en lunes: el rango que se pide al servidor es
@@ -242,7 +251,7 @@ export default function CalendarView() {
 
     for (const e of datos?.google.events || []) {
       if (!e.start) continue
-      const color = e.calendar === 'trabajo' ? COLOR_TRABAJO : COLOR_PERSONAL
+      const color = COLOR_POR_CAPA[e.calendar] || COLOR_PERSONAL
       // En Google el `end` de un evento de día completo es EXCLUSIVO: un evento de un
       // solo día llega como start=17, end=18. Sin restar ese día ocuparía dos casillas.
       const primerDia = e.allDay ? e.start.slice(0, 10) : diaEnChile(e.start)
@@ -285,17 +294,11 @@ export default function CalendarView() {
   )
 
   const totales = useMemo(() => {
-    let reservas = 0
-    let personal = 0
-    let trabajo = 0
+    const conteo: Record<CapaId, number> = { reservas: 0, contacto: 0, trabajo: 0, personal: 0 }
     for (const dia of grilla.dias) {
-      for (const chip of porDia.get(dia) || []) {
-        if (chip.capa === 'reservas') reservas++
-        else if (chip.capa === 'personal') personal++
-        else trabajo++
-      }
+      for (const chip of porDia.get(dia) || []) conteo[chip.capa]++
     }
-    return { reservas, personal, trabajo }
+    return conteo
   }, [porDia, grilla.dias])
 
   const moverMes = (delta: number) => {
@@ -354,12 +357,7 @@ export default function CalendarView() {
           <div className="flex flex-wrap items-center gap-2">
             {CAPAS.map((capa) => {
               const activa = capas[capa.id]
-              const total =
-                capa.id === 'reservas'
-                  ? totales.reservas
-                  : capa.id === 'personal'
-                    ? totales.personal
-                    : totales.trabajo
+              const total = totales[capa.id]
               return (
                 <button
                   key={capa.id}
