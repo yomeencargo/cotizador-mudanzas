@@ -117,6 +117,45 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
   }
 }
 
+// "Hoy" en hora de Chile. El panel se abre también desde otro huso, así que un
+// new Date() del navegador puede caer un día corrido y sacar de la lista justo al
+// cliente al que hay que llamar. Misma decisión que en el calendario y en las APIs.
+const diaChileFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' })
+const hoyChile = () => diaChileFmt.format(new Date())
+
+/** Suma días a un 'YYYY-MM-DD' sin pasar por UTC. */
+const sumarDiasStr = (fecha: string, dias: number) => {
+  const [y, m, d] = fecha.split('-').map(Number)
+  const date = new Date(y, (m || 1) - 1, (d || 1) + dias)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * Opciones del selector de fecha según sobre qué campo se filtra.
+ *
+ * No son las mismas a propósito: mirando la fecha de cotización lo útil es el pasado
+ * ("última semana"), y mirando la fecha de la mudanza lo útil es el futuro ("mañana",
+ * "próximos 7 días"). Ofrecer "última semana" sobre la fecha de mudanza contestaría
+ * una pregunta que nadie hace.
+ */
+const OPCIONES_FECHA = {
+  created: [
+    { value: 'all', label: 'Todas' },
+    { value: 'today', label: 'Hoy' },
+    { value: 'week', label: 'Última semana' },
+    { value: 'month', label: 'Este mes' },
+    { value: 'range', label: 'Rango personalizado' },
+  ],
+  scheduled: [
+    { value: 'all', label: 'Todas' },
+    { value: 'today', label: 'Hoy' },
+    { value: 'tomorrow', label: 'Mañana' },
+    { value: 'next7', label: 'Próximos 7 días' },
+    { value: 'month', label: 'Este mes' },
+    { value: 'range', label: 'Rango personalizado' },
+  ],
+} as const
+
 export default function ProspectsManagement() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [filteredProspects, setFilteredProspects] = useState<Prospect[]>([])
@@ -124,6 +163,11 @@ export default function ProspectsManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
+  // Sobre QUÉ fecha filtra el selector de abajo. Son dos preguntas distintas y hasta
+  // ahora solo se podía hacer la primera:
+  //   'created'   -> "¿quién cotizó hoy?"        (created_at)
+  //   'scheduled' -> "¿a quién le toca mañana?"  (scheduled_date, la fecha de la mudanza)
+  const [dateField, setDateField] = useState<'created' | 'scheduled'>('created')
   const [dateFilter, setDateFilter] = useState('all')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
@@ -190,7 +234,7 @@ export default function ProspectsManagement() {
       filtered = filtered.filter(p => normalizeOrigin(customerOriginOf(p)) === sourceFilter)
     }
 
-    if (dateFilter !== 'all') {
+    if (dateFilter !== 'all' && dateField === 'created') {
       const now = new Date()
       filtered = filtered.filter(p => {
         const created = new Date(p.created_at)
@@ -223,6 +267,38 @@ export default function ProspectsManagement() {
       })
     }
 
+    // Filtro por FECHA DE LA MUDANZA. scheduled_date es 'YYYY-MM-DD' (fecha sin hora),
+    // así que se compara como string: es exacto y evita el corrimiento de día que
+    // produciría new Date() al interpretarla en UTC.
+    if (dateFilter !== 'all' && dateField === 'scheduled') {
+      const hoy = hoyChile()
+      filtered = filtered.filter(p => {
+        // Sin fecha de mudanza no hay nada que responder: preguntando "¿quién se muda
+        // mañana?" un prospecto sin fecha no es un sí, es un "todavía no se sabe".
+        const fecha = (p.scheduled_date || '').slice(0, 10)
+        if (!fecha) return false
+
+        switch (dateFilter) {
+          case 'today':
+            return fecha === hoy
+          case 'tomorrow':
+            return fecha === sumarDiasStr(hoy, 1)
+          case 'next7':
+            return fecha >= hoy && fecha <= sumarDiasStr(hoy, 7)
+          case 'month':
+            return fecha.slice(0, 7) === hoy.slice(0, 7)
+          case 'range': {
+            if (!customStartDate && !customEndDate) return true
+            if (customStartDate && fecha < customStartDate) return false
+            if (customEndDate && fecha > customEndDate) return false
+            return true
+          }
+          default:
+            return true
+        }
+      })
+    }
+
     if (frequentFilter !== 'all') {
       filtered = filtered.filter(p =>
         frequentFilter === 'yes' ? !!p.is_frequent : !p.is_frequent
@@ -236,8 +312,19 @@ export default function ProspectsManagement() {
       filtered = filtered.filter(p => p.is_company !== true)
     }
 
+    // Mirando la fecha de la mudanza, el orden por created_at que trae la API no sirve:
+    // la lista es una hoja de ruta ("a quién llamo para mañana"), así que se ordena por
+    // cuándo toca el servicio. Los que no tienen hora van al final del día.
+    if (dateField === 'scheduled') {
+      filtered = [...filtered].sort((a, b) => {
+        const fa = `${(a.scheduled_date || '').slice(0, 10)} ${(a.scheduled_time || '99:99').slice(0, 5)}`
+        const fb = `${(b.scheduled_date || '').slice(0, 10)} ${(b.scheduled_time || '99:99').slice(0, 5)}`
+        return fa.localeCompare(fb)
+      })
+    }
+
     setFilteredProspects(filtered)
-  }, [prospects, searchTerm, statusFilter, sourceFilter, dateFilter, customStartDate, customEndDate, frequentFilter, clientTypeFilter])
+  }, [prospects, searchTerm, statusFilter, sourceFilter, dateField, dateFilter, customStartDate, customEndDate, frequentFilter, clientTypeFilter])
 
   useEffect(() => {
     fetchProspects()
@@ -875,8 +962,34 @@ export default function ProspectsManagement() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por</label>
+            <Select
+              value={dateField}
+              onChange={(e) => {
+                const campo = e.target.value as 'created' | 'scheduled'
+                setDateField(campo)
+                // Las opciones no son las mismas en los dos campos ("última semana" solo
+                // existe en cotización, "mañana" solo en mudanza): si la elegida no
+                // existe en el campo nuevo, se vuelve a "Todas" en vez de filtrar por
+                // un valor que ya no significa nada.
+                if (!OPCIONES_FECHA[campo].some((o) => o.value === dateFilter)) {
+                  setDateFilter('all')
+                  setCustomStartDate('')
+                  setCustomEndDate('')
+                }
+              }}
+              options={[
+                { value: 'created', label: 'Fecha de cotización' },
+                { value: 'scheduled', label: 'Fecha de la mudanza' },
+              ]}
+            />
+          </div>
+
           <div className={dateFilter === 'range' ? 'md:col-span-2' : ''}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {dateField === 'scheduled' ? 'Se mudan' : 'Cotizaron'}
+            </label>
             <Select
               value={dateFilter}
               onChange={(e) => {
@@ -886,13 +999,7 @@ export default function ProspectsManagement() {
                   setCustomEndDate('')
                 }
               }}
-              options={[
-                { value: 'all', label: 'Todas' },
-                { value: 'today', label: 'Hoy' },
-                { value: 'week', label: 'Última semana' },
-                { value: 'month', label: 'Este mes' },
-                { value: 'range', label: 'Rango personalizado' },
-              ]}
+              options={OPCIONES_FECHA[dateField] as unknown as { value: string; label: string }[]}
             />
             {dateFilter === 'range' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
