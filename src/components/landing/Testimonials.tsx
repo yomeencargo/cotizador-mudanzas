@@ -22,14 +22,19 @@ const TESTI = [
   },
 ]
 
-const StarIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+// Abre directo el diálogo de calificación del perfil de Google de Yo Me Encargo.
+// El `/review` final es lo que salta la ficha y deja al usuario en las estrellas;
+// sin él, `g.page/r/<id>` solo muestra el perfil y hay que buscar el botón a mano.
+const GOOGLE_REVIEW_URL = 'https://g.page/r/CedSh402D-Z9EAE/review'
+
+const StarIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
     <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
   </svg>
 )
 
-const GoogleIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-label="Google">
+const GoogleIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-label="Google">
     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/>
     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/>
     <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/>
@@ -143,12 +148,12 @@ export default function Testimonials() {
           </>
         )}
 
-        {/* Aggregate rating link */}
+        {/* Prueba social primero (lo que ya dicen), y recién después el pedido. */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mt-11 flex justify-center"
+          className="mt-11 flex flex-col items-center gap-7"
         >
           <a
             href="https://www.google.com/maps/search/yo+me+encargo+mudanzas+santiago"
@@ -163,6 +168,26 @@ export default function Testimonials() {
             <strong>4.9 de 5</strong> en Google · 47 reseñas
             <ArrowRight size={16} />
           </a>
+
+          <div className="flex flex-col items-center gap-3">
+            <a
+              href={GOOGLE_REVIEW_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-[56px] items-center gap-2.5 rounded-xl bg-white px-7 text-[18px] font-bold text-[#111827] transition-colors hover:bg-[#F3F4F6]"
+            >
+              <GoogleIcon size={20} />
+              Dejar una reseña
+              <span className="flex gap-0.5 text-[#F5A623]" aria-hidden>
+                {[0, 1, 2, 3, 4].map((j) => (
+                  <StarIcon key={j} size={14} />
+                ))}
+              </span>
+            </a>
+            <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              ¿Ya trabajaste con nosotros? Nos ayuda muchísimo.
+            </p>
+          </div>
         </motion.div>
       </div>
     </section>
