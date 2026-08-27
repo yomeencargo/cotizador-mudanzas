@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -30,6 +30,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
+import QuoteItemsPricing from './QuoteItemsPricing'
 import {
   SOURCE_OPTIONS,
   normalizeOrigin,
@@ -39,7 +40,11 @@ import {
 import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
 import { formatDistanceKm } from '@/lib/utils'
 import type { AdminQuoteData } from '@/lib/adminQuotePdf'
-import { normalizeAdminPdfItems } from '@/lib/adminBookingQuoteData'
+import {
+  normalizeAdminPdfItems,
+  normalizeAdminPdfItemsWithIndex,
+} from '@/lib/adminBookingQuoteData'
+import type { PackagedItem } from '@/lib/packagingCatalog'
 
 interface Prospect {
   id: string
@@ -69,7 +74,12 @@ interface Prospect {
   total_volume?: number
   total_weight?: number
   total_distance?: number
-  items_summary?: Array<{ name: string; quantity: number; volume: number }>
+  items_summary?: Array<{
+    name: string
+    quantity: number
+    volume: number
+    packaging?: { type: string; pricePerUnit?: number }
+  }>
   additional_services?: Record<string, any>
   status: 'new' | 'contacted' | 'no_response' | 'converted' | 'lost'
   notes?: string
@@ -195,6 +205,20 @@ export default function ProspectsManagement() {
   // Los convertidos también se necesitan cuando el filtro de estado es 'converted'
   // (no solo con el checkbox "Ver convertidos").
   const includeConverted = showConverted || statusFilter === 'converted'
+
+  // Memoizado a propósito: el editor de precios usa esta lista como identidad para
+  // saber cuándo descartar su borrador. Recalcularla en cada render cancelaría la
+  // edición apenas el usuario tipeara.
+  const selectedProspectItems = useMemo(
+    () =>
+      selectedProspect
+        ? normalizeAdminPdfItemsWithIndex(
+            selectedProspect.items_summary,
+            selectedProspect.total_volume
+          )
+        : [],
+    [selectedProspect]
+  )
 
   const fetchProspects = async (options: { silent?: boolean } = {}) => {
     try {
@@ -458,6 +482,101 @@ export default function ProspectsManagement() {
       // Revertir si falló
       setProspects(prev => prev.map(x => (x.id === p.id ? { ...x, is_frequent: !next } : x)))
       setSelectedProspect(prev => (prev && prev.id === p.id ? { ...prev, is_frequent: !next } : prev))
+    }
+  }
+
+  /**
+   * Guarda los precios de embalaje corregidos de la cotización.
+   *
+   * Se manda UNA entrada por cada fila del `items_summary` guardado (no solo las
+   * que el editor muestra): el endpoint valida posición por posición contra lo
+   * almacenado y rechaza el guardado si la lista se movió, así una corrección de
+   * precio nunca termina aplicada al artículo equivocado.
+   */
+  const saveItemPrices = async (
+    draft: PackagedItem[],
+    newPrice: number | null
+  ): Promise<boolean> => {
+    if (!selectedProspect) return false
+
+    // Algunos registros históricos guardan el JSON como texto; el normalizador que
+    // alimenta al editor ya lo contempla, así que acá también hay que hacerlo o el
+    // guardado saldría con una lista vacía.
+    const raw: unknown =
+      typeof selectedProspect.items_summary === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(selectedProspect.items_summary as unknown as string)
+            } catch {
+              return null
+            }
+          })()
+        : selectedProspect.items_summary
+
+    if (!Array.isArray(raw)) {
+      toast.error('No se pudo leer la lista de ítems de la cotización')
+      return false
+    }
+
+    const payload = raw.map((row: any) => ({
+      name: row?.name,
+      packaging: row?.packaging ?? null,
+    }))
+
+    for (const item of draft as Array<PackagedItem & { sourceIndex?: number }>) {
+      const index = item.sourceIndex
+      if (typeof index !== 'number' || !payload[index]) continue
+      const type = item.packaging?.type
+      payload[index] = {
+        name: payload[index].name,
+        packaging:
+          type && type !== 'none'
+            ? { type, pricePerUnit: item.packaging?.pricePerUnit }
+            : null,
+      }
+    }
+
+    try {
+      const body: Record<string, unknown> = {
+        id: selectedProspect.id,
+        items_summary: payload,
+      }
+      if (newPrice !== null) body.adjusted_price = newPrice
+
+      const response = await fetch('/api/admin/prospects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudieron guardar los precios')
+      }
+
+      const updated = data?.prospect as Prospect | undefined
+      if (updated) {
+        setProspects((rows) =>
+          rows.map((row) => (row.id === updated.id ? { ...row, ...updated } : row))
+        )
+        setSelectedProspect((prev) =>
+          prev && prev.id === updated.id ? { ...prev, ...updated } : prev
+        )
+      } else {
+        fetchProspects({ silent: true })
+      }
+
+      toast.success(
+        newPrice !== null
+          ? `Precios guardados. Precio final: $${newPrice.toLocaleString('es-CL')}`
+          : 'Precios de embalaje guardados'
+      )
+      return true
+    } catch (error) {
+      console.error('Error saving item prices:', error)
+      toast.error(
+        error instanceof Error ? error.message : 'No se pudieron guardar los precios'
+      )
+      return false
     }
   }
 
@@ -1548,20 +1667,12 @@ export default function ProspectsManagement() {
               </div>
             )}
 
-            {/* Items */}
-            {selectedProspect.items_summary && selectedProspect.items_summary.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Items Cotizados</label>
-                <div className="max-h-40 overflow-y-auto space-y-1">
-                  {selectedProspect.items_summary.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm bg-gray-50 px-3 py-1 rounded">
-                      <span>{item.name} x{item.quantity}</span>
-                      <span className="text-gray-500">{item.volume} m3</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Items cotizados, agrupados por tipo de embalaje y con edición de precios */}
+            <QuoteItemsPricing
+              items={selectedProspectItems}
+              currentPrice={selectedProspect.adjusted_price ?? selectedProspect.total_price ?? null}
+              onSave={saveItemPrices}
+            />
 
             {/* Servicios adicionales */}
             {selectedProspect.additional_services && (

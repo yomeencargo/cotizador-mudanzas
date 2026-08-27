@@ -4,7 +4,12 @@ export type AdminPdfItem = {
   name: string
   quantity: number
   volume: number
-  packaging: { type: string } | undefined
+  /**
+   * `pricePerUnit` es el precio por m³ del embalaje congelado al cotizar. Se
+   * conserva (antes se descartaba) porque el panel ahora lo muestra y permite
+   * corregirlo sin rehacer la cotización.
+   */
+  packaging: { type: string; pricePerUnit?: number } | undefined
 }
 
 export interface BookingQuoteDetails {
@@ -127,15 +132,23 @@ function normalizeAdditionalServices(value: unknown): Record<string, any> | unde
   return parsed as Record<string, any>
 }
 
-export function normalizeAdminPdfItems(
+/**
+ * Igual que `normalizeAdminPdfItems`, pero conservando la posición original dentro
+ * de `items_summary`. El editor de precios del panel la necesita: la normalización
+ * descarta filas corruptas, así que sin el índice no habría forma de escribir el
+ * precio sobre la fila correcta del JSON guardado.
+ */
+export type IndexedAdminPdfItem = AdminPdfItem & { sourceIndex: number }
+
+export function normalizeAdminPdfItemsWithIndex(
   value: unknown,
   totalVolume?: number | string | null
-): AdminPdfItem[] {
+): IndexedAdminPdfItem[] {
   const parsed = parseJsonValue(value)
   if (!Array.isArray(parsed)) return []
 
   const items = parsed
-    .map((item) => {
+    .map((item, sourceIndex): IndexedAdminPdfItem | null => {
       if (!item || typeof item !== 'object') return null
       const record = item as Record<string, unknown>
       const name = normalizeText(record.name)
@@ -144,10 +157,14 @@ export function normalizeAdminPdfItems(
       if (!name || quantity <= 0 || volume < 0) return null
       const packagingRecord = record.packaging as Record<string, unknown> | undefined
       const packagingType = packagingRecord ? normalizeText(packagingRecord.type) : undefined
-      const packaging = packagingType && packagingType !== 'none' ? { type: packagingType } : undefined
-      return { name, quantity, volume, packaging }
+      const packagingPrice = packagingRecord ? toNumber(packagingRecord.pricePerUnit) : undefined
+      const packaging =
+        packagingType && packagingType !== 'none'
+          ? { type: packagingType, pricePerUnit: packagingPrice }
+          : undefined
+      return { name, quantity, volume, packaging, sourceIndex }
     })
-    .filter((item): item is AdminPdfItem => Boolean(item))
+    .filter((item): item is IndexedAdminPdfItem => Boolean(item))
 
   if (items.length === 0) return []
 
@@ -166,6 +183,15 @@ export function normalizeAdminPdfItems(
     ...item,
     volume: rawLooksLikeLineTotals ? item.volume / item.quantity : item.volume,
   }))
+}
+
+export function normalizeAdminPdfItems(
+  value: unknown,
+  totalVolume?: number | string | null
+): AdminPdfItem[] {
+  return normalizeAdminPdfItemsWithIndex(value, totalVolume).map(
+    ({ sourceIndex: _sourceIndex, ...item }) => item
+  )
 }
 
 /** Volumen disponible para la lista de reservas, con respaldo en el detalle de ítems. */

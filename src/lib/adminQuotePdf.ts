@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import { formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
+import { packagingLabel } from './packagingCatalog'
 
 /**
  * Generador de PDF para el panel admin, alimentado por DATOS (no por el store).
@@ -34,7 +35,12 @@ export interface AdminQuoteData {
   totalVolume?: number | null
   totalWeight?: number | null
   totalDistance?: number | null
-  items?: Array<{ name: string; quantity: number; volume: number; packaging?: { type: string } }> | null
+  items?: Array<{
+    name: string
+    quantity: number
+    volume: number
+    packaging?: { type: string; pricePerUnit?: number }
+  }> | null
   additionalServices?: Record<string, any> | null
 }
 
@@ -262,7 +268,7 @@ export async function generateAdminQuotePDF(
         ensureSpace(5)
         pdf.setFontSize(9)
         pdf.setTextColor(...PRIMARY)
-        pdf.text(`  Embalaje: ${item.packaging.type}`, col1, y)
+        pdf.text(`  Embalaje: ${packagingLabel(item.packaging.type)}`, col1, y)
         pdf.setTextColor(...TEXT)
         pdf.setFontSize(11)
         y += 5

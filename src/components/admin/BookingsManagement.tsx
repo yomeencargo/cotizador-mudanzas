@@ -33,9 +33,11 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
+import QuoteItemsPricing from './QuoteItemsPricing'
 import {
   bookingVolumeM3,
   bookingToAdminQuoteData,
+  normalizeAdminPdfItemsWithIndex,
   type AdminBookingQuoteSource,
 } from '@/lib/adminBookingQuoteData'
 import {
@@ -117,7 +119,12 @@ interface Booking extends AdminBookingQuoteSource {
   total_volume?: number
   total_weight?: number
   total_distance?: number
-  items_summary?: Array<{ name: string; quantity: number; volume: number }>
+  items_summary?: Array<{
+    name: string
+    quantity: number
+    volume: number
+    packaging?: { type: string; pricePerUnit?: number }
+  }>
   additional_services?: Record<string, any>
   created_at: string
   confirmed_at?: string
@@ -2136,6 +2143,15 @@ export default function BookingsManagement({
                 </div>
               )}
             </div>
+
+            {/* Detalle de artículos por tipo de embalaje (solo consulta: los precios se
+                corrigen sobre la cotización, en Prospectos). */}
+            <QuoteItemsPricing
+              items={normalizeAdminPdfItemsWithIndex(
+                selectedBooking.items_summary,
+                selectedBooking.total_volume
+              )}
+            />
 
             {selectedBooking.payment_type && (
               <div>

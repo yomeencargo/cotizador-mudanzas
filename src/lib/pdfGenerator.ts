@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import { useQuoteStore } from '@/store/quoteStore'
 import { formatDate, formatTime, formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
+import { packagingLabel } from './packagingCatalog'
 
 type QuotePdfOptions = {
   /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
@@ -236,7 +237,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     if (item.packaging && item.packaging.type !== 'none') {
       pdf.setFontSize(9)
       pdf.setTextColor(...primaryColor)
-      pdf.text(`  Embalaje: ${item.packaging.type}`, col1, yPosition)
+      pdf.text(`  Embalaje: ${packagingLabel(item.packaging.type)}`, col1, yPosition)
       pdf.setTextColor(...textColor)
       pdf.setFontSize(11)
       yPosition += 5
@@ -714,7 +715,7 @@ export const generateBookingPDF = async (
       yPosition += 5
       pdf.setFontSize(9)
       pdf.setTextColor(...primaryColor)
-      pdf.text(`  Embalaje: ${item.packaging.type}`, col1, yPosition)
+      pdf.text(`  Embalaje: ${packagingLabel(item.packaging.type)}`, col1, yPosition)
       pdf.setTextColor(...textColor)
       pdf.setFontSize(11)
     }
@@ -1167,7 +1168,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
       if (item.isHeavy) indicators.push('Pesado')
       if (item.isGlass) indicators.push('Con vidrio')
       if (item.packaging && item.packaging.type !== 'none') {
-        indicators.push(`Embalaje: ${item.packaging.type}`)
+        indicators.push(`Embalaje: ${packagingLabel(item.packaging.type)}`)
       }
 
       if (indicators.length > 0) {
