@@ -883,53 +883,44 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
         </div>
       </Modal>
 
-      {/* Aviso de mudanza completa */}
+      {/* Aviso de mudanza completa. El objetivo es que TERMINE de cotizar sabiendo que
+          el precio es estimado; el contacto lo iniciamos nosotros después. Por eso no
+          hay salida al formulario de contacto acá: mandarlo a escribirnos en este punto
+          corta la cotización justo cuando ya cargó todo. */}
       <Modal
         isOpen={showFullMoveModal}
         onClose={() => setShowFullMoveModal(false)}
-        title="Esto ya es una mudanza completa"
+        title="Con esta cantidad, el precio es estimado"
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-700">
             Llevas <strong>{unitCount} artículos</strong>. Por sobre{' '}
-            {FULL_MOVE_ITEM_THRESHOLD} bultos el traslado deja de ser un flete puntual y
-            conviene cotizarlo como mudanza completa: cambia el camión, la cantidad de
-            gente y el tiempo que toma.
+            {FULL_MOVE_ITEM_THRESHOLD} bultos ya es una mudanza completa: el camión, la
+            cantidad de gente y el tiempo que toma dependen de detalles que la lista sola
+            no alcanza a reflejar.
           </p>
 
           <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
-            <p className="font-semibold mb-1">Podés seguir por acá igual</p>
+            <p className="font-semibold mb-1">Sigue cotizando con tranquilidad</p>
             <p>
-              El cotizador te va a dar un precio estimado con lo que cargaste. Si preferís
-              que lo revisemos y te armemos una propuesta a medida, escribinos y lo vemos
-              contigo.
+              Al terminar te mostramos el precio estimado con todo lo que cargaste, y
+              después te contactamos nosotros para afinar los detalles y dejarlo
+              confirmado. No tienes que hacer nada más ahora.
             </p>
           </div>
 
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
             En mudanzas completas trabajamos hasta un <strong>5º piso sin ascensor</strong>.
-            Si tu edificio supera eso, hablemos antes de agendar.
+            Si tu edificio supera eso, lo revisamos contigo cuando te contactemos.
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              onClick={() => setShowFullMoveModal(false)}
-              variant="outline"
-              className="flex-1"
-            >
-              Seguir con la cotización
-            </Button>
-            <a
-              href="/contactanos"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1"
-            >
-              <Button variant="brand" className="w-full">
-                Quiero una propuesta a medida
-              </Button>
-            </a>
-          </div>
+          <Button
+            onClick={() => setShowFullMoveModal(false)}
+            variant="brand"
+            className="w-full"
+          >
+            Entendido, seguir cotizando
+          </Button>
         </div>
       </Modal>
 
