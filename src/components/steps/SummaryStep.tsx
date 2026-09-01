@@ -23,6 +23,12 @@ import { trackEvent, pushDataLayerMonto } from '@/lib/tracking'
 import { attributionForSubmit } from '@/lib/attribution'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import {
+  DEFAULT_EXTRA_SERVICES,
+  hasFridge,
+  overCapacitySurcharge,
+  trucksNeeded,
+} from '@/lib/extraServices'
 
 // Configuración de precios por defecto para evitar errores
 const DEFAULT_PRICING = {
@@ -30,7 +36,11 @@ const DEFAULT_PRICING = {
     disassembly: 15000,
     assembly: 15000,
     packing: 0, // No se muestra precio, requiere contacto con ejecutivo
-    unpacking: 0 // No se muestra precio, requiere contacto con ejecutivo
+    unpacking: 0, // No se muestra precio, requiere contacto con ejecutivo
+    fridgeDisassembly: DEFAULT_EXTRA_SERVICES.fridgeDisassembly,
+    priority: DEFAULT_EXTRA_SERVICES.priority,
+    overCapacityThresholdM3: DEFAULT_EXTRA_SERVICES.overCapacityThresholdM3,
+    overCapacityPrice: DEFAULT_EXTRA_SERVICES.overCapacityPrice
   }
 }
 
@@ -77,7 +87,11 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             disassembly: pricing.additionalServices.disassembly,
             assembly: pricing.additionalServices.assembly,
             packing: 0, // No se muestra precio, requiere contacto con ejecutivo
-            unpacking: 0 // No se muestra precio, requiere contacto con ejecutivo
+            unpacking: 0, // No se muestra precio, requiere contacto con ejecutivo
+            fridgeDisassembly: pricing.additionalServices.fridgeDisassembly,
+            priority: pricing.additionalServices.priority,
+            overCapacityThresholdM3: pricing.additionalServices.overCapacityThresholdM3,
+            overCapacityPrice: pricing.additionalServices.overCapacityPrice
           }
         })
       } catch (error) {
@@ -219,6 +233,18 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             extraHelpers: additionalServices.extraHelpers || 0,
             requiredCrew,
             totalCrew,
+            // Servicios de sep-2026. `fridgeDisassembly` se guarda sólo si el
+            // refrigerador sigue en la lista, igual que en el cálculo del precio, para
+            // que el panel no vea un servicio cobrado que el total no incluye.
+            fridgeDisassembly: Boolean(additionalServices.fridgeDisassembly) && hasFridge(items),
+            priority: Boolean(additionalServices.priority),
+            // El recargo por volumen es automático, no lo elige el cliente: se guarda el
+            // monto aplicado para que la cotización sea reconstruible aunque después se
+            // cambie el precio en el panel.
+            overCapacitySurcharge: overCapacitySurcharge(totalVolume, {
+              overCapacityThresholdM3: pricingConfig.services.overCapacityThresholdM3,
+              overCapacityPrice: pricingConfig.services.overCapacityPrice,
+            }),
           },
           // gclid/UTMs capturados de la URL (Google Ads).
           attribution: attributionForSubmit(),
@@ -989,10 +1015,22 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           })()}
 
           {/* Servicios Adicionales */}
-          {(additionalServices.disassembly ||
+          {(() => {
+            // Recargo automático por pasarse del volumen de un camión. No lo elige el
+            // cliente, así que se muestra igual que un cargo más: si el precio sube, se
+            // tiene que ver por qué.
+            const overCapacity = overCapacitySurcharge(totalVolume, {
+              overCapacityThresholdM3: pricingConfig.services.overCapacityThresholdM3,
+              overCapacityPrice: pricingConfig.services.overCapacityPrice,
+            })
+            const fridgeCharged = additionalServices.fridgeDisassembly && hasFridge(items)
+            return (additionalServices.disassembly ||
             additionalServices.assembly ||
             additionalServices.packing ||
             additionalServices.unpacking ||
+            fridgeCharged ||
+            additionalServices.priority ||
+            overCapacity > 0 ||
             additionalServices.observations) && (
               <Card>
                 <h3 className="font-semibold text-base mb-4 text-gray-700">Servicios Adicionales</h3>
@@ -1025,6 +1063,32 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                       </div>
                     </div>
                   )}
+                  {fridgeCharged && (
+                    <div className="flex justify-between text-sm">
+                      <span>✓ Desarmado de refrigerador</span>
+                      <span className="font-semibold">${pricingConfig.services.fridgeDisassembly.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {additionalServices.priority && (
+                    <div className="flex justify-between text-sm">
+                      <span>✓ Priority — agenda libre</span>
+                      <span className="font-semibold">${pricingConfig.services.priority.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {overCapacity > 0 && (
+                    <div className="flex justify-between items-start text-sm">
+                      <div>
+                        <span>Segundo camión</span>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Tu mudanza son {totalVolume.toFixed(1)} m³ y en un camión entran{' '}
+                          {pricingConfig.services.overCapacityThresholdM3} m³, así que va en{' '}
+                          {trucksNeeded(totalVolume, pricingConfig.services.overCapacityThresholdM3)}{' '}
+                          viajes.
+                        </p>
+                      </div>
+                      <span className="font-semibold whitespace-nowrap">${overCapacity.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
                 {additionalServices.observations && (
                   <div className="mt-4 pt-4 border-t">
@@ -1033,7 +1097,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                   </div>
                 )}
               </Card>
-            )}
+            )
+          })()}
         </div>
       </div>
 

@@ -27,6 +27,11 @@ interface PricingConfig {
     unpacking: number
     disassembly: number
     assembly: number
+    /** Servicios y recargos agregados en sep-2026. Ver src/lib/extraServices.ts. */
+    fridgeDisassembly: number
+    priority: number
+    overCapacityThresholdM3: number
+    overCapacityPrice: number
   }
   specialPackaging: {
     fragile: number
@@ -369,6 +374,74 @@ export default function PricingConfiguration() {
                 placeholder="15000"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Desarmado de Refrigerador (CLP)
+              </label>
+              <Input
+                type="number"
+                value={config.additionalServices.fridgeDisassembly}
+                onChange={(e) => handleInputChange('additionalServices.fridgeDisassembly', Number(e.target.value))}
+                placeholder="45000"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Solo se le ofrece al cliente si cargó un refrigerador (o un freezer). En 0 no se
+                ofrece nunca.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Priority — agenda libre (CLP)
+              </label>
+              <Input
+                type="number"
+                value={config.additionalServices.priority}
+                onChange={(e) => handleInputChange('additionalServices.priority', Number(e.target.value))}
+                placeholder="99990"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Monto fijo: no lo mueve el recargo de fin de semana ni el descuento por
+                flexibilidad. En 0 no se ofrece.
+              </p>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="mb-1 text-sm font-semibold text-gray-900">
+                Recargo por exceso de volumen
+              </h4>
+              <p className="mb-3 text-xs text-gray-500">
+                Se cobra solo cuando la mudanza pasa el volumen de un camión: sobre ese punto
+                hay que mandar otro o hacer dos viajes. Es todo o nada, no proporcional.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Se cobra sobre (m³)
+                  </label>
+                  <Input
+                    type="number"
+                    value={config.additionalServices.overCapacityThresholdM3}
+                    onChange={(e) => handleInputChange('additionalServices.overCapacityThresholdM3', Number(e.target.value))}
+                    placeholder="23"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Recargo (CLP)
+                  </label>
+                  <Input
+                    type="number"
+                    value={config.additionalServices.overCapacityPrice}
+                    onChange={(e) => handleInputChange('additionalServices.overCapacityPrice', Number(e.target.value))}
+                    placeholder="29990"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Cualquiera de los dos en 0 apaga el recargo.
+              </p>
+            </div>
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
               <p className="text-xs text-blue-800">
                 <strong>💡 Nota:</strong> Los servicios de &quot;Armado de Cajas&quot; y &quot;Desembalaje&quot; requieren contacto con un ejecutivo para cotización personalizada.

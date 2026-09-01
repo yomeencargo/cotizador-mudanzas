@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { DEFAULT_CREW, DEFAULT_STAIRS } from '@/lib/crewPricing'
+import { DEFAULT_EXTRA_SERVICES, withExtraServicesDefaults } from '@/lib/extraServices'
+
+/**
+ * Completa los servicios/recargos agregados en sep-2026 sobre lo que haya guardado.
+ * Van dentro del JSONB `additional_services` para no necesitar migración, así que una
+ * fila anterior simplemente no los trae y hay que rellenarlos al leer.
+ */
+function withServiceDefaults(services: unknown) {
+  const s = (services || {}) as Record<string, unknown>
+  return { ...s, ...withExtraServicesDefaults(s) }
+}
 
 /**
  * Normaliza los bloques nuevos (cuadrilla y escaleras) contra los valores por defecto.
@@ -60,7 +71,8 @@ export async function GET() {
           packing: 25000,
           unpacking: 20000,
           disassembly: 15000,
-          assembly: 15000
+          assembly: 15000,
+          ...DEFAULT_EXTRA_SERVICES
         },
         specialPackaging: {
           fragile: 10000,
@@ -91,7 +103,7 @@ export async function GET() {
       pricePerKilometer: config.price_per_kilometer,
       freeKilometers: config.free_kilometers || 50,
       floorSurcharge: config.floor_surcharge,
-      additionalServices: config.additional_services,
+      additionalServices: withServiceDefaults(config.additional_services),
       specialPackaging: config.special_packaging,
       timeSurcharges: config.time_surcharges,
       discounts: config.discounts,
@@ -135,7 +147,7 @@ export async function PUT(request: NextRequest) {
       price_per_kilometer: body.pricePerKilometer,
       free_kilometers: body.freeKilometers || 50,
       floor_surcharge: body.floorSurcharge,
-      additional_services: body.additionalServices,
+      additional_services: withServiceDefaults(body.additionalServices),
       special_packaging: body.specialPackaging,
       time_surcharges: body.timeSurcharges,
       discounts: body.discounts,

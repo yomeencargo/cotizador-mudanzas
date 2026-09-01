@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { getPricingConfig } from '@/lib/pricingService'
 import { calculateDistanceByAddresses } from '@/lib/mapsService'
 import { crewCost, requiredPeople, stairTrips, stairsCost } from '@/lib/crewPricing'
+import { hasFridge, overCapacitySurcharge } from '@/lib/extraServices'
 
 export interface PersonalInfo {
   name: string
@@ -68,6 +69,14 @@ export interface AdditionalServices {
    * Más gente = más rápido y con más cuidado; no reemplaza a la cuadrilla mínima.
    */
   extraHelpers: number
+  /**
+   * Desarmado de refrigerador. Solo se ofrece si hay un refrigerador entre los items
+   * (ver `hasFridge`); si el cliente lo saca de la lista después de haberlo marcado,
+   * el cargo se cae solo en el cálculo.
+   */
+  fridgeDisassembly: boolean
+  /** Priority: agenda libre con horario flexible, por encima de la disponibilidad normal. */
+  priority: boolean
 }
 
 export interface QuoteState {
@@ -134,6 +143,8 @@ const initialState = {
     observations: '',
     photos: [],
     extraHelpers: 0,
+    fridgeDisassembly: false,
+    priority: false,
   },
   totalVolume: 0,
   totalWeight: 0,
@@ -291,6 +302,14 @@ export const useQuoteStore = create<QuoteState>()(
         if (state.additionalServices.assembly) basePrice += pricing.additionalServices.assembly
         // packing y unpacking requieren contacto con ejecutivo, no se suman al precio
 
+        // Desarmado de refrigerador: va acá, junto al desarme y el armado, porque es el
+        // mismo tipo de cobro (mano de obra) y sigue su misma suerte —recargo de fin de
+        // semana y descuento por flexibilidad—. Se exige que el refrigerador SIGA en la
+        // lista: si el cliente lo marcó y después borró el item, el cargo desaparece.
+        if (state.additionalServices.fridgeDisassembly && hasFridge(state.items)) {
+          basePrice += pricing.additionalServices.fridgeDisassembly
+        }
+
         // Costo de embalaje especial - CORREGIDO: se calcula por volumen de items con embalaje
         // Agrupar items por tipo de embalaje y calcular el volumen específico de cada tipo
         const packagingCost = state.items
@@ -311,6 +330,16 @@ export const useQuoteStore = create<QuoteState>()(
         if (state.isFlexible) {
           basePrice -= (basePrice * pricing.discounts.flexibility) / 100
         }
+
+        // Recargo por exceso de volumen y Priority: PLANOS y al final, después del
+        // descuento por flexibilidad y del recargo de fin de semana, antes del IVA.
+        //
+        // Van acá y no arriba porque Tomás los definió como montos fijos ($29.990 y
+        // $99.990): sumarlos antes haría que el recargo de sábado y el descuento por
+        // flexibilidad los movieran, y dejarían de ser el número que él dijo. El IVA sí
+        // los alcanza, porque es un impuesto sobre el total.
+        basePrice += overCapacitySurcharge(totalVolume, pricing.additionalServices)
+        if (state.additionalServices.priority) basePrice += pricing.additionalServices.priority
 
         // Agregar IVA si es empresa (factura)
         if (state.personalInfo?.isCompany) {

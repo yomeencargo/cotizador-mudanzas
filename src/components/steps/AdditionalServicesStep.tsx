@@ -10,6 +10,7 @@ import { Wrench, Package, Camera, FileText, Users, Minus, Plus } from 'lucide-re
 import toast from 'react-hot-toast'
 import { getPricingConfig } from '@/lib/pricingService'
 import { DEFAULT_CREW, requiredPeople, type CrewConfig } from '@/lib/crewPricing'
+import { hasFridge } from '@/lib/extraServices'
 
 interface AdditionalServicesStepProps {
   onNext: () => void
@@ -31,7 +32,15 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
     observations: additionalServices.observations,
     photos: additionalServices.photos,
     extraHelpers: additionalServices.extraHelpers || 0,
+    // `?? false`: una cotización a medio hacer, guardada en localStorage antes de que
+    // existieran estos dos campos, los trae como undefined y dejaría el checkbox sin
+    // controlar.
+    fridgeDisassembly: additionalServices.fridgeDisassembly ?? false,
+    priority: additionalServices.priority ?? false,
   })
+
+  // ¿Hay un refrigerador en la lista? De esto depende que el servicio se ofrezca.
+  const fridgePresent = hasFridge(items)
 
   // Cuadrilla mínima que exige el bulto más pesado. Los ayudantes que elija el cliente
   // van POR ENCIMA de esto, nunca lo reemplazan.
@@ -55,12 +64,21 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
     )
   }, [maxExtraHelpers])
 
+  // Si el cliente vuelve atrás y saca el refrigerador de la lista, el desarmado deja de
+  // aplicar: se desmarca acá para que la pantalla no muestre un servicio cobrado que el
+  // cálculo ya descartó.
+  useEffect(() => {
+    if (!fridgePresent) {
+      setFormData((prev) => (prev.fridgeDisassembly ? { ...prev, fridgeDisassembly: false } : prev))
+    }
+  }, [fridgePresent])
+
   // Cargar servicios adicionales dinámicamente
   useEffect(() => {
     const loadAdditionalServices = async () => {
       try {
         setLoadingServices(true)
-        const servicesData = await getAdditionalServices()
+        const servicesData = await getAdditionalServices(items)
         setServices(servicesData)
       } catch (error) {
         console.error('Error loading additional services:', error)
@@ -70,7 +88,11 @@ export default function AdditionalServicesStep({ onNext, onPrevious }: Additiona
       }
     }
     loadAdditionalServices()
-  }, [])
+    // Depende de `fridgePresent` y no de `items`: el array de items es una referencia
+    // nueva en cada render y dispararía el efecto en bucle. Lo único que cambia la
+    // lista de servicios es que aparezca o desaparezca el refrigerador.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fridgePresent])
 
   const handleServiceToggle = (serviceId: string) => {
     setFormData({

@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_CREW, DEFAULT_STAIRS, type CrewConfig, type StairsConfig } from '@/lib/crewPricing'
+import { DEFAULT_EXTRA_SERVICES, type ExtraServicesConfig } from '@/lib/extraServices'
 
 export interface PricingConfig {
   basePrice: number
@@ -17,12 +18,18 @@ export interface PricingConfig {
   crew: CrewConfig
   /** Cada cuántos bultos se repite el cargo por piso. */
   stairs: StairsConfig
+  /**
+   * Los 4 campos de `ExtraServicesConfig` (desarmado de refrigerador, Priority y el
+   * recargo por exceso de volumen) viven acá dentro a propósito: `additional_services`
+   * ya es una columna JSONB, así que agregarlos NO necesita migración. Una fila vieja
+   * que no los tenga se completa con los valores por defecto al leerla.
+   */
   additionalServices: {
     packing: number
     unpacking: number
     disassembly: number
     assembly: number
-  }
+  } & ExtraServicesConfig
   specialPackaging: {
     fragile: number
     electronics: number
@@ -79,7 +86,8 @@ export async function getPricingConfig(): Promise<PricingConfig> {
       packing: 25000,
       unpacking: 20000,
       disassembly: 15000,
-      assembly: 15000
+      assembly: 15000,
+      ...DEFAULT_EXTRA_SERVICES
     },
       specialPackaging: {
         fragile: 10000,
