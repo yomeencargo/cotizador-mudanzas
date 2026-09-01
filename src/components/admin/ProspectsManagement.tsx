@@ -1618,7 +1618,7 @@ export default function ProspectsManagement() {
             {selectedProspect.notes && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <label className="block text-sm font-medium text-yellow-900 mb-1">Notas</label>
-                <p className="text-sm text-yellow-800">{selectedProspect.notes}</p>
+                <p className="whitespace-pre-line text-sm text-yellow-800">{selectedProspect.notes}</p>
               </div>
             )}
 

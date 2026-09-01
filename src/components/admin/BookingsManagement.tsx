@@ -2213,7 +2213,7 @@ export default function BookingsManagement({
             {selectedBooking.notes && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">Notas</label>
-                <p className="text-sm text-gray-900">{selectedBooking.notes}</p>
+                <p className="whitespace-pre-line text-sm text-gray-900">{selectedBooking.notes}</p>
               </div>
             )}
 
