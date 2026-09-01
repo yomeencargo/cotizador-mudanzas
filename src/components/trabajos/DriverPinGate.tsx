@@ -6,9 +6,12 @@ import { Lock } from 'lucide-react'
 
 interface DriverPinGateProps {
   token: string
+  /** Camión al que pertenece el link ("Camión 2 · Pedro"), para que el chofer
+   *  confirme antes de escribir el PIN que está en el link correcto. */
+  label?: string
 }
 
-export default function DriverPinGate({ token }: DriverPinGateProps) {
+export default function DriverPinGate({ token, label }: DriverPinGateProps) {
   const router = useRouter()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
@@ -57,6 +60,7 @@ export default function DriverPinGate({ token }: DriverPinGateProps) {
               <Lock className="h-5 w-5 text-gray-600" />
             </div>
             <h1 className="text-lg font-bold text-gray-900">Trabajos por hacer</h1>
+            {label && <p className="mt-1 text-sm font-semibold text-gray-700">{label}</p>}
             <p className="mt-1 text-sm text-gray-500">Ingresa el PIN para ver los trabajos</p>
           </div>
 

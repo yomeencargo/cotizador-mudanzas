@@ -1,11 +1,7 @@
 import { cookies } from 'next/headers'
-import {
-  getDriverAccessToken,
-  getUpcomingDriverJobs,
-  DRIVER_WINDOW_DAYS,
-  type DriverJob,
-} from '@/lib/driverJobs'
-import { DRIVER_SESSION_COOKIE, verifyDriverSessionToken } from '@/lib/driverSession'
+import { getUpcomingDriverJobs, DRIVER_WINDOW_DAYS, type DriverJob } from '@/lib/driverJobs'
+import { resolveDriverAccess } from '@/lib/driverAccess'
+import { driverSessionCookieName, verifyDriverSessionToken } from '@/lib/driverSession'
 import DriverPinGate from '@/components/trabajos/DriverPinGate'
 import { formatParkingDistance } from '@/lib/utils'
 import { UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
@@ -129,7 +125,7 @@ function JobCard({ job, color }: { job: DriverJob; color: VehicleColor }) {
       )}
 
       {job.notes && (
-        <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div className="mt-3 whitespace-pre-line rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
           <span className="font-semibold">Notas: </span>
           {job.notes}
         </div>
@@ -194,10 +190,11 @@ function groupByDateAndVehicle(
 }
 
 export default async function DriverJobsPage({ params }: { params: { token: string } }) {
-  const validToken = await getDriverAccessToken()
-  const authorized = Boolean(validToken) && params.token === validToken
+  // El token dice a QUÉ da acceso: a un camión (link nuevo) o a todo (link general
+  // heredado). De ahí sale también el PIN que hay que exigir y el scope de la sesión.
+  const access = await resolveDriverAccess(params.token)
 
-  if (!authorized) {
+  if (!access) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="text-center">
@@ -213,12 +210,16 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
 
   // Segunda capa: además del link con token, hay que ingresar el PIN. La sesión vive
   // en una cookie firmada (12h), así que no se pide en cada carga durante la jornada.
-  const pinOk = await verifyDriverSessionToken(cookies().get(DRIVER_SESSION_COOKIE)?.value)
+  // Se valida contra el scope de ESTE link: la sesión de un camión no abre la de otro.
+  const pinOk = await verifyDriverSessionToken(
+    cookies().get(driverSessionCookieName(access.scope))?.value,
+    access.scope
+  )
   if (!pinOk) {
-    return <DriverPinGate token={params.token} />
+    return <DriverPinGate token={params.token} label={access.label} />
   }
 
-  const { jobs, vehicles } = await getUpcomingDriverJobs()
+  const { jobs, vehicles } = await getUpcomingDriverJobs(access.vehicleId)
 
   // Agrupar por fecha y, dentro de cada día, por camión. El orden de los camiones es el
   // de la flota (no el de aparición) para que la lista se lea igual todos los días.
@@ -239,7 +240,7 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
         <header className="mb-5">
           <h1 className="text-xl font-bold text-gray-900">Trabajos por hacer</h1>
           <p className="text-sm text-gray-500">
-            Yo Me Encargo · próximos {DRIVER_WINDOW_DAYS} días
+            {access.label} · próximos {DRIVER_WINDOW_DAYS} días
           </p>
 
           {legend.length > 0 && (
@@ -265,7 +266,9 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
         {jobs.length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
             <p className="text-sm text-gray-600">
-              No hay trabajos programados en los próximos {DRIVER_WINDOW_DAYS} días.
+              {access.kind === 'vehicle'
+                ? `No hay trabajos asignados a este camión en los próximos ${DRIVER_WINDOW_DAYS} días.`
+                : `No hay trabajos programados en los próximos ${DRIVER_WINDOW_DAYS} días.`}
             </p>
           </div>
         ) : (

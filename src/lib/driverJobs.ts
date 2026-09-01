@@ -59,19 +59,25 @@ export interface DriverJob {
   vehicle_id: number | null
 }
 
-export async function getDriverAccessToken(): Promise<string | null> {
-  const { data } = await supabaseAdmin.from('fleet_config').select('*').single()
-  const token = (data as { driver_access_token?: string | null } | null)?.driver_access_token
-  return typeof token === 'string' && token.length > 0 ? token : null
-}
-
 export interface DriverAgenda {
   jobs: DriverJob[]
   /** Flota con su color, para pintar las secciones y la leyenda. */
   vehicles: VehicleView[]
 }
 
-export async function getUpcomingDriverJobs(): Promise<DriverAgenda> {
+/**
+ * Agenda visible para un link de choferes.
+ *
+ * `vehicleId` acota la vista a UN camión: es lo que hace que el link de cada camión
+ * muestre solo lo suyo. Con `null` (link general heredado) se devuelve todo.
+ *
+ * El filtro se aplica DESPUÉS del reparto automático a propósito: así entrar por el
+ * link de un camión sigue asignando camión a todas las reservas nuevas de la ventana,
+ * y no solo a las que ya eran de ese camión.
+ */
+export async function getUpcomingDriverJobs(
+  vehicleId: number | null = null
+): Promise<DriverAgenda> {
   const today = chileTodayString()
   // Tope de la ventana: hoy + 3 = 4 días visibles.
   const windowEnd = addDays(today, DRIVER_WINDOW_DAYS - 1)
@@ -149,5 +155,12 @@ export async function getUpcomingDriverJobs(): Promise<DriverAgenda> {
     vehicle_id: assignments.get(b.id) ?? null,
   }))
 
-  return { jobs, vehicles }
+  if (vehicleId === null) return { jobs, vehicles }
+
+  // Vista de un solo camión: sus trabajos y su color en la leyenda. Los trabajos sin
+  // camión NO aparecen acá; quedan visibles en el panel admin, que es donde se corrigen.
+  return {
+    jobs: jobs.filter((j) => j.vehicle_id === vehicleId),
+    vehicles: vehicles.filter((v) => v.id === vehicleId),
+  }
 }
