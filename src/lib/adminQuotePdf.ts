@@ -36,6 +36,16 @@ export interface AdminQuoteData {
   totalDistance?: number | null
   items?: Array<{ name: string; quantity: number; volume: number; packaging?: { type: string } }> | null
   additionalServices?: Record<string, any> | null
+  /**
+   * Nota escrita en el panel sobre esta reserva o prospecto (`bookings.notes` /
+   * `quote_prospects.notes`). Distinta de `additionalServices.observations`, que es lo
+   * que escribió el cliente en el cotizador.
+   *
+   * OJO: sale en las DOS versiones del PDF, incluida la de precios, que es la que se le
+   * manda al cliente. Fue lo que pidió Tomás; si alguna vez se escribe algo interno ahí,
+   * el cliente lo va a leer.
+   */
+  notes?: string | null
 }
 
 export interface AdminQuotePdfOptions {
@@ -327,6 +337,32 @@ export async function generateAdminQuotePDF(
     pdf.splitTextToSize(String(svc.observations), pageWidth - 40).forEach((line: string) => {
       ensureSpace(6); pdf.text(line, 20, y); y += 6
     })
+    y += 4
+  }
+
+  // ── Notas del panel ──
+  // Va en las dos versiones (con y sin precios): en la orden de trabajo le sirve al
+  // chofer, y en la cotización al cliente. Se respetan los saltos de línea que escribió
+  // quien la redactó, porque suelen ser varios puntos, uno por renglón.
+  if (data.notes && String(data.notes).trim()) {
+    ensureSpace(18)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(12)
+    pdf.text('NOTAS:', 20, y)
+    y += 7
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(11)
+    for (const paragraph of String(data.notes).split(/\r?\n/)) {
+      if (!paragraph.trim()) {
+        // Renglón en blanco: se respeta como separación entre párrafos.
+        ensureSpace(3)
+        y += 3
+        continue
+      }
+      pdf.splitTextToSize(paragraph, pageWidth - 40).forEach((line: string) => {
+        ensureSpace(6); pdf.text(line, 20, y); y += 6
+      })
+    }
     y += 4
   }
 

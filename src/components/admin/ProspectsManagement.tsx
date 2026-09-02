@@ -114,6 +114,7 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
     totalDistance: p.total_distance,
     items: normalizeAdminPdfItems(p.items_summary, p.total_volume),
     additionalServices: p.additional_services,
+    notes: p.notes,
   }
 }
 

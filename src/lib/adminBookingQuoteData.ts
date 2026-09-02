@@ -58,6 +58,8 @@ export interface AdminBookingQuoteSource {
   destination_parking_distance?: number | null
   scheduled_date?: string | null
   scheduled_time?: string | null
+  /** Nota escrita en el panel sobre esta reserva. Sale en los dos PDF. */
+  notes?: string | null
   total_price?: number | string | null
   original_price?: number | string | null
   adjusted_price?: number | string | null
@@ -301,5 +303,6 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     totalDistance: toNumber(booking.total_distance),
     items: normalizeAdminPdfItems(booking.items_summary, booking.total_volume),
     additionalServices: normalizeAdditionalServices(booking.additional_services),
+    notes: booking.notes,
   }
 }
