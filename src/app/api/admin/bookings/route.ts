@@ -335,7 +335,18 @@ export async function POST(request: NextRequest) {
             company_name: is_company ? company_name || null : null,
             company_rut: is_company ? company_rut || null : null,
             notes: notes || null,
-            lead_key: `admin_booking:${bookingQuoteId}`,
+            // La clave va por EMAIL, no por quote_id.
+            //
+            // Antes era `admin_booking:${bookingQuoteId}`, y como el quote_id lleva un
+            // timestamp, cada reserva manual creaba una ficha NUEVA de la misma persona:
+            // medido en produccion el 2-sep-2026, 25 fichas para 17 personas, una de
+            // ellas repetida 4 veces. El selector de clientes las unificaba por email
+            // igual, pero en Prospectos se veian todas.
+            //
+            // No se usa `manual_customer:${email}` a proposito: esa es la clave de las
+            // fichas que se crean a mano desde Clientes, y compartirla haria que una
+            // reserva pisara las notas y el origen de esa ficha.
+            lead_key: `admin_booking:${normalizedEmail}`,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'lead_key' }

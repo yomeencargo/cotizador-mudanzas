@@ -141,6 +141,8 @@ const EMPTY_NEW_BOOKING = {
   payment_paid: false,
   total_price: '',
   original_price: '',
+  /** Lo que el cliente YA pagó. Distinto de total_price, que es el precio del servicio. */
+  amount_paid: '',
   origin_address: '',
   destination_address: '',
   notes: '',
@@ -526,15 +528,21 @@ export default function BookingsManagement({
         // null desasigna: el reparto automático la vuelve a tomar en la próxima lectura.
         updateData.vehicle_id = booking.vehicle_id ?? null
       }
-      const canEditThisAmount =
-        canAdjustAmounts &&
-        booking.payment_status === 'approved' &&
-        booking.payment_type === 'mitad'
-      if (canEditThisAmount) {
-        const adjustedPrice = Math.round(Number(financialEdit.adjustedPrice))
-        const amountPaid = Math.round(Number(financialEdit.amountPaid))
-        if (!Number.isFinite(adjustedPrice) || adjustedPrice <= 0) {
-          toast.error('El monto final debe ser mayor que cero')
+      // Montos del servicio. Antes esto sólo se podía tocar si la reserva estaba
+      // `approved` Y con `payment_type = 'mitad'`, o sea nunca en una reserva creada a
+      // mano (que nace pendiente y sin tipo de pago): por eso no había forma de corregir
+      // cuánto pagó alguien que transfirió o pagó en efectivo. Ahora depende sólo del
+      // permiso; el registro en Actividad sigue igual.
+      if (canAdjustAmounts) {
+        const rawAdjusted = String(financialEdit.adjustedPrice).trim()
+        const rawPaid = String(financialEdit.amountPaid).trim()
+        // El monto final es OPCIONAL: una reserva puede no tener precio cargado todavía
+        // y aun así haber recibido un abono. Vacío = no se toca.
+        const adjustedPrice = rawAdjusted === '' ? null : Math.round(Number(rawAdjusted))
+        const amountPaid = rawPaid === '' ? 0 : Math.round(Number(rawPaid))
+
+        if (adjustedPrice !== null && (!Number.isFinite(adjustedPrice) || adjustedPrice <= 0)) {
+          toast.error('El monto final debe ser mayor que cero, o dejalo vacío')
           return false
         }
         if (!Number.isFinite(amountPaid) || amountPaid < 0) {
@@ -542,13 +550,14 @@ export default function BookingsManagement({
           return false
         }
 
-        const financialChanged =
-          adjustedPrice !== servicePrice(original || booking) ||
-          amountPaid !== actualPaidAmount(original || booking) ||
+        const priceChanged =
+          adjustedPrice !== null && adjustedPrice !== servicePrice(original || booking)
+        const paidChanged = amountPaid !== actualPaidAmount(original || booking)
+        const commentChanged =
           financialEdit.comment.trim() !== String(original?.adjustment_comment || '')
 
-        if (financialChanged) {
-          updateData.adjusted_price = adjustedPrice
+        if (priceChanged || paidChanged || commentChanged) {
+          if (priceChanged) updateData.adjusted_price = adjustedPrice
           updateData.amount_paid = amountPaid
           updateData.adjustment_comment = financialEdit.comment.trim()
         }
@@ -807,6 +816,14 @@ export default function BookingsManagement({
         payment_status: method === 'flow' ? 'pending' : (newBooking.payment_paid ? 'approved' : 'pending'),
         total_price: newBooking.total_price ? Number(newBooking.total_price) : null,
         original_price: newBooking.original_price ? Number(newBooking.original_price) : null,
+        // Lo que el cliente ya pagó al crear la reserva. Sin esto el backend lo DEDUCE
+        // del tipo de pago (mitad = 50%, completo = 100%), que es justo lo que fallaba
+        // en las reservas custom: se cobraba un monto distinto y el sistema anotaba otro.
+        // Vacío = se deja deducir, como antes.
+        amount_paid:
+          String(newBooking.amount_paid).trim() !== ''
+            ? Math.max(0, Math.round(Number(newBooking.amount_paid) || 0))
+            : undefined,
         origin_address: newBooking.origin_address || null,
         destination_address: newBooking.destination_address || null,
         notes: newBooking.notes || null,
@@ -1867,8 +1884,8 @@ export default function BookingsManagement({
 
               {newBooking.payment_method === 'flow' && (
                 <p className="text-xs text-gray-600">
-                  Al crear la reserva se genera el link de pago con el monto de{' '}
-                  <strong>Total Pagado</strong> y podrás copiarlo o enviarlo por WhatsApp.
+                  Al crear la reserva se genera el link de pago con el{' '}
+                  <strong>precio del servicio</strong> y podrás copiarlo o enviarlo por WhatsApp.
                   El pago se confirma solo cuando el cliente paga.
                 </p>
               )}
@@ -1897,7 +1914,12 @@ export default function BookingsManagement({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Total Pagado</label>
+              {/* Antes decía "Total Pagado", pero este campo es `total_price`: el precio
+                  del servicio, no lo que el cliente entregó. El nombre hacía que se
+                  cargara acá el monto pagado y quedara mal en todos lados. */}
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio del servicio
+              </label>
               <Input
                 type="number"
                 value={newBooking.total_price}
@@ -1905,6 +1927,28 @@ export default function BookingsManagement({
               />
             </div>
           </div>
+
+          {!blockOnly && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Monto ya pagado{' '}
+                <span className="font-normal text-gray-500">(opcional)</span>
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Lo que el cliente ya entregó"
+                value={newBooking.amount_paid}
+                onChange={(e) => setNewBooking({ ...newBooking, amount_paid: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Si lo dejás vacío, el sistema lo deduce del tipo de pago (mitad = 50%,
+                completo = 100%). Cargalo cuando el cliente pagó un monto distinto, por
+                transferencia o efectivo. Después se puede corregir desde Editar.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{blockOnly ? 'Motivo del bloqueo' : 'Notas'}</label>
@@ -2416,26 +2460,28 @@ export default function BookingsManagement({
               />
             </div>
 
-            {canAdjustAmounts &&
-              selectedBooking.payment_status === 'approved' &&
-              selectedBooking.payment_type === 'mitad' && (
+            {canAdjustAmounts && (
                 <div className="space-y-4 rounded-lg border-2 border-purple-200 bg-purple-50 p-4">
                   <div>
-                    <p className="font-semibold text-purple-900">Reajuste posterior al abono</p>
+                    <p className="font-semibold text-purple-900">Montos del servicio</p>
                     <p className="text-xs text-purple-700">
-                      Solo el perfil Administrador puede cambiar estos valores. El motivo y el
-                      usuario quedan registrados en Actividad.
+                      Sirve para reajustar el precio en terreno y para registrar lo que el
+                      cliente pagó por fuera (transferencia o efectivo). Solo el perfil
+                      Administrador puede cambiarlos. El motivo y el usuario quedan
+                      registrados en Actividad.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Monto final del servicio
+                        Monto final del servicio{' '}
+                        <span className="font-normal text-gray-500">(opcional)</span>
                       </label>
                       <Input
                         type="number"
                         min="1"
                         step="1"
+                        placeholder="Dejalo vacío para no cambiarlo"
                         value={financialEdit.adjustedPrice}
                         onChange={(e) =>
                           setFinancialEdit({ ...financialEdit, adjustedPrice: e.target.value })
