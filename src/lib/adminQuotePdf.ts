@@ -46,6 +46,12 @@ export interface AdminQuoteData {
    * el cliente lo va a leer.
    */
   notes?: string | null
+  /**
+   * Código legible del documento: RES-000001 para una reserva, COT-000001 para una
+   * cotización. Sirve para que el cliente y el equipo hablen del mismo papel por
+   * teléfono. Ausente mientras no esté aplicada add_public_ids.sql.
+   */
+  code?: string | null
 }
 
 export interface AdminQuotePdfOptions {
@@ -131,7 +137,15 @@ export async function generateAdminQuotePDF(
   pdf.setFontSize(11)
   pdf.setFont('helvetica', 'normal')
   pdf.text('Yo Me Encargo - Servicios de Mudanza', pageWidth / 2, 25, { align: 'center' })
-  pdf.text(`Emision: ${new Date().toLocaleDateString('es-CL')}`, pageWidth / 2, 32, { align: 'center' })
+  // El código va junto a la fecha, en la cabecera: es lo primero que se busca cuando
+  // alguien llama con el papel en la mano. Sin migración aplicada, no se dibuja.
+  const emision = `Emision: ${new Date().toLocaleDateString('es-CL')}`
+  pdf.text(
+    data.code ? `${data.code}   ·   ${emision}` : emision,
+    pageWidth / 2,
+    32,
+    { align: 'center' }
+  )
 
   // Banda distintiva para la versión de trabajadores
   if (!withPrices) {
@@ -302,7 +316,15 @@ export async function generateAdminQuotePDF(
   const requiredCrew = Math.max(1, Number(svc.requiredCrew) || 1)
   const totalCrew = Math.max(requiredCrew + extraHelpers, Number(svc.totalCrew) || 0)
   const hasCrew = extraHelpers > 0 || totalCrew > 1
-  const hasSvc = svc.disassembly || svc.assembly || svc.packing || svc.unpacking || hasCrew
+  const hasSvc =
+    svc.disassembly ||
+    svc.assembly ||
+    svc.packing ||
+    svc.unpacking ||
+    svc.fridgeDisassembly ||
+    svc.priority ||
+    Number(svc.overCapacitySurcharge) > 0 ||
+    hasCrew
   if (hasSvc) {
     ensureSpace(24)
     pdf.setFont('helvetica', 'bold')
@@ -315,6 +337,14 @@ export async function generateAdminQuotePDF(
     if (svc.assembly) { ensureSpace(6); pdf.text('[OK] Armado de muebles', 20, y); y += 6 }
     if (svc.packing) { ensureSpace(6); pdf.text('[OK] Embalaje / armado de cajas', 20, y); y += 6 }
     if (svc.unpacking) { ensureSpace(6); pdf.text('[OK] Desembalaje', 20, y); y += 6 }
+    // Servicios agregados en sep-2026. Van con los otros para que el chofer sepa qué
+    // trabajo lleva la mudanza y el cliente vea qué contrató.
+    if (svc.fridgeDisassembly) { ensureSpace(6); pdf.text('[OK] Desarmado de refrigerador', 20, y); y += 6 }
+    if (svc.priority) { ensureSpace(6); pdf.text('[OK] Priority - agenda libre', 20, y); y += 6 }
+    if (Number(svc.overCapacitySurcharge) > 0) {
+      ensureSpace(6)
+      pdf.text('[OK] Segundo camion por volumen (no entra en uno solo)', 20, y); y += 6
+    }
     if (hasCrew) {
       ensureSpace(extraHelpers > 0 ? 12 : 6)
       pdf.text(`[OK] Cuadrilla total: ${totalCrew} personas`, 20, y); y += 6

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { mergeBookingQuoteDetails } from '@/lib/adminBookingQuoteData'
+import { mergeBookingQuoteDetails, type AdminBookingQuoteSource } from '@/lib/adminBookingQuoteData'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { normalizeOrigin } from '@/lib/prospectSource'
@@ -8,6 +8,7 @@ import {
   ensureVehicleAssignments,
   getAllVehicleAssignments,
   getFleetVehicleViews,
+  type AssignableBooking,
 } from '@/lib/vehicleAssignment'
 
 const PROSPECT_QUOTE_FIELDS = `
@@ -124,11 +125,14 @@ export async function GET() {
 
     // Obtener todas las reservas con paginación
     // EXCLUIR reservas canceladas (pagos rechazados)
-    const { data: bookings, error } = await supabaseAdmin
-      .from('bookings')
-      .select(
-        `
+    //
+    // `code` y `customer_id` los agrega add_public_ids.sql. La consulta se intenta CON
+    // esas columnas y, si la migración todavía no está aplicada, se reintenta sin ellas
+    // (ver más abajo): así desplegar antes o después de correr el SQL da lo mismo, y el
+    // panel nunca se queda sin la lista de reservas por una columna que falta.
+    const selectColumns = (withPublicIds: boolean) => `
         id,
+        ${withPublicIds ? 'code,\n        customer_id,' : ''}
         quote_id,
         client_name,
         client_email,
@@ -171,9 +175,21 @@ export async function GET() {
         completed_at,
         cancelled_at
       `
-      )
-      .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
-      .order('created_at', { ascending: false }) // Más recientes primero
+
+    const fetchBookings = (withPublicIds: boolean) =>
+      supabaseAdmin
+        .from('bookings')
+        .select(selectColumns(withPublicIds))
+        .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
+        .order('created_at', { ascending: false }) // Más recientes primero
+
+    let { data: bookings, error } = await fetchBookings(true)
+
+    // 42703 = undefined_column. Es la señal de que falta la migración de códigos.
+    if (error?.code === '42703') {
+      console.warn('[API] Sin códigos públicos todavía (¿falta add_public_ids.sql?). Reintentando sin ellos.')
+      ;({ data: bookings, error } = await fetchBookings(false))
+    }
 
     if (error) {
       console.error('[API] Error fetching bookings:', {
@@ -188,7 +204,9 @@ export async function GET() {
       )
     }
 
-    const bookingRows = bookings || []
+    // El `select` se arma como string dinámico (con o sin códigos), así que Supabase ya
+    // no puede inferir el tipo de las filas: se declara acá.
+    const bookingRows = (bookings || []) as unknown as AdminBookingQuoteSource[]
     const prospects = await fetchProspectQuoteDetails(bookingRows)
     const enrichedBookings = mergeBookingQuoteDetails(bookingRows, prospects)
 
@@ -196,7 +214,7 @@ export async function GET() {
     // guardadas, así el admin y el link de choferes ven siempre lo mismo.
     const vehicles = await getFleetVehicleViews()
     const assignments = await ensureVehicleAssignments(
-      bookingRows,
+      bookingRows as AssignableBooking[],
       vehicles,
       await getAllVehicleAssignments()
     )

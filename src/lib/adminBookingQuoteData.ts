@@ -60,6 +60,10 @@ export interface AdminBookingQuoteSource {
   scheduled_time?: string | null
   /** Nota escrita en el panel sobre esta reserva. Sale en los dos PDF. */
   notes?: string | null
+  /** Código legible de la reserva (RES-000001). Lo pone la base; ausente sin la migración. */
+  code?: string | null
+  /** Cliente al que pertenece (tabla customers). Ausente sin la migración. */
+  customer_id?: string | null
   total_price?: number | string | null
   original_price?: number | string | null
   adjusted_price?: number | string | null
@@ -304,5 +308,6 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     items: normalizeAdminPdfItems(booking.items_summary, booking.total_volume),
     additionalServices: normalizeAdditionalServices(booking.additional_services),
     notes: booking.notes,
+    code: booking.code,
   }
 }

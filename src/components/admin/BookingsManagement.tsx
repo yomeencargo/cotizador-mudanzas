@@ -89,6 +89,10 @@ interface Booking extends AdminBookingQuoteSource {
   duration_hours: number
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
   notes?: string
+  /** RES-000001. Lo asigna la base (add_public_ids.sql); ausente sin la migración. */
+  code?: string
+  /** Cliente al que pertenece, en la tabla customers. */
+  customer_id?: string
   payment_type?: string
   payment_status?: string
   payment_method?: string
@@ -956,6 +960,10 @@ export default function BookingsManagement({
     const fmtSchedTime = (value: any) => (value ? String(value).slice(0, 5) : '')
 
     const columns: { header: string; value: (b: any) => any }[] = [
+      // El código va primero: es el que se usa para hablar de una reserva. El UUID y el
+      // quote_id quedan porque sirven para cruzar con Flow y con el histórico.
+      { header: 'Código', value: (b) => b.code || '' },
+      { header: 'ID cliente', value: (b) => b.customer_id || '' },
       { header: 'ID', value: (b) => b.id },
       { header: 'Reserva', value: (b) => b.quote_id },
       { header: 'Cliente', value: (b) => b.client_name },
@@ -2052,6 +2060,28 @@ export default function BookingsManagement({
       >
         {selectedBooking && (
           <div className="space-y-4">
+            {/* Código de la reserva: es el número con el que se habla de ella por
+                teléfono o en una planilla. No se dibuja si falta la migración. */}
+            {selectedBooking.code && (
+              <div className="flex items-center gap-2">
+                <span className="rounded-md bg-gray-900 px-2.5 py-1 font-mono text-sm font-semibold tracking-wide text-white">
+                  {selectedBooking.code}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(selectedBooking.code || '')
+                      .then(() => toast.success('Código copiado'))
+                      .catch(() => toast.error('No se pudo copiar'))
+                  }}
+                  className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-700"
+                >
+                  copiar
+                </button>
+              </div>
+            )}
+
             {/* Indicador de tipo de servicio */}
             {(() => {
               const isDomicilioDetail = selectedBooking.booking_type === 'domicilio' || 

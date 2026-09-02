@@ -73,6 +73,10 @@ interface Prospect {
   additional_services?: Record<string, any>
   status: 'new' | 'contacted' | 'no_response' | 'converted' | 'lost'
   notes?: string
+  /** COT-000001. Lo asigna la base (add_public_ids.sql); ausente sin la migración. */
+  code?: string
+  /** Cliente al que pertenece, en la tabla customers. */
+  customer_id?: string
   converted_booking_id?: string
   pdf_url?: string
   pdf_generated_at?: string
@@ -115,6 +119,7 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
     items: normalizeAdminPdfItems(p.items_summary, p.total_volume),
     additionalServices: p.additional_services,
     notes: p.notes,
+    code: p.code,
   }
 }
 
@@ -801,6 +806,8 @@ export default function ProspectsManagement() {
     const fmtSchedTime = (value: any) => (value ? String(value).slice(0, 5) : '')
 
     const columns: { header: string; value: (p: any) => any }[] = [
+      { header: 'Código', value: (p) => p.code || '' },
+      { header: 'ID cliente', value: (p) => p.customer_id || '' },
       { header: 'Nombre', value: (p) => p.name },
       { header: 'Email', value: (p) => p.email },
       { header: 'Teléfono', value: (p) => p.phone },
@@ -1402,6 +1409,26 @@ export default function ProspectsManagement() {
       >
         {selectedProspect && (
           <div className="space-y-4">
+            {selectedProspect.code && (
+              <div className="flex items-center gap-2">
+                <span className="rounded-md bg-gray-900 px-2.5 py-1 font-mono text-sm font-semibold tracking-wide text-white">
+                  {selectedProspect.code}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(selectedProspect.code || '')
+                      .then(() => toast.success('Código copiado'))
+                      .catch(() => toast.error('No se pudo copiar'))
+                  }}
+                  className="text-xs text-gray-500 underline underline-offset-2 hover:text-gray-700"
+                >
+                  copiar
+                </button>
+              </div>
+            )}
+
             {/* Estado y source */}
             <div className="flex items-center gap-3">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(selectedProspect.status)}`}>
