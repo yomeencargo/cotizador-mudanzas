@@ -210,7 +210,41 @@ export default function BookingsManagement({
     clientName: string
     clientPhone: string
     amount: number
+    /** 'nueva' = link al crear la reserva; 'saldo' = cobro de lo que falta. */
+    kind: 'nueva' | 'saldo'
   } | null>(null)
+  const [generandoSaldo, setGenerandoSaldo] = useState<string | null>(null)
+
+  /**
+   * Pide al backend un link de Flow por lo que falta cobrar.
+   *
+   * El monto lo calcula el servidor con `pendingAmount()`, no el navegador: es la misma
+   * función del dashboard y sabe que quien pagó "completo" no debe el 5% de descuento.
+   */
+  const generarLinkDeSaldo = async (booking: Booking) => {
+    setGenerandoSaldo(booking.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/payment-link`, {
+        method: 'POST',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || 'No se pudo generar el link')
+      }
+      setPaymentLink({
+        url: data.url,
+        clientName: data.clientName || booking.client_name,
+        clientPhone: data.clientPhone || booking.client_phone,
+        amount: data.amount,
+        kind: 'saldo',
+      })
+    } catch (error) {
+      console.error('Error generando el link de saldo:', error)
+      toast.error(error instanceof Error ? error.message : 'No se pudo generar el link')
+    } finally {
+      setGenerandoSaldo(null)
+    }
+  }
 
   const openEditBooking = (booking: Booking) => {
     setSelectedBooking(booking)
@@ -885,6 +919,7 @@ export default function BookingsManagement({
               clientName: newBooking.client_name,
               clientPhone: newBooking.client_phone,
               amount,
+              kind: 'nueva',
             })
             toast.success('Reserva creada y link de pago generado')
           } catch (payErr) {
@@ -1989,10 +2024,21 @@ export default function BookingsManagement({
               <div className="flex items-start gap-3">
                 <Link2 className="w-5 h-5 text-green-700 mt-0.5" />
                 <div className="text-sm text-green-900">
-                  Reserva creada para <strong>{paymentLink.clientName || 'el cliente'}</strong> por{' '}
-                  <strong>${paymentLink.amount.toLocaleString('es-CL')}</strong>. Envíale este link
-                  para que pague. La reserva queda <strong>pendiente</strong> hasta que Flow
-                  confirme el pago.
+                  {paymentLink.kind === 'saldo' ? (
+                    <>
+                      Link por el <strong>saldo</strong> de{' '}
+                      <strong>{paymentLink.clientName || 'el cliente'}</strong>:{' '}
+                      <strong>${paymentLink.amount.toLocaleString('es-CL')}</strong>. Cuando pague,
+                      el monto se <strong>suma</strong> a lo ya cobrado en esta misma reserva.
+                    </>
+                  ) : (
+                    <>
+                      Reserva creada para <strong>{paymentLink.clientName || 'el cliente'}</strong>{' '}
+                      por <strong>${paymentLink.amount.toLocaleString('es-CL')}</strong>. Envíale
+                      este link para que pague. La reserva queda <strong>pendiente</strong> hasta
+                      que Flow confirme el pago.
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2290,6 +2336,42 @@ export default function BookingsManagement({
                 <p className="whitespace-pre-line text-sm text-gray-900">{selectedBooking.notes}</p>
               </div>
             )}
+
+            {/* Cobro del saldo. Solo aparece si queda algo por cobrar de verdad:
+                `pendingAmount` devuelve 0 cuando se pagó completo, porque ahí el 5% de
+                diferencia es el descuento por pagar por adelantado, no una deuda. */}
+            {(() => {
+              const saldo = pendingAmount(selectedBooking)
+              if (saldo <= 0) return null
+              const precio = servicePrice(selectedBooking)
+              const pagado = actualPaidAmount(selectedBooking)
+              return (
+                <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-amber-900">Falta cobrar</p>
+                      <p className="mt-0.5 text-2xl font-bold text-amber-900">
+                        ${saldo.toLocaleString('es-CL')}
+                      </p>
+                      <p className="mt-0.5 text-xs text-amber-700">
+                        Servicio ${precio.toLocaleString('es-CL')} · pagado $
+                        {pagado.toLocaleString('es-CL')}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => void generarLinkDeSaldo(selectedBooking)}
+                      disabled={generandoSaldo === selectedBooking.id}
+                      size="sm"
+                    >
+                      <Link2 className="mr-2 h-4 w-4" />
+                      {generandoSaldo === selectedBooking.id
+                        ? 'Generando…'
+                        : 'Generar link por el saldo'}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Galería de fotos */}
             {(() => {
