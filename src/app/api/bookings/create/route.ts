@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveBookingAttribution } from '@/lib/attributionServer'
+import { normalizeStops } from '@/lib/stops'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
       total_price,
       original_price,
       origin_address,
+      stops,
       destination_address,
       payment_status = 'pending',
       is_company = false,
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
         payment_status,
         total_price,
         original_price,
+        stops: normalizeStops(stops).length ? normalizeStops(stops) : null,
         origin_address,
         destination_address,
         is_company,

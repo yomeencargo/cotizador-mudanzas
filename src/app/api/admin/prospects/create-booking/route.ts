@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { pickAttribution, hasAttribution, backfillAttribution } from '@/lib/attributionServer'
+import { normalizeStops } from '@/lib/stops'
 
 // Crea (o confirma) una RESERVA real a partir de un prospecto, sin pasar por pago online.
 // Útil cuando el admin cierra el trato por WhatsApp/teléfono. La reserva queda confirmada
@@ -177,6 +178,9 @@ export async function POST(request: NextRequest) {
             : 0,
           origin_address: prospect.origin_address || null,
           destination_address: prospect.destination_address || null,
+          // La ruta viaja con la reserva: si el cliente cotizó con paradas, el chofer
+          // tiene que verlas en la orden de trabajo, no solo las dos puntas.
+          stops: normalizeStops(prospect.stops).length ? normalizeStops(prospect.stops) : null,
           origin_floor: prospect.origin_floor ?? null,
           origin_has_elevator: prospect.origin_has_elevator ?? null,
           destination_floor: prospect.destination_floor ?? null,

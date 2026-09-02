@@ -5,6 +5,7 @@ import { driverSessionCookieName, verifyDriverSessionToken } from '@/lib/driverS
 import DriverPinGate from '@/components/trabajos/DriverPinGate'
 import DriverJobNotes from '@/components/trabajos/DriverJobNotes'
 import { getDriverNotesFor, type DriverNote } from '@/lib/driverNotes'
+import { formatStopAddress } from '@/lib/stops'
 import { formatParkingDistance } from '@/lib/utils'
 import { UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
 import type { VehicleView } from '@/lib/vehicleAssignment'
@@ -113,6 +114,30 @@ function JobCard({
             elevator={job.origin_has_elevator}
             parking={job.origin_parking_distance}
           />
+          {job.stops.length > 0 && (
+            <div className="mt-2">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                {job.stops.length === 1 ? 'Parada en el camino' : 'Paradas en el camino'}
+              </div>
+              <ol className="mt-1 space-y-1.5">
+                {job.stops.map((parada, i) => (
+                  <li key={i} className="border-l-2 border-amber-300 pl-2">
+                    <a
+                      href={mapsUrl(formatStopAddress(parada))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-blue-700 underline underline-offset-2"
+                    >
+                      {i + 1}. {formatStopAddress(parada)}
+                    </a>
+                    {parada.note && (
+                      <div className="text-xs text-amber-800">{parada.note}</div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
           <AddressBlock
             label="Destino"
             address={job.destination_address}

@@ -40,6 +40,7 @@ import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/cale
 import { formatDistanceKm } from '@/lib/utils'
 import type { AdminQuoteData } from '@/lib/adminQuotePdf'
 import { normalizeAdminPdfItems } from '@/lib/adminBookingQuoteData'
+import { normalizeStops, formatStopAddress } from '@/lib/stops'
 
 interface Prospect {
   id: string
@@ -75,6 +76,8 @@ interface Prospect {
   notes?: string
   /** COT-000001. Lo asigna la base (add_public_ids.sql); ausente sin la migración. */
   code?: string
+  /** Paradas intermedias (JSONB). */
+  stops?: unknown
   /** Cliente al que pertenece, en la tabla customers. */
   customer_id?: string
   converted_booking_id?: string
@@ -120,6 +123,7 @@ function prospectToQuoteData(p: Prospect): AdminQuoteData {
     additionalServices: p.additional_services,
     notes: p.notes,
     code: p.code,
+    stops: normalizeStops(p.stops),
   }
 }
 

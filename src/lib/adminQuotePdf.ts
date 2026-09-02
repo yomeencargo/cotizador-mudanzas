@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import { formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
+import { formatStopAddress, normalizeStops, type QuoteStop } from './stops'
 
 /**
  * Generador de PDF para el panel admin, alimentado por DATOS (no por el store).
@@ -52,6 +53,8 @@ export interface AdminQuoteData {
    * teléfono. Ausente mientras no esté aplicada add_public_ids.sql.
    */
   code?: string | null
+  /** Paradas intermedias, en orden. El chofer arma el recorrido con esto. */
+  stops?: QuoteStop[] | null
 }
 
 export interface AdminQuotePdfOptions {
@@ -238,6 +241,23 @@ export async function generateAdminQuotePDF(
     ensureSpace(6)
     pdf.text(`  Acarreo estacionamiento a puerta: ${originParkingTxt}`, 20, y); y += 6
   }
+  // Paradas: van ENTRE origen y destino porque ese es el orden del recorrido. Si se
+  // listaran al final, el chofer leería la ruta al revés de como la maneja.
+  const paradas = normalizeStops(data.stops)
+  if (paradas.length > 0) {
+    paradas.forEach((parada, i) => {
+      const texto = `Parada ${i + 1}: ${formatStopAddress(parada)}`
+      pdf.splitTextToSize(texto, pageWidth - 40).forEach((l: string) => {
+        ensureSpace(6); pdf.text(l, 20, y); y += 6
+      })
+      if (parada.note) {
+        pdf.splitTextToSize(`  ${parada.note}`, pageWidth - 44).forEach((l: string) => {
+          ensureSpace(6); pdf.text(l, 20, y); y += 6
+        })
+      }
+    })
+  }
+
   const destLines = pdf.splitTextToSize(`Destino: ${data.destinationAddress || 'No especificada'}`, pageWidth - 40)
   destLines.forEach((l: string) => { ensureSpace(6); pdf.text(l, 20, y); y += 6 })
   const destFloorTxt = floorInfo(data.destinationFloor, data.destinationHasElevator)

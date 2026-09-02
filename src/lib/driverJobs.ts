@@ -1,9 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeStops, type QuoteStop } from '@/lib/stops'
 import {
   ensureVehicleAssignments,
   getFleetVehicleViews,
   getVehicleAssignmentsInRange,
   type VehicleView,
+  type AssignableBooking,
 } from '@/lib/vehicleAssignment'
 
 // Datos para el panel público de choferes: SIN precios. Nunca seleccionamos
@@ -54,6 +56,8 @@ export interface DriverJob {
   destination_has_elevator: boolean | null
   destination_parking_distance: number | null
   notes: string | null
+  /** Paradas intermedias, en orden. El chofer las necesita para armar el recorrido. */
+  stops: QuoteStop[]
   items: DriverJobItem[]
   /** Camión asignado. null = todavía sin asignar (grupo aparte en la vista). */
   vehicle_id: number | null
@@ -86,19 +90,32 @@ export async function getUpcomingDriverJobs(
   // por status confirmed/pending, porque una reserva de hoy puede ya estar marcada
   // 'completed' en el sistema (pago aprobado) y sigue siendo un trabajo real que el
   // chofer necesita ver. Solo excluimos canceladas / no atendidas.
-  const { data: bookings } = await supabaseAdmin
-    .from('bookings')
-    .select(
-      'id, quote_id, scheduled_date, scheduled_time, client_name, client_phone, booking_type, visit_address, origin_address, origin_floor, origin_has_elevator, origin_parking_distance, destination_address, destination_floor, destination_has_elevator, destination_parking_distance, notes, is_provisional, status'
-    )
-    .gte('scheduled_date', today)
-    .lte('scheduled_date', windowEnd)
-    .not('status', 'in', '(cancelled,no_show)')
-    .order('scheduled_date', { ascending: true })
-    .order('scheduled_time', { ascending: true })
+  const BASE_COLUMNS =
+    'id, quote_id, scheduled_date, scheduled_time, client_name, client_phone, booking_type, visit_address, origin_address, origin_floor, origin_has_elevator, origin_parking_distance, destination_address, destination_floor, destination_has_elevator, destination_parking_distance, notes, is_provisional, status'
+
+  const consultar = (conParadas: boolean) =>
+    supabaseAdmin
+      .from('bookings')
+      .select(conParadas ? `${BASE_COLUMNS}, stops` : BASE_COLUMNS)
+      .gte('scheduled_date', today)
+      .lte('scheduled_date', windowEnd)
+      .not('status', 'in', '(cancelled,no_show)')
+      .order('scheduled_date', { ascending: true })
+      .order('scheduled_time', { ascending: true })
+
+  // 42703 = columna inexistente: falta add_quote_stops.sql. La agenda del chofer no se
+  // puede quedar en blanco por eso, así que se reintenta sin las paradas.
+  let { data: bookings, error } = await consultar(true)
+  if (error?.code === '42703') {
+    console.warn('[driverJobs] Sin paradas todavía (¿falta add_quote_stops.sql?)')
+    ;({ data: bookings, error } = await consultar(false))
+  }
 
   // Solo trabajos reales (las pre-reservas sin pagar no ocupan cupo ni son trabajo).
-  const rows = (bookings || []).filter((b) => !b.is_provisional)
+  // El `select` se arma como string (con o sin `stops`), así que Supabase ya no infiere
+  // el tipo de las filas: se declara acá.
+  type FilaReserva = AssignableBooking & Record<string, any>
+  const rows = ((bookings || []) as unknown as FilaReserva[]).filter((b) => !b.is_provisional)
 
   // Reparto de camiones: los que ya tienen uno (automático o puesto a mano por el
   // admin) lo conservan; los nuevos se reparten aquí y quedan guardados.
@@ -151,6 +168,7 @@ export async function getUpcomingDriverJobs(
     destination_has_elevator: b.destination_has_elevator ?? null,
     destination_parking_distance: b.destination_parking_distance ?? null,
     notes: b.notes ?? null,
+    stops: normalizeStops(b.stops),
     items: itemsByQuote.get(b.quote_id) || [],
     vehicle_id: assignments.get(b.id) ?? null,
   }))

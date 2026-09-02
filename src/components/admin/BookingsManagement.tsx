@@ -51,6 +51,7 @@ import {
 } from '@/lib/prospectSource'
 import { buildGoogleCalendarUrl, buildIcsContent, icsFileName } from '@/lib/calendarLinks'
 import { resolveVehicleColor, UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
+import { normalizeStops, formatStopAddress, summarizeStops } from '@/lib/stops'
 
 interface FleetVehicleOption {
   id: number
@@ -93,6 +94,8 @@ interface Booking extends AdminBookingQuoteSource {
   code?: string
   /** Cliente al que pertenece, en la tabla customers. */
   customer_id?: string
+  /** Paradas intermedias entre origen y destino (JSONB). */
+  stops?: unknown
   /** Lo que escribieron los choferes desde su link, sobre el trabajo realizado. */
   driver_notes?: Array<{
     id: string
@@ -1037,6 +1040,7 @@ export default function BookingsManagement({
       { header: 'Dirección origen', value: (b) => b.origin_address },
       { header: 'Dirección destino', value: (b) => b.destination_address },
       { header: 'Notas', value: (b) => b.notes },
+      { header: 'Paradas', value: (b) => summarizeStops(normalizeStops(b.stops)) },
       {
         header: 'Notas del chofer',
         value: (b) =>
@@ -2343,6 +2347,30 @@ export default function BookingsManagement({
                 </div>
               </div>
             )}
+
+            {(() => {
+              const paradas = normalizeStops(selectedBooking.stops)
+              if (paradas.length === 0) return null
+              return (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <label className="mb-2 block text-sm font-medium text-amber-900">
+                    Paradas en el camino
+                  </label>
+                  <ol className="space-y-1.5">
+                    {paradas.map((parada, i) => (
+                      <li key={i} className="border-l-2 border-amber-300 pl-3">
+                        <p className="text-sm font-medium text-amber-900">
+                          {i + 1}. {formatStopAddress(parada)}
+                        </p>
+                        {parada.note && (
+                          <p className="text-xs text-amber-700">{parada.note}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )
+            })()}
 
             {selectedBooking.notes && (
               <div>

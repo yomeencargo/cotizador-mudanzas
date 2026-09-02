@@ -131,9 +131,14 @@ export async function GET() {
     // esas columnas y, si la migración todavía no está aplicada, se reintenta sin ellas
     // (ver más abajo): así desplegar antes o después de correr el SQL da lo mismo, y el
     // panel nunca se queda sin la lista de reservas por una columna que falta.
-    const selectColumns = (withPublicIds: boolean) => `
+    // Columnas que agregan migraciones posteriores. Se piden todas y, si la base dice que
+    // alguna no existe, se reintenta sin ese grupo — así desplegar antes de correr un SQL
+    // no deja el panel sin la lista de reservas. Se prueban por separado para que faltar
+    // una migración no haga desaparecer también las columnas de la otra.
+    const selectColumns = (withPublicIds: boolean, withStops: boolean) => `
         id,
         ${withPublicIds ? 'code,\n        customer_id,' : ''}
+        ${withStops ? 'stops,' : ''}
         quote_id,
         client_name,
         client_email,
@@ -177,19 +182,23 @@ export async function GET() {
         cancelled_at
       `
 
-    const fetchBookings = (withPublicIds: boolean) =>
+    const fetchBookings = (withPublicIds: boolean, withStops: boolean) =>
       supabaseAdmin
         .from('bookings')
-        .select(selectColumns(withPublicIds))
+        .select(selectColumns(withPublicIds, withStops))
         .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
         .order('created_at', { ascending: false }) // Más recientes primero
 
-    let { data: bookings, error } = await fetchBookings(true)
+    let { data: bookings, error } = await fetchBookings(true, true)
 
-    // 42703 = undefined_column. Es la señal de que falta la migración de códigos.
+    // 42703 = undefined_column: falta alguna de las dos migraciones.
     if (error?.code === '42703') {
-      console.warn('[API] Sin códigos públicos todavía (¿falta add_public_ids.sql?). Reintentando sin ellos.')
-      ;({ data: bookings, error } = await fetchBookings(false))
+      console.warn('[API] Falta alguna columna opcional. Reintentando sin paradas.')
+      ;({ data: bookings, error } = await fetchBookings(true, false))
+    }
+    if (error?.code === '42703') {
+      console.warn('[API] Reintentando también sin códigos públicos (¿falta add_public_ids.sql?).')
+      ;({ data: bookings, error } = await fetchBookings(false, false))
     }
 
     if (error) {

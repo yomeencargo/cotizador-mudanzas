@@ -1,4 +1,5 @@
 import type { AdminQuoteData } from './adminQuotePdf'
+import { normalizeStops } from './stops'
 
 export type AdminPdfItem = {
   name: string
@@ -60,6 +61,8 @@ export interface AdminBookingQuoteSource {
   scheduled_time?: string | null
   /** Nota escrita en el panel sobre esta reserva. Sale en los dos PDF. */
   notes?: string | null
+  /** Paradas intermedias (JSONB). */
+  stops?: unknown
   /** Código legible de la reserva (RES-000001). Lo pone la base; ausente sin la migración. */
   code?: string | null
   /** Cliente al que pertenece (tabla customers). Ausente sin la migración. */
@@ -309,5 +312,6 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     additionalServices: normalizeAdditionalServices(booking.additional_services),
     notes: booking.notes,
     code: booking.code,
+    stops: normalizeStops(booking.stops),
   }
 }

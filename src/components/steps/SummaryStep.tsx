@@ -23,6 +23,7 @@ import { trackEvent, pushDataLayerMonto } from '@/lib/tracking'
 import { attributionForSubmit } from '@/lib/attribution'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { formatStopAddress } from '@/lib/stops'
 import {
   DEFAULT_EXTRA_SERVICES,
   hasFridge,
@@ -59,6 +60,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
     destination,
     items,
     additionalServices,
+    stops,
     totalVolume,
     totalWeight,
     totalDistance,
@@ -206,6 +208,9 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           company_rut: personalInfo?.companyRut,
           origin_address: originFull,
           destination_address: destinationFull,
+          // Paradas intermedias. Van tal cual para que el panel, el PDF y el link del
+          // chofer puedan reconstruir la ruta completa, no solo las dos puntas.
+          stops,
           origin_floor: origin.details?.floor ?? null,
           origin_has_elevator: origin.details?.hasElevator ?? null,
           origin_parking_distance: origin.details?.parkingDistance ?? null,
@@ -840,6 +845,25 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                   {origin.details?.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}
                 </p>
               </div>
+              {(stops || []).length > 0 && (
+                <div className="md:col-span-2">
+                  <span className="mb-1 block text-sm text-gray-500">
+                    🟡 Paradas en el camino:
+                  </span>
+                  <ol className="space-y-1">
+                    {stops.map((parada, i) => (
+                      <li key={i} className="text-sm">
+                        <span className="font-semibold">
+                          {i + 1}. {formatStopAddress(parada)}
+                        </span>
+                        {parada.note && (
+                          <span className="text-gray-600"> — {parada.note}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
               <div>
                 <span className="text-sm text-gray-500 block mb-1">🟢 Destino:</span>
                 <p className="font-semibold">

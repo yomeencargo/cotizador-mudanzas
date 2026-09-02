@@ -278,6 +278,74 @@ export async function calculateDistanceByAddresses(
   }
 }
 
+/** Un punto de la ruta. Misma forma que las direcciones del cotizador. */
+export interface RoutePoint {
+  street: string
+  number: string
+  commune: string
+  region: string
+}
+
+/**
+ * Distancia total de una ruta con paradas: origen → parada 1 → … → destino.
+ *
+ * Suma los tramos en vez de medir origen→destino en línea, que es lo que hacía antes.
+ * Con paradas eso subestimaba el viaje real, y como los km se cobran, subestimaba el
+ * precio.
+ *
+ * SI ALGÚN TRAMO NO SE PUEDE MEDIR se cae al viaje directo origen→destino (el
+ * comportamiento anterior) y, si eso tampoco se puede, a la distancia por defecto.
+ * Se prefiere quedarse corto antes que inflar: un fallo de geocodificación no puede
+ * terminar en un cobro de más al cliente.
+ */
+export async function calculateRouteDistance(points: RoutePoint[]): Promise<number> {
+  const validos = (points || []).filter(
+    (p) => p && p.street && p.commune
+  )
+  if (validos.length < 2) return MAPS_CONFIG.defaultDistance
+
+  const directo = () =>
+    calculateDistanceByAddresses(
+      validos[0].street,
+      validos[0].number,
+      validos[0].commune,
+      validos[0].region,
+      validos[validos.length - 1].street,
+      validos[validos.length - 1].number,
+      validos[validos.length - 1].commune,
+      validos[validos.length - 1].region
+    )
+
+  // Sin paradas es exactamente el cálculo de siempre.
+  if (validos.length === 2) return directo()
+
+  try {
+    const coords = await Promise.all(
+      validos.map((p) => geocodeAddress(p.street, p.number, p.commune, p.region))
+    )
+    if (coords.some((c) => !c)) {
+      console.warn('[maps] Alguna parada no se pudo geocodificar; se usa el viaje directo')
+      return directo()
+    }
+
+    let total = 0
+    for (let i = 0; i < coords.length - 1; i++) {
+      const a = coords[i]!
+      const b = coords[i + 1]!
+      const tramo = await calculateDistanceByCoordinates(a.lat, a.lng, b.lat, b.lng)
+      if (!tramo) {
+        console.warn(`[maps] No se pudo medir el tramo ${i + 1}; se usa el viaje directo`)
+        return directo()
+      }
+      total += tramo.kilometers
+    }
+    return total
+  } catch (error) {
+    console.error('[maps] Error calculando la ruta con paradas:', error)
+    return directo()
+  }
+}
+
 /**
  * Fórmula de Haversine (fallback si no hay API)
  * Calcula distancia entre dos coordenadas

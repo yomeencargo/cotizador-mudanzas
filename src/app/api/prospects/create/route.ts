@@ -7,6 +7,7 @@ import {
   resolveIncomingCustomerSource,
 } from '@/lib/prospectSource'
 import crypto from 'crypto'
+import { normalizeStops } from '@/lib/stops'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
       company_name,
       company_rut,
       origin_address,
+      stops,
       destination_address,
       origin_floor,
       origin_has_elevator,
@@ -90,6 +92,9 @@ export async function POST(request: NextRequest) {
       company_name: is_company ? company_name : null,
       company_rut: is_company ? company_rut : null,
       origin_address: origin_address || null,
+      // Paradas intermedias. `normalizeStops` descarta las incompletas: una parada sin
+      // dirección no se puede recorrer ni mostrar, y guardarla ensucia la ruta.
+      stops: normalizeStops(stops).length ? normalizeStops(stops) : null,
       destination_address: destination_address || null,
       origin_floor: origin_floor ?? null,
       origin_has_elevator: origin_has_elevator ?? null,

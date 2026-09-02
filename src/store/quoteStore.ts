@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getPricingConfig } from '@/lib/pricingService'
-import { calculateDistanceByAddresses } from '@/lib/mapsService'
+import { calculateRouteDistance } from '@/lib/mapsService'
 import { crewCost, requiredPeople, stairTrips, stairsCost } from '@/lib/crewPricing'
 import { hasFridge, overCapacitySurcharge } from '@/lib/extraServices'
 
@@ -24,6 +24,19 @@ export interface Address {
     lat: number
     lng: number
   }
+}
+
+/**
+ * Parada intermedia entre el origen y el destino. El camión pasa por ellas en orden.
+ * `note` es para que el chofer sepa qué hace ahí (cargar, dejar, retirar algo).
+ */
+export interface Stop {
+  street: string
+  number: string
+  commune: string
+  region: string
+  additionalInfo?: string
+  note?: string
 }
 
 export interface PropertyDetails {
@@ -91,6 +104,8 @@ export interface QuoteState {
     address: Address | null
     details: PropertyDetails | null
   }
+  /** Paradas intermedias, en el orden en que el camión pasa por ellas. */
+  stops: Stop[]
   items: Item[]
   additionalServices: AdditionalServices
   totalVolume: number
@@ -113,6 +128,7 @@ export interface QuoteState {
   setDestinationAddress: (address: Address) => void
   setOriginDetails: (details: PropertyDetails) => void
   setDestinationDetails: (details: PropertyDetails) => void
+  setStops: (stops: Stop[]) => void
   addItem: (item: Item) => void
   updateItem: (id: string, item: Partial<Item>) => void
   removeItem: (id: string) => void
@@ -134,6 +150,7 @@ const initialState = {
     address: null,
     details: null,
   },
+  stops: [],
   items: [],
   additionalServices: {
     disassembly: false,
@@ -175,6 +192,8 @@ export const useQuoteStore = create<QuoteState>()(
         set((state) => ({
           destination: { ...state.destination, address },
         })),
+
+      setStops: (stops) => set({ stops }),
 
       setOriginDetails: (details) =>
         set((state) => ({
@@ -234,16 +253,13 @@ export const useQuoteStore = create<QuoteState>()(
 
         if (state.origin.address && state.destination.address) {
           try {
-            distance = await calculateDistanceByAddresses(
-              state.origin.address.street,
-              state.origin.address.number,
-              state.origin.address.commune,
-              state.origin.address.region,
-              state.destination.address.street,
-              state.destination.address.number,
-              state.destination.address.commune,
-              state.destination.address.region
-            )
+            // La ruta pasa por las paradas en orden. Sin paradas, `calculateRouteDistance`
+            // hace exactamente el mismo cálculo directo que antes.
+            distance = await calculateRouteDistance([
+              state.origin.address,
+              ...(state.stops || []),
+              state.destination.address,
+            ])
           } catch (error) {
             console.error('Error calculating distance:', error)
             // Usar distancia por defecto si falla
