@@ -147,6 +147,14 @@ export const RATE_LIMIT_RULES: readonly { prefix: string; rule: RateLimitRule }[
     rule: { bucket: 'driver-pin', limit: 10, windowMs: 15 * MIN },
   },
 
+  // Notas del chofer: escribe en la base desde un link público. El límite es generoso
+  // porque un día con varios trabajos son varias notas, pero acota el daño si alguien
+  // con el link decide llenar la tabla.
+  {
+    prefix: '/api/trabajos/notes',
+    rule: { bucket: 'driver-notes', limit: 60, windowMs: 15 * MIN },
+  },
+
   // Cambio de contraseña: exige la contraseña actual, así que también es un objetivo
   // de fuerza bruta (con una sesión robada).
   {

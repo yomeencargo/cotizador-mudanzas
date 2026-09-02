@@ -3,6 +3,8 @@ import { getUpcomingDriverJobs, DRIVER_WINDOW_DAYS, type DriverJob } from '@/lib
 import { resolveDriverAccess } from '@/lib/driverAccess'
 import { driverSessionCookieName, verifyDriverSessionToken } from '@/lib/driverSession'
 import DriverPinGate from '@/components/trabajos/DriverPinGate'
+import DriverJobNotes from '@/components/trabajos/DriverJobNotes'
+import { getDriverNotesFor, type DriverNote } from '@/lib/driverNotes'
 import { formatParkingDistance } from '@/lib/utils'
 import { UNASSIGNED_COLOR, type VehicleColor } from '@/lib/vehicleColors'
 import type { VehicleView } from '@/lib/vehicleAssignment'
@@ -61,7 +63,17 @@ function AddressBlock({
   )
 }
 
-function JobCard({ job, color }: { job: DriverJob; color: VehicleColor }) {
+function JobCard({
+  job,
+  color,
+  token,
+  notes,
+}: {
+  job: DriverJob
+  color: VehicleColor
+  token: string
+  notes: DriverNote[]
+}) {
   const isDomicilio = job.booking_type === 'domicilio'
   return (
     <div
@@ -130,6 +142,10 @@ function JobCard({ job, color }: { job: DriverJob; color: VehicleColor }) {
           {job.notes}
         </div>
       )}
+
+      {/* Lo que el chofer escribe DESPUÉS del trabajo. Va aparte de la nota de arriba,
+          que es la que dejó el admin antes y el chofer no puede tocar. */}
+      <DriverJobNotes token={token} bookingId={job.id} initialNotes={notes} />
     </div>
   )
 }
@@ -221,6 +237,10 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
 
   const { jobs, vehicles } = await getUpcomingDriverJobs(access.vehicleId)
 
+  // Todas las notas de los trabajos visibles en una sola consulta, para no hacer una por
+  // tarjeta. Sin la migración aplicada devuelve vacío y la agenda funciona igual.
+  const notesByBooking = await getDriverNotesFor(jobs.map((j) => j.id))
+
   // Agrupar por fecha y, dentro de cada día, por camión. El orden de los camiones es el
   // de la flota (no el de aparición) para que la lista se lea igual todos los días.
   const groups = groupByDateAndVehicle(jobs, vehicles)
@@ -292,7 +312,13 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
                       </div>
                       <div className="mt-2 space-y-3">
                         {vg.items.map((job) => (
-                          <JobCard key={job.id} job={job} color={vg.color} />
+                          <JobCard
+                            key={job.id}
+                            job={job}
+                            color={vg.color}
+                            token={params.token}
+                            notes={notesByBooking.get(job.id) || []}
+                          />
                         ))}
                       </div>
                     </div>

@@ -93,6 +93,13 @@ interface Booking extends AdminBookingQuoteSource {
   code?: string
   /** Cliente al que pertenece, en la tabla customers. */
   customer_id?: string
+  /** Lo que escribieron los choferes desde su link, sobre el trabajo realizado. */
+  driver_notes?: Array<{
+    id: string
+    note: string
+    vehicle_label?: string | null
+    created_at: string
+  }>
   payment_type?: string
   payment_status?: string
   payment_method?: string
@@ -1030,6 +1037,13 @@ export default function BookingsManagement({
       { header: 'Dirección origen', value: (b) => b.origin_address },
       { header: 'Dirección destino', value: (b) => b.destination_address },
       { header: 'Notas', value: (b) => b.notes },
+      {
+        header: 'Notas del chofer',
+        value: (b) =>
+          (b.driver_notes || [])
+            .map((n: { note: string }) => n.note)
+            .join(' | '),
+      },
       { header: 'Fecha creación', value: (b) => fmtDateCL(b.created_at) },
       { header: 'Hora creación', value: (b) => fmtTimeCL(b.created_at) },
       { header: 'Fecha confirmación', value: (b) => fmtDateCL(b.confirmed_at) },
@@ -2334,6 +2348,33 @@ export default function BookingsManagement({
               <div>
                 <label className="block text-sm font-medium text-gray-700">Notas</label>
                 <p className="whitespace-pre-line text-sm text-gray-900">{selectedBooking.notes}</p>
+              </div>
+            )}
+
+            {/* Lo que escribió el chofer DESPUÉS del trabajo, desde su link. Es de solo
+                lectura acá: se agregan desde /trabajos, no se editan desde el panel. */}
+            {(selectedBooking.driver_notes?.length || 0) > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Notas del chofer
+                </label>
+                <ul className="space-y-2">
+                  {selectedBooking.driver_notes!.map((n) => (
+                    <li key={n.id} className="border-l-2 border-slate-300 pl-3">
+                      <p className="whitespace-pre-line text-sm text-slate-800">{n.note}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {new Date(n.created_at).toLocaleString('es-CL', {
+                          timeZone: 'America/Santiago',
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        {n.vehicle_label ? ` · ${n.vehicle_label}` : ''}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

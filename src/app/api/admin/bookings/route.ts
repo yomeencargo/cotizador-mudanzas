@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { mergeBookingQuoteDetails, type AdminBookingQuoteSource } from '@/lib/adminBookingQuoteData'
+import { getDriverNotesFor } from '@/lib/driverNotes'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { normalizeOrigin } from '@/lib/prospectSource'
@@ -218,9 +219,16 @@ export async function GET() {
       vehicles,
       await getAllVehicleAssignments()
     )
+    // Notas que escribieron los choferes desde su link. Una sola consulta para todas las
+    // reservas; si falta la migración devuelve vacío y el panel funciona igual.
+    const driverNotes = await getDriverNotesFor(
+      bookingRows.map((b) => b.id).filter((id): id is string => Boolean(id))
+    )
+
     const withVehicle = enrichedBookings.map((b: any) => ({
       ...b,
       vehicle_id: assignments.get(b.id) ?? null,
+      driver_notes: driverNotes.get(b.id) || [],
     }))
 
     console.log(`[API] Successfully fetched ${withVehicle.length} bookings`)
