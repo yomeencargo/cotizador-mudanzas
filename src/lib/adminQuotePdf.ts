@@ -56,6 +56,18 @@ export interface AdminQuoteData {
   code?: string | null
   /** Paradas intermedias, en orden. El chofer arma el recorrido con esto. */
   stops?: QuoteStop[] | null
+  /**
+   * Lo que escribieron los choferes sobre el trabajo realizado.
+   *
+   * Salen SOLO en la orden de trabajo, nunca en la cotización con precios: son notas
+   * operativas ("el cliente no estaba", "faltó un bulto") escritas para adentro, y la
+   * versión con precios es la que se le manda al cliente.
+   */
+  driverNotes?: Array<{
+    note: string
+    vehicle_label?: string | null
+    created_at?: string | null
+  }> | null
 }
 
 export interface AdminQuotePdfOptions {
@@ -81,6 +93,20 @@ function formatDateCL(dateStr?: string | null): string {
   }
   const d = new Date(dateStr)
   return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('es-CL')
+}
+
+/** Fecha y hora corta en horario de Chile, para encabezar cada nota del chofer. */
+function formatDateTimeCL(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString('es-CL', {
+    timeZone: 'America/Santiago',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 /** Texto de piso/ascensor para una dirección. null si no hay piso relevante (planta baja o sin dato). */
@@ -421,6 +447,44 @@ export async function generateAdminQuotePDF(
       })
     }
     y += 4
+  }
+
+  // ── Notas del chofer (SOLO en la orden de trabajo) ──
+  // La condición `!withPrices` es la que importa: estas notas se escriben para el equipo,
+  // y la versión con precios se le manda al cliente.
+  const notasChofer = (data.driverNotes || []).filter((n) => n && String(n.note || '').trim())
+  if (!withPrices && notasChofer.length > 0) {
+    ensureSpace(18)
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(12)
+    pdf.text('NOTAS DEL CHOFER:', 20, y)
+    y += 7
+    pdf.setFontSize(11)
+
+    for (const nota of notasChofer) {
+      // Encabezado de cada nota: cuándo y desde el link de qué camión se escribió.
+      const cuando = formatDateTimeCL(nota.created_at)
+      const quien = [cuando, nota.vehicle_label || ''].filter(Boolean).join(' · ')
+      if (quien) {
+        ensureSpace(5)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(9)
+        pdf.setTextColor(...GRAY)
+        pdf.text(quien, 20, y)
+        y += 5
+        pdf.setTextColor(...TEXT)
+        pdf.setFontSize(11)
+      }
+      pdf.setFont('helvetica', 'normal')
+      for (const parrafo of String(nota.note).split(/\r?\n/)) {
+        if (!parrafo.trim()) { ensureSpace(3); y += 3; continue }
+        pdf.splitTextToSize(parrafo, pageWidth - 44).forEach((line: string) => {
+          ensureSpace(6); pdf.text(line, 24, y); y += 6
+        })
+      }
+      y += 3
+    }
+    y += 2
   }
 
   // ── Precio final (solo versión con precios) ──

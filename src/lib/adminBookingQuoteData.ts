@@ -63,6 +63,12 @@ export interface AdminBookingQuoteSource {
   notes?: string | null
   /** Paradas intermedias (JSONB). */
   stops?: unknown
+  /** Notas del chofer, adjuntadas por /api/admin/bookings. Solo van a la orden de trabajo. */
+  driver_notes?: Array<{
+    note: string
+    vehicle_label?: string | null
+    created_at?: string | null
+  }> | null
   /** Código legible de la reserva (RES-000001). Lo pone la base; ausente sin la migración. */
   code?: string | null
   /** Cliente al que pertenece (tabla customers). Ausente sin la migración. */
@@ -313,5 +319,6 @@ export function bookingToAdminQuoteData(booking: AdminBookingQuoteSource): Admin
     notes: booking.notes,
     code: booking.code,
     stops: normalizeStops(booking.stops),
+    driverNotes: booking.driver_notes || [],
   }
 }
