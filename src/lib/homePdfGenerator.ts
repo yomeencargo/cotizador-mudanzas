@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import { formatCurrency } from './utils'
+import { applyPdfTextSanitizer } from './pdfText'
 
 interface HomePaymentInfo {
     token: string
@@ -18,6 +19,9 @@ export const generateHomePDF = async (
     try {
         // Crear nuevo documento PDF
         const pdf = new jsPDF('p', 'mm', 'a4')
+        // Deja el documento a salvo de emojis y guiones largos: la fuente del PDF no los
+        // dibuja y saldrían como basura. Se aplica una sola vez, sobre todo lo que se escriba.
+        applyPdfTextSanitizer(pdf as any)
         const pageWidth = pdf.internal.pageSize.getWidth()
 
         // Colores corporativos

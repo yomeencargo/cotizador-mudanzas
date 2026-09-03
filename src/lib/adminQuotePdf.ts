@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import { formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
 import { formatStopAddress, normalizeStops, type QuoteStop } from './stops'
+import { applyPdfTextSanitizer } from './pdfText'
 
 /**
  * Generador de PDF para el panel admin, alimentado por DATOS (no por el store).
@@ -103,6 +104,12 @@ export async function generateAdminQuotePDF(
   const shouldDownload = options.download !== false
 
   const pdf = new jsPDF('p', 'mm', 'a4')
+
+  // Deja el documento a salvo de emojis y guiones largos: la fuente del PDF no los
+
+  // dibuja y saldrían como basura. Se aplica una sola vez, sobre todo lo que se escriba.
+
+  applyPdfTextSanitizer(pdf as any)
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   let y = 20

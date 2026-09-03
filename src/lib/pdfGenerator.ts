@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import { useQuoteStore } from '@/store/quoteStore'
 import { formatDate, formatTime, formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
+import { applyPdfTextSanitizer } from './pdfText'
 
 type QuotePdfOptions = {
   /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
@@ -35,6 +36,9 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
 
   // Crear nuevo documento PDF
   const pdf = new jsPDF('p', 'mm', 'a4')
+  // Deja el documento a salvo de emojis y guiones largos: la fuente del PDF no los
+  // dibuja y saldrían como basura. Se aplica una sola vez, sobre todo lo que se escriba.
+  applyPdfTextSanitizer(pdf as any)
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
