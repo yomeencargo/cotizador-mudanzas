@@ -77,6 +77,8 @@ interface CapacityWarning {
   reason: 'blocked' | 'full'
   activeBookings: number
   capacity: number
+  /** Cuántas de las que ocupan el horario están sin confirmar. */
+  unconfirmed?: number
 }
 
 interface Booking extends AdminBookingQuoteSource {
@@ -211,6 +213,13 @@ export default function BookingsManagement({
   })
   const [creating, setCreating] = useState(false)
   const [capacityWarning, setCapacityWarning] = useState<CapacityWarning | null>(null)
+  /**
+   * Aviso de horario ocupado al REPROGRAMAR. Va aparte de `capacityWarning`, que vive en
+   * el modal de Nueva Reserva: son dos pantallas distintas y podrían estar abiertas en
+   * momentos distintos.
+   */
+  const [editCapacityWarning, setEditCapacityWarning] = useState<CapacityWarning | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
   const [blockOnly, setBlockOnly] = useState(false)
   const [newBooking, setNewBooking] = useState({ ...EMPTY_NEW_BOOKING })
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState('manual')
@@ -258,6 +267,9 @@ export default function BookingsManagement({
 
   const openEditBooking = (booking: Booking) => {
     setSelectedBooking(booking)
+    // El aviso es de la reserva anterior: si queda pegado, bloquea el botón de guardar
+    // de una reserva que no tiene ningún conflicto.
+    setEditCapacityWarning(null)
     setFinancialEdit({
       adjustedPrice: String(servicePrice(booking) || ''),
       amountPaid: String(actualPaidAmount(booking) || 0),
@@ -559,8 +571,9 @@ export default function BookingsManagement({
 
   // Guarda estado + notas juntos desde el modal Editar (antes las notas no se
   // persistían: el botón solo mandaba el estado y el texto se perdía).
-  const saveBookingEdits = async (booking: Booking) => {
+  const saveBookingEdits = async (booking: Booking, overrideCapacity = false) => {
     try {
+      setSavingEdit(true)
       const updateData: any = {
         status: booking.status,
         notes: booking.notes ?? '',
@@ -616,19 +629,38 @@ export default function BookingsManagement({
       const response = await fetch(`/api/admin/bookings/${booking.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify({ ...updateData, override_capacity: overrideCapacity }),
       })
       if (!response.ok) {
         const err = await response.json().catch(() => ({}))
+        // El horario está ocupado, pero se puede agendar igual: en vez de un error se
+        // muestra el aviso y, si el admin confirma, se reintenta con el sobrecupo.
+        if (response.status === 409 && err?.requiresOverride) {
+          setEditCapacityWarning({
+            message: err.warning || 'Ese horario ya está ocupado.',
+            reason: err.reason === 'blocked' ? 'blocked' : 'full',
+            activeBookings: Number(err.activeBookings) || 0,
+            capacity: Number(err.capacity) || 0,
+            unconfirmed: Number(err.unconfirmed) || 0,
+          })
+          return false
+        }
         throw new Error(err?.error || 'Error al guardar')
       }
-      toast.success('Reserva actualizada correctamente')
+      setEditCapacityWarning(null)
+      toast.success(
+        overrideCapacity
+          ? 'Reserva guardada — quedaron dos en el mismo horario'
+          : 'Reserva actualizada correctamente'
+      )
       fetchBookings()
       return true
     } catch (error) {
       console.error('Error saving booking edits:', error)
       toast.error(error instanceof Error ? error.message : 'Error al guardar los cambios')
       return false
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -2729,9 +2761,68 @@ export default function BookingsManagement({
               />
             </div>
 
+
+            {/* Horario ocupado: se puede agendar igual, con confirmación explícita.
+                NO sobrescribe la reserva que ya estaba — quedan las dos. */}
+            {editCapacityWarning && (
+              <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-amber-600" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-amber-900">
+                      {editCapacityWarning.reason === 'blocked'
+                        ? 'Atención: ese horario está bloqueado en la agenda'
+                        : 'Atención: ya existe una reserva en ese horario'}
+                    </p>
+                    <p className="mt-1 text-sm text-amber-900">{editCapacityWarning.message}</p>
+                    {editCapacityWarning.reason === 'full' &&
+                      (editCapacityWarning.unconfirmed || 0) > 0 && (
+                        <p className="mt-1 text-sm text-amber-800">
+                          Si esas reservas sin confirmar no se van a hacer, conviene
+                          cancelarlas en vez de dejar dos en el mismo horario.
+                        </p>
+                      )}
+                    <p className="mt-2 text-sm font-medium text-amber-900">
+                      {editCapacityWarning.reason === 'blocked'
+                        ? '¿Deseas agendar igual sobre el bloqueo?'
+                        : '¿Deseas agregar otra reserva al mismo horario?'}
+                    </p>
+                    <p className="mt-1 text-xs text-amber-700">
+                      {editCapacityWarning.reason === 'blocked'
+                        ? 'El bloqueo se mantiene; esta reserva queda agendada igual.'
+                        : 'La reserva que ya estaba no se toca: quedan las dos agendadas a la misma hora.'}{' '}
+                      Queda registrado en Actividad.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        disabled={savingEdit}
+                        onClick={async () => {
+                          const saved = await saveBookingEdits(selectedBooking, true)
+                          if (saved) setShowEditModal(false)
+                        }}
+                      >
+                        {savingEdit ? 'Guardando…' : 'Sí, agendar igual'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={savingEdit}
+                        onClick={() => setEditCapacityWarning(null)}
+                      >
+                        Elegir otro horario
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-4">
               <Button
-                onClick={() => setShowEditModal(false)}
+                onClick={() => {
+                  setEditCapacityWarning(null)
+                  setShowEditModal(false)
+                }}
                 variant="outline"
               >
                 Cancelar

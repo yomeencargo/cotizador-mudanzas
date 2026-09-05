@@ -26,8 +26,10 @@ async function logBookingUpdate(args: {
   before: Record<string, any> | null
   after: Record<string, any>
   updateData: Record<string, any>
+  /** true si el admin confirmó agendar sobre un horario que ya estaba ocupado. */
+  capacityOverride?: boolean
 }) {
-  const { request, id, before, after, updateData } = args
+  const { request, id, before, after, updateData, capacityOverride } = args
   const actor = getActorFromRequest(request)
   const label = bookingLabel(after || before || {})
   const base = { actor, entityType: 'booking', entityId: id, entityLabel: label, request }
@@ -49,11 +51,15 @@ async function logBookingUpdate(args: {
     await logAdminAction({
       ...base,
       action: 'booking.rescheduled',
-      summary: `Reprogramó de ${before?.scheduled_date ?? '—'} ${String(
-        before?.scheduled_time ?? ''
-      ).slice(0, 5)} a ${after?.scheduled_date ?? '—'} ${String(
-        after?.scheduled_time ?? ''
-      ).slice(0, 5)}`,
+      summary:
+        `Reprogramó de ${before?.scheduled_date ?? '—'} ${String(
+          before?.scheduled_time ?? ''
+        ).slice(0, 5)} a ${after?.scheduled_date ?? '—'} ${String(
+          after?.scheduled_time ?? ''
+        ).slice(0, 5)}` +
+        // Queda escrito quién decidió poner dos reservas en el mismo horario: es una
+        // excepción operativa, y si después el día se complica hay que poder rastrearla.
+        (capacityOverride ? ' — con sobrecupo confirmado (el horario ya estaba ocupado)' : ''),
       changes,
     })
   }
@@ -173,7 +179,12 @@ export async function PATCH(
       adjusted_price,
       amount_paid,
       adjustment_comment,
+      // El admin ya vio el aviso de que el horario está ocupado y decidió agendar igual.
+      // Sin esto, mover una reserva a un horario tomado era un muro sin salida: el
+      // sobrecupo existía al CREAR pero no al REPROGRAMAR.
+      override_capacity = false,
     } = body
+    const capacityOverrideApproved = override_capacity === true
 
     const reschedules = Boolean(scheduled_date || scheduled_time)
     const financialRequested =
@@ -348,13 +359,19 @@ export async function PATCH(
         const capacity = getActiveCapacity(fleet)
 
         // Excluimos la propia reserva del conteo: se está moviendo, no duplicando.
-        const { count: taken } = await supabaseAdmin
+        // Se traen los estados y no solo el total para poder decir en el aviso CUÁNTAS de
+        // las que ocupan están sin confirmar — que es el caso que motivó esto: un horario
+        // bloqueado por una reserva que todavía nadie confirmó.
+        const { data: ocupantes } = await supabaseAdmin
           .from('bookings')
-          .select('id', { count: 'exact', head: true })
+          .select('id, status')
           .eq('scheduled_date', newDate)
           .eq('scheduled_time', newTime)
           .in('status', ['confirmed', 'pending'])
           .neq('id', id)
+
+        const taken = ocupantes?.length || 0
+        const sinConfirmar = (ocupantes || []).filter((b) => b.status === 'pending').length
 
         const { data: blocked } = await supabaseAdmin
           .from('blocked_slots')
@@ -363,17 +380,30 @@ export async function PATCH(
           .lte('start_time', newTime)
           .gt('end_time', newTime)
 
-        if (blocked && blocked.length > 0) {
-          return NextResponse.json(
-            { error: 'Ese horario está bloqueado en la agenda' },
-            { status: 409 }
-          )
-        }
+        const isBlocked = Boolean(blocked && blocked.length > 0)
+        const sinCupo = taken >= capacity
 
-        if ((taken || 0) >= capacity) {
+        if ((isBlocked || sinCupo) && !capacityOverrideApproved) {
+          // 409 CONFIRMABLE, no un rechazo definitivo: el panel muestra el aviso y, si el
+          // admin acepta, reintenta con override_capacity. La reserva que ya estaba NO se
+          // toca — quedan las dos en el mismo horario.
+          const detalleSinConfirmar =
+            sinConfirmar > 0
+              ? ` ${sinConfirmar} de ella${sinConfirmar === 1 ? '' : 's'} sin confirmar.`
+              : ''
+          const warning = isBlocked
+            ? 'El horario está bloqueado en la agenda.'
+            : `Ya hay ${taken} reserva${taken === 1 ? '' : 's'} a esa hora para una capacidad de ${capacity}.${detalleSinConfirmar}`
+
           return NextResponse.json(
             {
-              error: `Sin cupo a esa hora: ${taken}/${capacity} camiones ya ocupados`,
+              error: 'Ese horario ya está ocupado',
+              requiresOverride: true,
+              reason: isBlocked ? 'blocked' : 'full',
+              warning,
+              activeBookings: taken,
+              unconfirmed: sinConfirmar,
+              capacity,
             },
             { status: 409 }
           )
@@ -492,7 +522,14 @@ export async function PATCH(
       )
     }
 
-    await logBookingUpdate({ request, id, before, after: booking, updateData })
+    await logBookingUpdate({
+      request,
+      id,
+      before,
+      after: booking,
+      updateData,
+      capacityOverride: capacityOverrideApproved,
+    })
 
     return NextResponse.json({
       success: true,
