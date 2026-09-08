@@ -3,7 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { flowService } from '@/lib/flowService'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { isPaymentLedgerAvailable } from '@/lib/bookingPayments'
-import { pendingAmount, servicePrice, actualPaidAmount } from '@/lib/revenueBreakdown'
+import {
+  pendingAmount,
+  servicePrice,
+  actualPaidAmount,
+  MIN_ABONO_CLP,
+} from '@/lib/revenueBreakdown'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +40,12 @@ interface BookingForBalance {
  *
  * La orden se marca con `paymentType: 'saldo'` para que `paymentSync` la SUME a lo ya
  * cobrado en vez de ignorarla (una reserva ya aprobada no vuelve a escribir amount_paid).
+ *
+ * ABONO PARCIAL: el body acepta `amount` para cobrar MENOS que el saldo — el piso para
+ * empezar a trabajar es MIN_ABONO_CLP, no el 50%. Se sigue mandando como 'saldo' a
+ * propósito: es lo que hace que el monto se SUME a `amount_paid` sin pisar `payment_type`,
+ * y así `pendingAmount()` sigue mostrando la diferencia que falta cobrar. Sin `amount`, el
+ * comportamiento es el de siempre: el saldo completo.
  */
 export async function POST(
   request: NextRequest,
@@ -78,6 +89,39 @@ export async function POST(
       return NextResponse.json({ error: razon }, { status: 400 })
     }
 
+    // Monto a cobrar: lo que pida el panel, o el saldo entero si no pide nada.
+    const body = await request.json().catch(() => ({} as Record<string, unknown>))
+    const pedido = body?.amount
+    let monto = saldo
+    let esParcial = false
+
+    if (pedido !== undefined && pedido !== null && pedido !== '') {
+      const n = Math.round(Number(pedido))
+      if (!Number.isFinite(n) || n <= 0) {
+        return NextResponse.json({ error: 'El monto a cobrar no es válido' }, { status: 400 })
+      }
+      if (n > saldo) {
+        return NextResponse.json(
+          {
+            error: `No se puede cobrar más que el saldo pendiente ($${saldo.toLocaleString('es-CL')})`,
+          },
+          { status: 400 }
+        )
+      }
+      // El piso solo aplica a un cobro PARCIAL. Si el saldo que queda es menor al mínimo,
+      // cobrarlo entero tiene que seguir siendo posible: es el último cobro, no un abono.
+      if (n < saldo && n < MIN_ABONO_CLP) {
+        return NextResponse.json(
+          {
+            error: `El abono mínimo es $${MIN_ABONO_CLP.toLocaleString('es-CL')}. Para cobrar menos, cobrá el saldo completo.`,
+          },
+          { status: 400 }
+        )
+      }
+      monto = n
+      esParcial = n < saldo
+    }
+
     if (!flowService.isConfigured()) {
       return NextResponse.json(
         { error: 'Flow no está configurado. Revisá las variables de entorno.' },
@@ -104,9 +148,9 @@ export async function POST(
       // commerceOrder único por intento: Flow rechaza dos órdenes con el mismo id, y de
       // una reserva pueden salir varios intentos de cobro del saldo.
       commerceOrder: `${booking.quote_id}-saldo-${Date.now()}`,
-      subject: `Saldo mudanza ${booking.quote_id} - Yo Me Encargo`,
+      subject: `${esParcial ? 'Abono' : 'Saldo'} mudanza ${booking.quote_id} - Yo Me Encargo`,
       currency: 'CLP',
-      amount: saldo,
+      amount: monto,
       email: booking.client_email,
       urlConfirmation: `${appUrl}/api/payment/confirm`,
       urlReturn: `${appUrl}/api/payment/result`,
@@ -121,7 +165,9 @@ export async function POST(
       entityType: 'booking',
       entityId: booking.id,
       entityLabel: [booking.client_name, booking.quote_id].filter(Boolean).join(' · '),
-      summary: `Generó link de pago por el saldo: $${saldo.toLocaleString('es-CL')}`,
+      summary: esParcial
+        ? `Generó link de abono parcial por $${monto.toLocaleString('es-CL')} (saldo: $${saldo.toLocaleString('es-CL')})`
+        : `Generó link de pago por el saldo: $${saldo.toLocaleString('es-CL')}`,
       changes: {
         saldo: {
           from: null,
@@ -129,6 +175,8 @@ export async function POST(
             precio: servicePrice(booking),
             pagado: actualPaidAmount(booking),
             saldo,
+            cobrado: monto,
+            parcial: esParcial,
           },
         },
       },
@@ -139,7 +187,9 @@ export async function POST(
       success: true,
       url: flowResponse.url,
       token: flowResponse.token,
-      amount: saldo,
+      amount: monto,
+      saldo,
+      partial: esParcial,
       clientName: booking.client_name,
       clientPhone: booking.client_phone,
     })

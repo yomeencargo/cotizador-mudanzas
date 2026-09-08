@@ -44,6 +44,7 @@ import {
   actualPaidAmount,
   pendingAmount,
   servicePrice,
+  MIN_ABONO_CLP,
 } from '@/lib/revenueBreakdown'
 import {
   SOURCE_OPTIONS,
@@ -240,6 +241,14 @@ export default function BookingsManagement({
     kind: 'nueva' | 'saldo'
   } | null>(null)
   const [generandoSaldo, setGenerandoSaldo] = useState<string | null>(null)
+  /** Monto a cobrar del saldo. Vacío = el saldo entero. */
+  const [montoCobro, setMontoCobro] = useState('')
+
+  // El monto es de la reserva que se está mirando: si queda pegado al abrir otra, se
+  // generaría un link por una cifra que no tiene nada que ver con ese saldo.
+  useEffect(() => {
+    setMontoCobro('')
+  }, [selectedBooking?.id])
 
   /**
    * Pide al backend un link de Flow por lo que falta cobrar.
@@ -247,11 +256,14 @@ export default function BookingsManagement({
    * El monto lo calcula el servidor con `pendingAmount()`, no el navegador: es la misma
    * función del dashboard y sabe que quien pagó "completo" no debe el 5% de descuento.
    */
-  const generarLinkDeSaldo = async (booking: Booking) => {
+  const generarLinkDeSaldo = async (booking: Booking, monto?: number) => {
     setGenerandoSaldo(booking.id)
     try {
       const res = await fetch(`/api/admin/bookings/${booking.id}/payment-link`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Sin monto se cobra el saldo entero; el servidor valida el piso del abono.
+        body: JSON.stringify(monto ? { amount: monto } : {}),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.url) {
@@ -264,6 +276,7 @@ export default function BookingsManagement({
         amount: data.amount,
         kind: 'saldo',
       })
+      setMontoCobro('')
     } catch (error) {
       console.error('Error generando el link de saldo:', error)
       toast.error(error instanceof Error ? error.message : 'No se pudo generar el link')
@@ -2475,16 +2488,63 @@ export default function BookingsManagement({
                         {pagado.toLocaleString('es-CL')}
                       </p>
                     </div>
-                    <Button
-                      onClick={() => void generarLinkDeSaldo(selectedBooking)}
-                      disabled={generandoSaldo === selectedBooking.id}
-                      size="sm"
-                    >
-                      <Link2 className="mr-2 h-4 w-4" />
-                      {generandoSaldo === selectedBooking.id
-                        ? 'Generando…'
-                        : 'Generar link por el saldo'}
-                    </Button>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-amber-900">
+                            $
+                          </span>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            step={1000}
+                            value={montoCobro}
+                            onChange={(e) => setMontoCobro(e.target.value)}
+                            placeholder={String(saldo)}
+                            className="w-36 rounded-lg border border-amber-300 bg-white py-1.5 pl-5 pr-2 text-sm text-gray-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                          />
+                        </div>
+                        <Button
+                          onClick={() => {
+                            const n = Math.round(Number(montoCobro))
+                            const parcial = montoCobro.trim() !== '' && n !== saldo
+                            if (montoCobro.trim() !== '') {
+                              if (!Number.isFinite(n) || n <= 0) {
+                                toast.error('El monto a cobrar no es válido')
+                                return
+                              }
+                              if (n > saldo) {
+                                toast.error(
+                                  `No se puede cobrar más que el saldo ($${saldo.toLocaleString('es-CL')})`
+                                )
+                                return
+                              }
+                              if (parcial && n < MIN_ABONO_CLP) {
+                                toast.error(
+                                  `El abono mínimo es $${MIN_ABONO_CLP.toLocaleString('es-CL')}`
+                                )
+                                return
+                              }
+                            }
+                            void generarLinkDeSaldo(
+                              selectedBooking,
+                              montoCobro.trim() === '' ? undefined : n
+                            )
+                          }}
+                          disabled={generandoSaldo === selectedBooking.id}
+                          size="sm"
+                        >
+                          <Link2 className="mr-2 h-4 w-4" />
+                          {generandoSaldo === selectedBooking.id ? 'Generando…' : 'Generar link'}
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-amber-700">
+                        Vacío cobra el saldo entero. Abono mínimo $
+                        {MIN_ABONO_CLP.toLocaleString('es-CL')} — la reserva queda confirmada y
+                        el resto sigue como saldo.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )

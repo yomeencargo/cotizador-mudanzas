@@ -54,6 +54,19 @@ export const HALF_RATIO = 0.5
 export const FULL_RATIO = 0.95
 
 /**
+ * Piso del abono con el que una reserva se toma como confirmada y se sale a trabajar.
+ *
+ * El 50% dejó de ser obligatorio para empezar (decisión de Tomás, 2026-09-08): alcanza
+ * con este monto. Solo aplica a los cobros que arma un admin desde el panel; el
+ * cotizador público sigue ofreciendo 50% o pago completo.
+ *
+ * Lo que NO cambia: el saldo se sigue debiendo. `pendingAmount()` lo calcula contra
+ * `amount_paid` real, así que un abono parcial deja la reserva confirmada y con la
+ * diferencia a cobrar.
+ */
+export const MIN_ABONO_CLP = 30000
+
+/**
  * Precio vigente del servicio. Un reajuste en terreno manda sobre el valor cotizado;
  * `total_price` queda como respaldo para registros históricos incompletos.
  */
