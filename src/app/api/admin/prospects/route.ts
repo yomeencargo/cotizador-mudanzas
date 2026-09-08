@@ -11,6 +11,7 @@ import {
   normalizeCustomerEmail,
   normalizeOrigin,
 } from '@/lib/prospectSource'
+import { applyItemPackagingPrices, describePriceChanges } from '@/lib/quoteItemPricing'
 
 /** Etiqueta legible del lead, duplicada en el log para poder leerlo si se borra. */
 function prospectLabel(p: { name?: string | null; email?: string | null }) {
@@ -79,6 +80,7 @@ export async function PATCH(request: NextRequest) {
       scheduled_date,
       scheduled_time,
       is_frequent,
+      items_summary,
     } = body
 
     if (!id) {
@@ -101,12 +103,30 @@ export async function PATCH(request: NextRequest) {
     if (scheduled_time !== undefined) updateData.scheduled_time = scheduled_time || null
     if (is_frequent !== undefined) updateData.is_frequent = Boolean(is_frequent)
 
-    // Estado previo para el log (antes → después).
+    // Estado previo para el log (antes → después). `items_summary` además es la
+    // base sobre la que se aplican los precios: nunca se escribe lo que mande el
+    // cliente tal cual.
     const { data: before } = await supabaseAdmin
       .from('quote_prospects')
-      .select('name, email, status, source, adjusted_price, is_frequent')
+      .select('name, email, status, source, adjusted_price, is_frequent, items_summary')
       .eq('id', id)
       .maybeSingle()
+
+    let itemPriceChanges: string[] = []
+    if (items_summary !== undefined) {
+      if (!before) {
+        return NextResponse.json({ error: 'Prospecto no encontrado' }, { status: 404 })
+      }
+      const applied = applyItemPackagingPrices(before.items_summary, items_summary)
+      if (applied.error) {
+        return NextResponse.json({ error: applied.error }, { status: 400 })
+      }
+      itemPriceChanges = describePriceChanges(
+        Array.isArray(before.items_summary) ? before.items_summary : [],
+        applied.items || []
+      )
+      updateData.items_summary = applied.items
+    }
 
     const { data, error } = await supabaseAdmin
       .from('quote_prospects')
@@ -147,6 +167,23 @@ export async function PATCH(request: NextRequest) {
           ? 'Marcó al cliente como frecuente'
           : 'Quitó al cliente de frecuentes',
         changes: { is_frequent: { from: before?.is_frequent, to: data?.is_frequent } },
+      })
+    }
+
+    if (itemPriceChanges.length) {
+      await logAdminAction({
+        ...logBase,
+        action: 'prospect.items_repriced',
+        // El detalle completo queda en `changes`; el resumen se corta para que la
+        // fila del log siga siendo legible cuando se retocan muchos ítems de golpe.
+        summary: `Corrigió el precio de embalaje de ${itemPriceChanges.length} ítem${
+          itemPriceChanges.length !== 1 ? 's' : ''
+        } de la cotización (${itemPriceChanges.slice(0, 4).join('; ')}${
+          itemPriceChanges.length > 4 ? ` y ${itemPriceChanges.length - 4} más` : ''
+        })`,
+        changes: {
+          items_summary: { from: before?.items_summary, to: updateData.items_summary },
+        },
       })
     }
 
