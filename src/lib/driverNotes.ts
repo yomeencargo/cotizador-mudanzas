@@ -6,17 +6,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 // Son distintas de `bookings.notes`, que es la nota del ADMIN escrita ANTES del trabajo y
 // que sale en los PDF. El chofer no puede tocar esa.
 
-/** Tope de largo. Es una nota operativa, no un informe. */
-export const DRIVER_NOTE_MAX_LENGTH = 2000
-
-export interface DriverNote {
-  id: string
-  booking_id: string
-  note: string
-  vehicle_id: number | null
-  vehicle_label: string | null
-  created_at: string
-}
+// Los tipos y la constante viven en driverNotesTypes.ts (sin imports de servidor) para
+// que un componente cliente pueda usarlos sin arrastrar supabaseAdmin. Se re-exportan
+// acá para no romper a quien ya importaba desde este módulo.
+export { DRIVER_NOTE_MAX_LENGTH, type DriverNote } from '@/lib/driverNotesTypes'
+import { DRIVER_NOTE_MAX_LENGTH, type DriverNote } from '@/lib/driverNotesTypes'
 
 /** 42P01 = undefined_table: falta correr add_driver_job_notes.sql. */
 function isMissingTable(error: { code?: string } | null): boolean {

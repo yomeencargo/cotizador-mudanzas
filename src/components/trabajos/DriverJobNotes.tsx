@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { DRIVER_NOTE_MAX_LENGTH, type DriverNote } from '@/lib/driverNotes'
+import { DRIVER_NOTE_MAX_LENGTH, type DriverNote } from '@/lib/driverNotesTypes'
 
 interface DriverJobNotesProps {
   token: string
