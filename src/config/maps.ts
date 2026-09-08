@@ -45,3 +45,43 @@ export const isGeoapifyConfigured = (): boolean => {
   return MAPS_CONFIG.apiKey !== '' && MAPS_CONFIG.apiKey !== undefined
 }
 
+/**
+ * Slug de región (lo que guarda el <select> del cotizador y lo que queda escrito en
+ * `origin_address` / `destination_address`) -> nombre real de la región.
+ *
+ * POR QUÉ EXISTE ESTO: los slugs no son topónimos. Mandarle "metropolitana" a Geoapify
+ * como nombre de región no le dice nada, así que la API descartaba la región y hacía
+ * match solo por el nombre de la comuna — y varias comunas de Santiago se repiten en
+ * otras regiones de Chile. "Huechuraba, metropolitana" caía en Huechuraba de
+ * Panguipulli (Los Ríos), a 870 km, y el cotizador devolvía esa distancia como si nada:
+ * a $900/km con 45 km libres eso son $743.490 de sobreprecio en una mudanza de 6,5 km.
+ * Detectado el 2026-08-25 con la cotización de Nini (871,1 km Huechuraba -> Vitacura).
+ */
+export const REGION_NAMES: Record<string, string> = {
+  arica: 'Región de Arica y Parinacota',
+  tarapaca: 'Región de Tarapacá',
+  antofagasta: 'Región de Antofagasta',
+  atacama: 'Región de Atacama',
+  coquimbo: 'Región de Coquimbo',
+  valparaiso: 'Región de Valparaíso',
+  metropolitana: 'Región Metropolitana',
+  ohiggins: "Región del Libertador General Bernardo O'Higgins",
+  maule: 'Región del Maule',
+  nuble: 'Región de Ñuble',
+  biobio: 'Región del Biobío',
+  araucania: 'Región de La Araucanía',
+  losrios: 'Región de Los Ríos',
+  loslagos: 'Región de Los Lagos',
+  aysen: 'Región de Aysén',
+  magallanes: 'Región de Magallanes y de la Antártica Chilena',
+}
+
+/**
+ * Nombre de región apto para geocodificar. Si no es un slug conocido se devuelve tal
+ * cual: las direcciones cargadas a mano desde el panel ya vienen con el nombre escrito.
+ */
+export const regionName = (slug: string | null | undefined): string => {
+  const raw = (slug || '').trim()
+  return REGION_NAMES[raw.toLowerCase()] || raw
+}
+
