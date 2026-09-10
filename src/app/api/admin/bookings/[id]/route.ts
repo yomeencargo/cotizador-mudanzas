@@ -34,6 +34,31 @@ async function logBookingUpdate(args: {
   const label = bookingLabel(after || before || {})
   const base = { actor, entityType: 'booking', entityId: id, entityLabel: label, request }
 
+  // Direcciones
+  const CAMPOS_DIRECCION: Array<[string, string]> = [
+    ['origin_address', 'Origen'],
+    ['destination_address', 'Destino'],
+    ['visit_address', 'Dirección de la visita'],
+  ]
+  const dirCambios: Record<string, FieldChange> = {}
+  const dirResumen: string[] = []
+  for (const [campo, etiqueta] of CAMPOS_DIRECCION) {
+    if (campo in updateData && before?.[campo] !== after?.[campo]) {
+      dirCambios[campo] = { from: before?.[campo], to: after?.[campo] }
+      dirResumen.push(`${etiqueta}: "${before?.[campo] || '—'}" → "${after?.[campo] || '—'}"`)
+    }
+  }
+  if (dirResumen.length > 0) {
+    // Va como evento aparte de la reprogramación: cambiar la dirección de una mudanza es
+    // una corrección operativa distinta de moverla de día, y conviene poder filtrarlas.
+    await logAdminAction({
+      ...base,
+      action: 'booking.address_changed',
+      summary: `Cambió ${dirResumen.length === 1 ? 'la dirección' : 'las direcciones'} — ${dirResumen.join(' · ')}`,
+      changes: dirCambios,
+    })
+  }
+
   // Reprogramación
   const dateChanged =
     'scheduled_date' in updateData && before?.scheduled_date !== after?.scheduled_date
@@ -179,6 +204,12 @@ export async function PATCH(
       adjusted_price,
       amount_paid,
       adjustment_comment,
+      // Direcciones. `visit_address` es la de las cotizaciones a domicilio, que no tienen
+      // origen ni destino: son 7 de las 186 reservas, y sin este campo editarlas mostraba
+      // dos casillas vacías que no correspondían.
+      origin_address,
+      destination_address,
+      visit_address,
       // El admin ya vio el aviso de que el horario está ocupado y decidió agendar igual.
       // Sin esto, mover una reserva a un horario tomado era un muro sin salida: el
       // sobrecupo existía al CREAR pero no al REPROGRAMAR.
@@ -187,6 +218,10 @@ export async function PATCH(
     const capacityOverrideApproved = override_capacity === true
 
     const reschedules = Boolean(scheduled_date || scheduled_time)
+    const addressRequested =
+      origin_address !== undefined ||
+      destination_address !== undefined ||
+      visit_address !== undefined
     const financialRequested =
       adjusted_price !== undefined ||
       amount_paid !== undefined ||
@@ -200,7 +235,8 @@ export async function PATCH(
       notes === undefined &&
       vehicle_id === undefined &&
       !financialRequested &&
-      !reschedules
+      !reschedules &&
+      !addressRequested
     ) {
       return NextResponse.json(
         { error: 'No hay cambios que aplicar' },
@@ -413,6 +449,19 @@ export async function PATCH(
       if (scheduled_date) updateData.scheduled_date = scheduled_date
       if (scheduled_time) updateData.scheduled_time = scheduled_time
     }
+
+    // Direcciones: `undefined` = no vino en el body y no se toca; string vacío = el admin
+    // lo borró a propósito y se guarda null. Sin esa distinción, guardar la reserva desde
+    // cualquier otra pantalla borraría las direcciones.
+    const direccion = (v: unknown) => {
+      const t = String(v ?? '').trim()
+      return t === '' ? null : t
+    }
+    if (origin_address !== undefined) updateData.origin_address = direccion(origin_address)
+    if (destination_address !== undefined) {
+      updateData.destination_address = direccion(destination_address)
+    }
+    if (visit_address !== undefined) updateData.visit_address = direccion(visit_address)
 
     // Al cerrar el saldo de una reserva que partió con abono, registrar el total real
     // como pagado. El precio cotizado/reajustado no se pisa. Solo aplica si el abono ya
