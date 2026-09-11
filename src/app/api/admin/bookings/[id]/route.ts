@@ -35,17 +35,25 @@ async function logBookingUpdate(args: {
   const base = { actor, entityType: 'booking', entityId: id, entityLabel: label, request }
 
   // Direcciones
-  const CAMPOS_DIRECCION: Array<[string, string]> = [
+  const etiquetaAscensor = (v: unknown) =>
+    v === true ? 'con ascensor' : v === false ? 'SIN ascensor' : 'sin dato'
+  const CAMPOS_DIRECCION: Array<[string, string, ((v: unknown) => string)?]> = [
     ['origin_address', 'Origen'],
     ['destination_address', 'Destino'],
     ['visit_address', 'Dirección de la visita'],
+    ['origin_floor', 'Piso de origen'],
+    ['origin_has_elevator', 'Ascensor en origen', etiquetaAscensor],
+    ['destination_floor', 'Piso de destino'],
+    ['destination_has_elevator', 'Ascensor en destino', etiquetaAscensor],
   ]
   const dirCambios: Record<string, FieldChange> = {}
   const dirResumen: string[] = []
-  for (const [campo, etiqueta] of CAMPOS_DIRECCION) {
+  for (const [campo, etiqueta, formato] of CAMPOS_DIRECCION) {
     if (campo in updateData && before?.[campo] !== after?.[campo]) {
       dirCambios[campo] = { from: before?.[campo], to: after?.[campo] }
-      dirResumen.push(`${etiqueta}: "${before?.[campo] || '—'}" → "${after?.[campo] || '—'}"`)
+      const antes = formato ? formato(before?.[campo]) : before?.[campo] || '—'
+      const ahora = formato ? formato(after?.[campo]) : after?.[campo] || '—'
+      dirResumen.push(`${etiqueta}: "${antes}" → "${ahora}"`)
     }
   }
   if (dirResumen.length > 0) {
@@ -210,6 +218,13 @@ export async function PATCH(
       origin_address,
       destination_address,
       visit_address,
+      // Piso y ascensor. El PDF ya los dibuja (en rojo cuando NO hay ascensor, que es
+      // lo que le cambia el día al equipo), pero no había dónde cargarlos: de las 53
+      // reservas creadas a mano, 0 tenían el dato.
+      origin_floor,
+      origin_has_elevator,
+      destination_floor,
+      destination_has_elevator,
       // El admin ya vio el aviso de que el horario está ocupado y decidió agendar igual.
       // Sin esto, mover una reserva a un horario tomado era un muro sin salida: el
       // sobrecupo existía al CREAR pero no al REPROGRAMAR.
@@ -221,7 +236,11 @@ export async function PATCH(
     const addressRequested =
       origin_address !== undefined ||
       destination_address !== undefined ||
-      visit_address !== undefined
+      visit_address !== undefined ||
+      origin_floor !== undefined ||
+      origin_has_elevator !== undefined ||
+      destination_floor !== undefined ||
+      destination_has_elevator !== undefined
     const financialRequested =
       adjusted_price !== undefined ||
       amount_paid !== undefined ||
@@ -272,15 +291,17 @@ export async function PATCH(
       if (financialError || !currentFinancial) {
         return NextResponse.json({ error: 'No se encontró la reserva' }, { status: 404 })
       }
-      if (
-        currentFinancial.payment_status !== 'approved' ||
-        currentFinancial.payment_type !== 'mitad'
-      ) {
-        return NextResponse.json(
-          { error: 'El reajuste está disponible después de confirmar el abono del 50%' },
-          { status: 409 }
-        )
-      }
+      // NO se exige que la reserva tenga el abono del 50% aprobado.
+      //
+      // Esa condición existía y era el espejo de la que tenía el panel: juntas hacían
+      // que una reserva creada a mano —que nace pendiente y sin tipo de pago— nunca
+      // pudiera registrar cuánto se cobró. Al soltar solo la del panel, quedó peor:
+      // el formulario se veía editable y la API rechazaba al guardar.
+      //
+      // Lo que SÍ se sigue exigiendo es lo que protege de verdad: perfil Administrador
+      // (arriba), un motivo escrito para dejar trazabilidad, monto final mayor que cero
+      // y monto pagado no negativo. El cambio queda registrado en Actividad con el
+      // usuario y los valores anterior y nuevo.
 
       const requestedAdjusted =
         adjusted_price === null
@@ -462,6 +483,35 @@ export async function PATCH(
       updateData.destination_address = direccion(destination_address)
     }
     if (visit_address !== undefined) updateData.visit_address = direccion(visit_address)
+
+    /** Piso: vacío = sin dato (null). 0 es válido y significa planta baja. */
+    const piso = (v: unknown) => {
+      const t = String(v ?? '').trim()
+      if (t === '') return null
+      const n = Math.trunc(Number(t))
+      return Number.isFinite(n) && n >= 0 ? n : null
+    }
+    /**
+     * Ascensor: TRES estados, no dos. null = no se preguntó; true = hay; false = no hay.
+     * Importa porque el PDF los dibuja distinto: sin dato no escribe nada, y "SIN
+     * ascensor" va en rojo. Mandar false por "no sé" haría que la orden de trabajo
+     * afirmara que hay que subir por escaleras sin que nadie lo haya comprobado.
+     */
+    const ascensor = (v: unknown) => {
+      if (v === null || v === undefined || v === '') return null
+      if (v === true || v === 'true' || v === 'si') return true
+      if (v === false || v === 'false' || v === 'no') return false
+      return null
+    }
+
+    if (origin_floor !== undefined) updateData.origin_floor = piso(origin_floor)
+    if (origin_has_elevator !== undefined) {
+      updateData.origin_has_elevator = ascensor(origin_has_elevator)
+    }
+    if (destination_floor !== undefined) updateData.destination_floor = piso(destination_floor)
+    if (destination_has_elevator !== undefined) {
+      updateData.destination_has_elevator = ascensor(destination_has_elevator)
+    }
 
     // Al cerrar el saldo de una reserva que partió con abono, registrar el total real
     // como pagado. El precio cotizado/reajustado no se pisa. Solo aplica si el abono ya
