@@ -188,7 +188,7 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
     const incompleta = paradas.findIndex((p) => !p.street || !p.number || !p.commune)
     if (incompleta !== -1) {
       toast.error(
-        `Completá la parada ${incompleta + 1} (calle, número y comuna) o eliminala`
+        `Completa la parada ${incompleta + 1} (calle, número y comuna) o elimínala`
       )
       return
     }
@@ -411,7 +411,7 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
 
         {paradas.length === 0 ? (
           <p className="pt-4 text-sm text-gray-500">
-            Si tenés que pasar a buscar o a dejar algo en el camino, agregalo acá. Cada
+            Si tienes que pasar a buscar o a dejar algo en el camino, agrégalo aquí. Cada
             parada suma kilómetros al viaje, así que el precio se ajusta solo.
           </p>
         ) : (
@@ -499,7 +499,7 @@ export default function AddressStep({ onNext, onPrevious }: AddressStepProps) {
 
             {paradas.length >= MAX_PARADAS && (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                Llegaste al máximo de {MAX_PARADAS} paradas. Si necesitás más, escribinos y
+                Llegaste al máximo de {MAX_PARADAS} paradas. Si necesitas más, escríbenos y
                 lo cotizamos a medida.
               </p>
             )}

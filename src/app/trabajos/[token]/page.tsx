@@ -241,7 +241,7 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
         <div className="text-center">
           <h1 className="text-lg font-semibold text-gray-900">Enlace no válido</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Este link de trabajos no es válido o fue reemplazado. Pedile el link actualizado al
+            Este link de trabajos no es válido o fue reemplazado. Pídele el link actualizado al
             administrador.
           </p>
         </div>
@@ -355,7 +355,7 @@ export default async function DriverJobsPage({ params }: { params: { token: stri
         )}
 
         <footer className="mt-8 text-center text-[11px] text-gray-400">
-          Actualizá la página para ver los últimos trabajos.
+          Actualiza la página para ver los últimos trabajos.
         </footer>
       </div>
     </div>

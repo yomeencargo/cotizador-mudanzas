@@ -163,7 +163,7 @@ export default function DriverAccessCard() {
           <h3 className="text-lg font-semibold text-gray-900">Acceso Choferes</h3>
           <p className="text-sm text-gray-600">
             Un link por camión: cada chofer ve <strong>solo los trabajos de su camión</strong> de
-            los próximos 4 días, sin precios. Cada link pide su propia clave, que podés cambiar
+            los próximos 4 días, sin precios. Cada link pide su propia clave, que puedes cambiar
             acá abajo.
           </p>
         </div>
@@ -173,7 +173,7 @@ export default function DriverAccessCard() {
         <p className="text-sm text-gray-500">Cargando…</p>
       ) : vehicles.length === 0 ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Todavía no hay camiones cargados. Agregalos en <strong>Gestión de Flota</strong> y
+          Todavía no hay camiones cargados. Agrégalos en <strong>Gestión de Flota</strong> y
           después generá el link de cada uno.
         </p>
       ) : (
@@ -282,8 +282,8 @@ export default function DriverAccessCard() {
                   </Button>
                   <span className="text-xs text-gray-500">
                     {vehicle.usesGeneralPin
-                      ? 'Usa la clave general. Escribí una de 4 a 8 dígitos para darle la suya.'
-                      : 'Vaciá el campo y guardá para volver a la clave general.'}
+                      ? 'Usa la clave general. Escribe una de 4 a 8 dígitos para darle la suya.'
+                      : 'Vacía el campo y guarda para volver a la clave general.'}
                   </span>
                 </div>
               </div>
@@ -292,7 +292,7 @@ export default function DriverAccessCard() {
 
           <p className="text-xs text-gray-500">
             Cualquiera con el link de un camión ve los nombres y direcciones de ese camión. Si se
-            filtra, regeneralo: solo se corta ese link.
+            filtra, regenéralo: solo se corta ese link.
           </p>
 
           {generalToken && (
@@ -303,7 +303,7 @@ export default function DriverAccessCard() {
               <p className="mt-2 text-xs text-gray-500">
                 Es el link único que se usaba antes. Sigue funcionando con la clave general (
                 <strong>{generalPin}</strong>) para que nadie quede afuera mientras repartís los
-                links nuevos. Cuando todos los choferes tengan el suyo, regeneralo una vez y no
+                links nuevos. Cuando todos los choferes tengan el suyo, regenéralo una vez y no
                 lo compartas: así queda fuera de circulación.
               </p>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">

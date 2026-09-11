@@ -594,12 +594,25 @@ export default function BookingsManagement({
   const saveBookingEdits = async (booking: Booking, overrideCapacity = false) => {
     try {
       setSavingEdit(true)
+      const esDomicilio =
+        booking.booking_type === 'domicilio' ||
+        Boolean(booking.quote_id?.startsWith('DOMICILIO-'))
+
       const updateData: any = {
         status: booking.status,
         notes: booking.notes ?? '',
         // Reprogramación: el backend valida que haya cupo en el horario nuevo.
         scheduled_date: booking.scheduled_date,
         scheduled_time: booking.scheduled_time,
+        // Solo se manda el campo de dirección que corresponde al tipo. Mandar los tres
+        // haría que una visita a domicilio escribiera null en origen y destino cada vez
+        // que se guarda, y al revés.
+        ...(esDomicilio
+          ? { visit_address: booking.visit_address ?? '' }
+          : {
+              origin_address: booking.origin_address ?? '',
+              destination_address: booking.destination_address ?? '',
+            }),
       }
 
       // El camión solo se manda si realmente cambió. Si no, editar las notas de una
@@ -623,7 +636,7 @@ export default function BookingsManagement({
         const amountPaid = rawPaid === '' ? 0 : Math.round(Number(rawPaid))
 
         if (adjustedPrice !== null && (!Number.isFinite(adjustedPrice) || adjustedPrice <= 0)) {
-          toast.error('El monto final debe ser mayor que cero, o dejalo vacío')
+          toast.error('El monto final debe ser mayor que cero, o déjalo vacío')
           return false
         }
         if (!Number.isFinite(amountPaid) || amountPaid < 0) {
@@ -2056,8 +2069,8 @@ export default function BookingsManagement({
                 onChange={(e) => setNewBooking({ ...newBooking, amount_paid: e.target.value })}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Si lo dejás vacío, el sistema lo deduce del tipo de pago (mitad = 50%,
-                completo = 100%). Cargalo cuando el cliente pagó un monto distinto, por
+                Si lo dejas vacío, el sistema lo deduce del tipo de pago (mitad = 50%,
+                completo = 100%). Cárgalo cuando el cliente pagó un monto distinto, por
                 transferencia o efectivo. Después se puede corregir desde Editar.
               </p>
             </div>
@@ -2666,9 +2679,82 @@ export default function BookingsManagement({
                 </div>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Si mueves la reserva a un horario sin camiones disponibles, se avisará y no se
-                guardará el cambio.
+                Si el horario ya está ocupado, se avisa y puedes confirmar para dejar dos
+                reservas a la misma hora.
               </p>
+            </div>
+
+            {/* Direcciones. Las de una visita a domicilio viven en otro campo
+                (`visit_address`) y no tienen origen ni destino, así que se muestra el
+                campo que corresponde al tipo de reserva y no dos casillas vacías. */}
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              {(() => {
+                const esDomicilio =
+                  selectedBooking.booking_type === 'domicilio' ||
+                  Boolean(selectedBooking.quote_id?.startsWith('DOMICILIO-'))
+
+                if (esDomicilio) {
+                  return (
+                    <>
+                      <p className="mb-3 text-sm font-medium text-gray-700">
+                        Dirección de la visita
+                      </p>
+                      <Input
+                        type="text"
+                        placeholder="Calle, número, comuna"
+                        value={selectedBooking.visit_address || ''}
+                        onChange={(e) =>
+                          setSelectedBooking({ ...selectedBooking, visit_address: e.target.value })
+                        }
+                      />
+                    </>
+                  )
+                }
+
+                return (
+                  <>
+                    <p className="mb-3 text-sm font-medium text-gray-700">Direcciones</p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Origen
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="Calle, número, comuna"
+                          value={selectedBooking.origin_address || ''}
+                          onChange={(e) =>
+                            setSelectedBooking({
+                              ...selectedBooking,
+                              origin_address: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Destino
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="Calle, número, comuna"
+                          value={selectedBooking.destination_address || ''}
+                          onChange={(e) =>
+                            setSelectedBooking({
+                              ...selectedBooking,
+                              destination_address: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Cambiar la dirección no recalcula la distancia ni el precio: si el
+                      viaje cambia de largo, ajusta el monto en “Montos del servicio”.
+                    </p>
+                  </>
+                )
+              })()}
             </div>
 
             {/* Camión asignado: es el color con el que los choferes ven este trabajo. */}
@@ -2770,7 +2856,7 @@ export default function BookingsManagement({
                         type="number"
                         min="1"
                         step="1"
-                        placeholder="Dejalo vacío para no cambiarlo"
+                        placeholder="Déjalo vacío para no cambiarlo"
                         value={financialEdit.adjustedPrice}
                         onChange={(e) =>
                           setFinancialEdit({ ...financialEdit, adjustedPrice: e.target.value })
