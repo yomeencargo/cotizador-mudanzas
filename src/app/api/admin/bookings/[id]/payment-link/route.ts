@@ -124,7 +124,7 @@ export async function POST(
 
     if (!flowService.isConfigured()) {
       return NextResponse.json(
-        { error: 'Flow no está configurado. Revisá las variables de entorno.' },
+        { error: 'Flow no está configurado. Revisa las variables de entorno.' },
         { status: 500 }
       )
     }

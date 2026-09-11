@@ -69,7 +69,7 @@ export async function getAdditionalServices(
       {
         id: 'priority',
         name: 'Priority',
-        description: 'Agenda libre: elegís el día y la hora que te sirven, sin depender de los cupos disponibles',
+        description: 'Agenda libre: eliges el día y la hora que te sirven, sin depender de los cupos disponibles',
         icon: Zap,
         price: pricing.additionalServices.priority
       }
@@ -128,7 +128,7 @@ export async function getAdditionalServices(
       {
         id: 'priority',
         name: 'Priority',
-        description: 'Agenda libre: elegís el día y la hora que te sirven, sin depender de los cupos disponibles',
+        description: 'Agenda libre: eliges el día y la hora que te sirven, sin depender de los cupos disponibles',
         icon: Zap,
         price: DEFAULT_EXTRA_SERVICES.priority
       }

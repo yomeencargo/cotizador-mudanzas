@@ -636,7 +636,7 @@ export default function BookingsManagement({
         const amountPaid = rawPaid === '' ? 0 : Math.round(Number(rawPaid))
 
         if (adjustedPrice !== null && (!Number.isFinite(adjustedPrice) || adjustedPrice <= 0)) {
-          toast.error('El monto final debe ser mayor que cero, o dejalo vacío')
+          toast.error('El monto final debe ser mayor que cero, o déjalo vacío')
           return false
         }
         if (!Number.isFinite(amountPaid) || amountPaid < 0) {
@@ -2069,8 +2069,8 @@ export default function BookingsManagement({
                 onChange={(e) => setNewBooking({ ...newBooking, amount_paid: e.target.value })}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Si lo dejás vacío, el sistema lo deduce del tipo de pago (mitad = 50%,
-                completo = 100%). Cargalo cuando el cliente pagó un monto distinto, por
+                Si lo dejas vacío, el sistema lo deduce del tipo de pago (mitad = 50%,
+                completo = 100%). Cárgalo cuando el cliente pagó un monto distinto, por
                 transferencia o efectivo. Después se puede corregir desde Editar.
               </p>
             </div>
@@ -2679,7 +2679,7 @@ export default function BookingsManagement({
                 </div>
               </div>
               <p className="mt-2 text-xs text-gray-500">
-                Si el horario ya está ocupado, se avisa y podés confirmar para dejar dos
+                Si el horario ya está ocupado, se avisa y puedes confirmar para dejar dos
                 reservas a la misma hora.
               </p>
             </div>
@@ -2750,7 +2750,7 @@ export default function BookingsManagement({
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
                       Cambiar la dirección no recalcula la distancia ni el precio: si el
-                      viaje cambia de largo, ajustá el monto en “Montos del servicio”.
+                      viaje cambia de largo, ajusta el monto en “Montos del servicio”.
                     </p>
                   </>
                 )
@@ -2856,7 +2856,7 @@ export default function BookingsManagement({
                         type="number"
                         min="1"
                         step="1"
-                        placeholder="Dejalo vacío para no cambiarlo"
+                        placeholder="Déjalo vacío para no cambiarlo"
                         value={financialEdit.adjustedPrice}
                         onChange={(e) =>
                           setFinancialEdit({ ...financialEdit, adjustedPrice: e.target.value })

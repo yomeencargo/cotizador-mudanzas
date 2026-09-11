@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const texto = String(note || '').trim()
     if (!texto) {
-      return NextResponse.json({ error: 'Escribí algo antes de guardar' }, { status: 400 })
+      return NextResponse.json({ error: 'Escribe algo antes de guardar' }, { status: 400 })
     }
     if (texto.length > DRIVER_NOTE_MAX_LENGTH) {
       return NextResponse.json(
