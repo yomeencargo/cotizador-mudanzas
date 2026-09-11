@@ -173,6 +173,20 @@ const EMPTY_NEW_BOOKING = {
   customer_origin: 'web',
 }
 
+/**
+ * Ascensor: tres estados, no dos. Sin dato ≠ "no hay".
+ * La orden de trabajo escribe "SIN ascensor" en rojo, así que afirmarlo sin haberlo
+ * preguntado manda al equipo a cargar por escaleras una mudanza que quizás tiene ascensor.
+ */
+const OPCIONES_ASCENSOR = [
+  { value: '', label: 'Ascensor: sin dato' },
+  { value: 'true', label: 'Con ascensor' },
+  { value: 'false', label: 'Sin ascensor' },
+]
+const ascensorValor = (v: boolean | null | undefined) =>
+  v === true ? 'true' : v === false ? 'false' : ''
+const ascensorDesdeValor = (v: string) => (v === 'true' ? true : v === 'false' ? false : null)
+
 /** Normaliza un teléfono chileno a formato wa.me (569XXXXXXXX). */
 function toWhatsAppNumber(phone: string): string {
   const digits = (phone || '').replace(/\D/g, '')
@@ -612,6 +626,10 @@ export default function BookingsManagement({
           : {
               origin_address: booking.origin_address ?? '',
               destination_address: booking.destination_address ?? '',
+              origin_floor: booking.origin_floor ?? '',
+              origin_has_elevator: booking.origin_has_elevator ?? null,
+              destination_floor: booking.destination_floor ?? '',
+              destination_has_elevator: booking.destination_has_elevator ?? null,
             }),
       }
 
@@ -2715,7 +2733,7 @@ export default function BookingsManagement({
                   <>
                     <p className="mb-3 text-sm font-medium text-gray-700">Direcciones</p>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
+                      <div className="space-y-2">
                         <label className="mb-1 block text-sm font-medium text-gray-700">
                           Origen
                         </label>
@@ -2730,8 +2748,38 @@ export default function BookingsManagement({
                             })
                           }
                         />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="Piso"
+                            value={
+                              selectedBooking.origin_floor === null ||
+                              selectedBooking.origin_floor === undefined
+                                ? ''
+                                : String(selectedBooking.origin_floor)
+                            }
+                            onChange={(e) =>
+                              setSelectedBooking({
+                                ...selectedBooking,
+                                origin_floor:
+                                  e.target.value === '' ? null : Number(e.target.value),
+                              })
+                            }
+                          />
+                          <Select
+                            value={ascensorValor(selectedBooking.origin_has_elevator)}
+                            onChange={(e) =>
+                              setSelectedBooking({
+                                ...selectedBooking,
+                                origin_has_elevator: ascensorDesdeValor(e.target.value),
+                              })
+                            }
+                            options={OPCIONES_ASCENSOR}
+                          />
+                        </div>
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <label className="mb-1 block text-sm font-medium text-gray-700">
                           Destino
                         </label>
@@ -2746,11 +2794,43 @@ export default function BookingsManagement({
                             })
                           }
                         />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="Piso"
+                            value={
+                              selectedBooking.destination_floor === null ||
+                              selectedBooking.destination_floor === undefined
+                                ? ''
+                                : String(selectedBooking.destination_floor)
+                            }
+                            onChange={(e) =>
+                              setSelectedBooking({
+                                ...selectedBooking,
+                                destination_floor:
+                                  e.target.value === '' ? null : Number(e.target.value),
+                              })
+                            }
+                          />
+                          <Select
+                            value={ascensorValor(selectedBooking.destination_has_elevator)}
+                            onChange={(e) =>
+                              setSelectedBooking({
+                                ...selectedBooking,
+                                destination_has_elevator: ascensorDesdeValor(e.target.value),
+                              })
+                            }
+                            options={OPCIONES_ASCENSOR}
+                          />
+                        </div>
                       </div>
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      Cambiar la dirección no recalcula la distancia ni el precio: si el
-                      viaje cambia de largo, ajusta el monto en “Montos del servicio”.
+                      Piso y ascensor salen en la orden de trabajo, y “sin ascensor” va
+                      destacado en rojo. Cambiar la dirección no recalcula la distancia ni
+                      el precio: si el viaje cambia de largo, ajusta el monto en “Montos
+                      del servicio”.
                     </p>
                   </>
                 )
