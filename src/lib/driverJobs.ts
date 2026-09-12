@@ -41,6 +41,8 @@ export interface DriverJobItem {
 
 export interface DriverJob {
   id: string
+  /** Identificador con el que busca la pestaña Reservas del panel. */
+  quote_id: string | null
   scheduled_date: string
   scheduled_time: string | null
   client_name: string
@@ -153,6 +155,7 @@ export async function getUpcomingDriverJobs(
 
   const jobs: DriverJob[] = rows.map((b) => ({
     id: b.id,
+    quote_id: b.quote_id ?? null,
     scheduled_date: b.scheduled_date,
     scheduled_time: b.scheduled_time ?? null,
     client_name: b.client_name || '',
