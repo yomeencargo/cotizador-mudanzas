@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { MAPS_CONFIG, regionName } from '@/config/maps'
+import { MAPS_CONFIG, regionName, sameRegion } from '@/config/maps'
 
 /**
  * API Route para geocodificar direcciones usando Geoapify Geocoding
@@ -87,6 +87,35 @@ export async function POST(request: NextRequest) {
         console.warn(`[geocode] RECHAZADO: ${etiqueta} solo resolvió a nivel ${props.result_type}`)
         return NextResponse.json(
           { error: 'Geocoding too coarse', status: 'TOO_COARSE', resultType: props.result_type },
+          { status: 400 }
+        )
+      }
+
+      // LA GUARDA QUE FALTABA: que el resultado esté en la región que se pidió.
+      //
+      // Cuando la calle no matchea exacto, Geoapify degrada a `match_by_city_or_disrict`
+      // y AHÍ IGNORA el `state`: busca la comuna por nombre en todo el país y devuelve la
+      // primera homónima. Verificado contra la API el 12-sep-2026: «Americo vespucio
+      // 1835, Las Condes, Región Metropolitana» devuelve *Las Condes, Monte Patria,
+      // Región de Coquimbo* — 400 km de más, con `result_type: 'city'`, que la guarda
+      // anterior aceptaba.
+      //
+      // Medido antes de esto: 37 cotizaciones con origen y destino en la misma región y
+      // más de 100 km, ~$14,4M de sobreprecio. Se prefiere quedarse sin distancia (el
+      // cotizador cae a su valor por defecto y alguien revisa) antes que cobrar una
+      // inventada.
+      if (!sameRegion(estado, props.state)) {
+        console.warn(
+          `[geocode] RECHAZADO: ${etiqueta} cayó en ${props.state || 's/d'} (${props.formatted || 's/d'})`
+        )
+        return NextResponse.json(
+          {
+            error: 'Geocoding fell in another region',
+            status: 'WRONG_REGION',
+            requestedRegion: estado,
+            returnedRegion: props.state || null,
+            formatted: props.formatted || null,
+          },
           { status: 400 }
         )
       }

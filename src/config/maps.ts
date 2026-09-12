@@ -85,3 +85,45 @@ export const regionName = (slug: string | null | undefined): string => {
   return REGION_NAMES[raw.toLowerCase()] || raw
 }
 
+/**
+ * Reduce un nombre de región a su núcleo comparable: sin acentos, sin mayúsculas, sin
+ * las palabras de relleno ("región", "de", "del", "la"...) y sin espacios.
+ *
+ * Hace falta porque Geoapify NO usa los mismos nombres que nosotros. Medido contra la
+ * API el 12-sep-2026, 4 de las 16 regiones difieren:
+ *
+ *   nuestro                              Geoapify
+ *   "Región Metropolitana"           ->  "Región Metropolitana de Santiago"
+ *   "Región del Biobío"              ->  "Bío Bío"
+ *   "Región de La Araucanía"         ->  "Región de la Araucanía"
+ *   "Región de Aysén"                ->  "Aysén"
+ *
+ * Comparar literal rechazaría Metropolitana, que es el 95% de las cotizaciones.
+ */
+function regionCore(value: string | null | undefined): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\b(region|regiones|del|de|la|las|los|el|y)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+/**
+ * ¿La región que devolvió el geocodificador es la que pedimos?
+ *
+ * Se acepta que una contenga a la otra: Geoapify agrega o quita calificativos
+ * ("Metropolitana" vs "Metropolitana de Santiago") sin que sean regiones distintas. Lo
+ * que NO se acepta es que los núcleos no tengan nada que ver — "coquimbo" contra
+ * "metropolitana" — que es exactamente el caso que venía inflando las distancias.
+ */
+export function sameRegion(
+  pedida: string | null | undefined,
+  devuelta: string | null | undefined
+): boolean {
+  const a = regionCore(pedida)
+  const b = regionCore(devuelta)
+  if (!a || !b) return true // sin dato de un lado no se puede afirmar que estén mal
+  return a === b || a.includes(b) || b.includes(a)
+}
+
