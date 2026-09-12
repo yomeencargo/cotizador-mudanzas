@@ -183,6 +183,15 @@ export const RATE_LIMIT_RULES: readonly { prefix: string; rule: RateLimitRule }[
     rule: { bucket: 'maps', limit: 100, windowMs: 5 * MIN },
   },
 
+  // Cotización sin navegador (la usa el chatbot). No escribe nada, pero cada llamada
+  // puede gastar geocodificaciones de Geoapify, así que va con su propio tope: más
+  // holgado que una escritura porque una conversación cotiza varias veces mientras la
+  // persona agrega o saca cosas, y más estricto que las lecturas comunes.
+  {
+    prefix: '/api/quote/calculate',
+    rule: { bucket: 'quote-calculate', limit: 60, windowMs: 5 * MIN },
+  },
+
   // Escrituras públicas: crean registros, mandan correos, generan PDFs.
   {
     prefix: '/api/prospects/send-quote',

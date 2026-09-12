@@ -1,4 +1,5 @@
 import { MAPS_CONFIG } from '@/config/maps'
+import { routeDistanceWith, type RoutePoint } from '@/lib/routeDistance'
 
 /**
  * Tipos de respuesta de Geoapify APIs
@@ -278,72 +279,26 @@ export async function calculateDistanceByAddresses(
   }
 }
 
-/** Un punto de la ruta. Misma forma que las direcciones del cotizador. */
-export interface RoutePoint {
-  street: string
-  number: string
-  commune: string
-  region: string
-}
+export type { RoutePoint }
 
 /**
- * Distancia total de una ruta con paradas: origen → parada 1 → … → destino.
+ * Distancia total de una ruta con paradas, medida desde el NAVEGADOR.
  *
- * Suma los tramos en vez de medir origen→destino en línea, que es lo que hacía antes.
- * Con paradas eso subestimaba el viaje real, y como los km se cobran, subestimaba el
- * precio.
- *
- * SI ALGÚN TRAMO NO SE PUEDE MEDIR se cae al viaje directo origen→destino (el
- * comportamiento anterior) y, si eso tampoco se puede, a la distancia por defecto.
- * Se prefiere quedarse corto antes que inflar: un fallo de geocodificación no puede
- * terminar en un cobro de más al cliente.
+ * La orquestación (sumar tramos, caer al viaje directo si alguno falla, y a la distancia
+ * por defecto si eso tampoco se puede) vive en `routeDistanceWith`, compartida con el
+ * servidor: los kilómetros se cobran, así que medirlos distinto en la web y en el chat
+ * sería cotizar distinto. Acá solo se le pasan las dos primitivas del navegador, que son
+ * las que traen caché y deduplicación.
  */
 export async function calculateRouteDistance(points: RoutePoint[]): Promise<number> {
-  const validos = (points || []).filter(
-    (p) => p && p.street && p.commune
-  )
-  if (validos.length < 2) return MAPS_CONFIG.defaultDistance
-
-  const directo = () =>
-    calculateDistanceByAddresses(
-      validos[0].street,
-      validos[0].number,
-      validos[0].commune,
-      validos[0].region,
-      validos[validos.length - 1].street,
-      validos[validos.length - 1].number,
-      validos[validos.length - 1].commune,
-      validos[validos.length - 1].region
-    )
-
-  // Sin paradas es exactamente el cálculo de siempre.
-  if (validos.length === 2) return directo()
-
-  try {
-    const coords = await Promise.all(
-      validos.map((p) => geocodeAddress(p.street, p.number, p.commune, p.region))
-    )
-    if (coords.some((c) => !c)) {
-      console.warn('[maps] Alguna parada no se pudo geocodificar; se usa el viaje directo')
-      return directo()
-    }
-
-    let total = 0
-    for (let i = 0; i < coords.length - 1; i++) {
-      const a = coords[i]!
-      const b = coords[i + 1]!
+  return routeDistanceWith(points, {
+    geocode: (p) => geocodeAddress(p.street, p.number, p.commune, p.region),
+    segmentKm: async (a, b) => {
       const tramo = await calculateDistanceByCoordinates(a.lat, a.lng, b.lat, b.lng)
-      if (!tramo) {
-        console.warn(`[maps] No se pudo medir el tramo ${i + 1}; se usa el viaje directo`)
-        return directo()
-      }
-      total += tramo.kilometers
-    }
-    return total
-  } catch (error) {
-    console.error('[maps] Error calculando la ruta con paradas:', error)
-    return directo()
-  }
+      return tramo ? tramo.kilometers : null
+    },
+    defaultDistance: MAPS_CONFIG.defaultDistance,
+  })
 }
 
 /**

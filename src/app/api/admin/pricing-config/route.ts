@@ -1,129 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
-import { DEFAULT_CREW, DEFAULT_STAIRS } from '@/lib/crewPricing'
-import { DEFAULT_EXTRA_SERVICES, withExtraServicesDefaults } from '@/lib/extraServices'
-import { DEFAULT_HOME_VISIT_PRICE, normalizeHomeVisitPrice } from '@/lib/homeVisitPricing'
+import {
+  readPricingConfig,
+  withCrewDefaults,
+  withServiceDefaults,
+  withStairsDefaults,
+} from '@/lib/server/pricingConfigServer'
 
-/**
- * Completa los servicios/recargos agregados en sep-2026 sobre lo que haya guardado.
- * Van dentro del JSONB `additional_services` para no necesitar migración, así que una
- * fila anterior simplemente no los trae y hay que rellenarlos al leer.
- */
-function withServiceDefaults(services: unknown) {
-  const s = (services || {}) as Record<string, unknown>
-  return {
-    ...s,
-    ...withExtraServicesDefaults(s),
-    // La visita a domicilio vive acá dentro por el mismo motivo (la columna ya es JSONB),
-    // pero se normaliza aparte: un 0 no la apaga, la dejaría cobrando nada.
-    homeVisitPrice: normalizeHomeVisitPrice(s.homeVisitPrice),
-  }
-}
-
-/**
- * Normaliza los bloques nuevos (cuadrilla y escaleras) contra los valores por defecto.
- * Una fila de `pricing_config` anterior a la migración no los tiene, y sin esto el
- * cotizador quedaría dividiendo por undefined.
- */
-function withCrewDefaults(crew: unknown) {
-  const c = (crew || {}) as Partial<typeof DEFAULT_CREW>
-  const num = (v: unknown, fallback: number) =>
-    typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback
-  return {
-    includedPeople: Math.max(1, num(c.includedPeople, DEFAULT_CREW.includedPeople)),
-    kgPerPerson: Math.max(1, num(c.kgPerPerson, DEFAULT_CREW.kgPerPerson)),
-    pricePerExtraPerson: num(c.pricePerExtraPerson, DEFAULT_CREW.pricePerExtraPerson),
-    maxPeople: Math.max(1, num(c.maxPeople, DEFAULT_CREW.maxPeople)),
-  }
-}
-
-function withStairsDefaults(stairs: unknown) {
-  const s = (stairs || {}) as Partial<typeof DEFAULT_STAIRS>
-  const itemsPerTrip =
-    typeof s.itemsPerTrip === 'number' && s.itemsPerTrip >= 1
-      ? s.itemsPerTrip
-      : DEFAULT_STAIRS.itemsPerTrip
-  return { itemsPerTrip }
-}
+// Las normalizaciones y la lectura viven en `server/pricingConfigServer.ts`: el endpoint
+// de cotización necesita exactamente la misma configuración y no puede pedírsela a esta
+// ruta por HTTP. Acá queda el contrato HTTP (GET para el cotizador público, PUT para el
+// panel) y nada de la lógica.
 
 export async function GET() {
   try {
-    // Obtener configuración de precios desde la base de datos (el más reciente)
-    const { data: configs, error } = await supabaseAdmin
-      .from('pricing_config')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    if (error) {
-      console.error('Error fetching pricing config:', error)
-      return NextResponse.json(
-        { error: 'Error obteniendo configuración de precios' },
-        { status: 500 }
-      )
-    }
-
-    const config = configs?.[0]
-
-    // Si no existe configuración, devolver valores por defecto
-    if (!config) {
-      const defaultConfig = {
-        basePrice: 50000,
-        pricePerCubicMeter: 15000,
-        pricePerKilometer: 800,
-        freeKilometers: 50,
-        floorSurcharge: 5000,
-        additionalServices: {
-          packing: 25000,
-          unpacking: 20000,
-          disassembly: 15000,
-          assembly: 15000,
-          homeVisitPrice: DEFAULT_HOME_VISIT_PRICE,
-          ...DEFAULT_EXTRA_SERVICES
-        },
-        specialPackaging: {
-          fragile: 10000,
-          electronics: 15000,
-          artwork: 25000
-        },
-        timeSurcharges: {
-          saturday: 20,
-          sunday: 50,
-          holiday: 100
-        },
-        discounts: {
-          flexibility: 10,
-          advanceBooking: 5,
-          repeatCustomer: 15
-        },
-        crew: { ...DEFAULT_CREW },
-        stairs: { ...DEFAULT_STAIRS }
-      }
-
-      return NextResponse.json(defaultConfig)
-    }
-
-    // Transformar los datos de la BD al formato esperado por el frontend
-    const transformedConfig = {
-      basePrice: config.base_price,
-      pricePerCubicMeter: config.price_per_cubic_meter,
-      pricePerKilometer: config.price_per_kilometer,
-      freeKilometers: config.free_kilometers || 50,
-      floorSurcharge: config.floor_surcharge,
-      additionalServices: withServiceDefaults(config.additional_services),
-      specialPackaging: config.special_packaging,
-      timeSurcharges: config.time_surcharges,
-      discounts: config.discounts,
-      crew: withCrewDefaults(config.crew_config),
-      stairs: withStairsDefaults(config.stairs_config)
-    }
-
-    return NextResponse.json(transformedConfig)
+    const config = await readPricingConfig()
+    return NextResponse.json(config)
   } catch (error) {
     console.error('Error in /api/admin/pricing-config:', error)
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { error: 'Error obteniendo configuración de precios' },
       { status: 500 }
     )
   }
