@@ -8,7 +8,7 @@ import {
   SlotUnavailableError,
 } from '@/lib/quoteCheckout'
 import { resolveBookingAttribution } from '@/lib/attributionServer'
-import { postQuoteWebhook } from '@/lib/n8nClient'
+import { n8nConfirmedSuccess, postQuoteWebhook } from '@/lib/n8nClient'
 
 // Envío REAL de la cotización por correo:
 //  1) garantiza la pre-reserva (sin consumir cupo)
@@ -136,8 +136,14 @@ export async function POST(request: NextRequest) {
 
     const result = await postQuoteWebhook(payload, { label: 'cliente' })
 
-    if (!result.ok) {
-      // El motivo concreto ya quedó logueado en n8nClient (timeout/red/HTTP).
+    // No alcanza con `result.ok`: el webhook usa `responseMode: responseNode`, así que
+    // si un nodo del workflow muere a mitad de camino n8n contesta HTTP 200 con el
+    // cuerpo VACÍO y el correo nunca salió. La única señal de que el envío se completó
+    // es el `{"success": true}` del nodo `Respond to Webhook`, que solo corre después
+    // del nodo de envío. Sin esto le decimos "cotización enviada" a alguien que no
+    // recibió nada.
+    if (!n8nConfirmedSuccess(result)) {
+      // El motivo concreto ya quedó logueado en n8nClient (timeout/red/HTTP/sin confirmación).
       return NextResponse.json(
         { error: 'No se pudo enviar la cotización por correo. Intenta de nuevo.' },
         { status: 502 }

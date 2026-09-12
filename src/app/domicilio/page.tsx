@@ -8,6 +8,8 @@ import HomeSummaryStep from '@/components/steps/home/HomeSummaryStep'
 import { useHomeQuoteStore } from '@/store/homeQuoteStore'
 import ProgressBar from '@/components/ui/ProgressBar'
 import ChatBot from '@/components/ui/ChatBot'
+import { formatHomeVisitPrice } from '@/lib/homeVisitPricing'
+import { useHomeVisitPrice } from '@/lib/useHomeVisitPrice'
 
 const steps = [
   { id: 0, name: 'Datos Personales', component: HomePersonalInfoStep },
@@ -19,6 +21,7 @@ const steps = [
 export default function DomicilioPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const { resetQuote, isConfirmed } = useHomeQuoteStore()
+  const homeVisitPrice = useHomeVisitPrice()
   const mainContentRef = useRef<HTMLDivElement>(null)
 
   // Hacer scroll automático cuando cambia el paso
@@ -74,7 +77,7 @@ export default function DomicilioPage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-primary-600">$23.000</p>
+                <p className="text-2xl font-bold text-primary-600">{formatHomeVisitPrice(homeVisitPrice)}</p>
                 <p className="text-xs text-gray-600">Precio fijo</p>
               </div>
               <div className="bg-white rounded-lg p-3 text-center">
@@ -85,7 +88,7 @@ export default function DomicilioPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
               <p className="text-sm text-blue-800 text-center">
                 💡 <strong>Importante:</strong> Si contratas el servicio de mudanza o transporte después de la cotización, 
-                los $23.000 pagados se descontarán del valor total del flete.
+                los {formatHomeVisitPrice(homeVisitPrice)} pagados se descontarán del valor total del flete.
               </p>
             </div>
           </div>

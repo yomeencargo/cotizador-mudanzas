@@ -2,8 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getPricingConfig } from '@/lib/pricingService'
 import { calculateRouteDistance } from '@/lib/mapsService'
-import { crewCost, requiredPeople, stairTrips, stairsCost } from '@/lib/crewPricing'
-import { hasFridge, overCapacitySurcharge } from '@/lib/extraServices'
+import { calculateQuote } from '@/lib/quotePricing'
 
 export interface PersonalInfo {
   name: string
@@ -230,25 +229,13 @@ export const useQuoteStore = create<QuoteState>()(
       calculateTotals: async () => {
         const state = get()
 
-        // Obtener configuración de precios dinámicamente
+        // Este método NO calcula el precio: junta el contexto que el cálculo necesita
+        // —la configuración vigente y la distancia real de la ruta— y se lo pasa a
+        // `calculateQuote`, que es la única fórmula del sistema. Así el chatbot, que
+        // cotiza sin navegador, llama al mismo cálculo por `/api/quote/calculate` en vez
+        // de reimplementarlo y separarse el día que Tomás edita los precios.
         const pricing = await getPricingConfig()
 
-        const totalVolume = state.items.reduce(
-          (sum, item) => sum + item.volume * item.quantity,
-          0
-        )
-        const totalWeight = state.items.reduce(
-          (sum, item) => sum + item.weight * item.quantity,
-          0
-        )
-
-        // Determinar vehículo recomendado
-        let recommendedVehicle = 'Camioneta'
-        if (totalVolume > 20) recommendedVehicle = 'Furgón Grande'
-        else if (totalVolume > 10) recommendedVehicle = 'Furgón Mediano'
-        else if (totalVolume > 5) recommendedVehicle = 'Camioneta Grande'
-
-        // Calcular distancia real
         let distance = 10 // km por defecto
 
         if (state.origin.address && state.destination.address) {
@@ -266,111 +253,27 @@ export const useQuoteStore = create<QuoteState>()(
           }
         }
 
-        // Cálculo de precio base usando configuración dinámica
-        let basePrice = pricing.basePrice
-
-        // Precio por volumen
-        basePrice += totalVolume * pricing.pricePerCubicMeter
-
-        // Ajuste por distancia (solo cobrar km adicionales después de los km gratis)
-        const freeKilometers = pricing.freeKilometers || 50
-        const chargeableKm = Math.max(0, distance - freeKilometers)
-        basePrice += chargeableKm * pricing.pricePerKilometer
-
-        // Ajuste por piso sin ascensor. Se multiplica por los viajes que implica la
-        // carga: antes era plano y subir un velador a un 3º costaba igual que subir
-        // treinta bultos.
-        const trips = stairTrips(state.items, pricing.stairs)
-        basePrice += stairsCost(
-          state.origin.details?.floor,
-          state.origin.details?.hasElevator,
-          state.items,
-          pricing.floorSurcharge,
-          pricing.stairs
-        )
-        basePrice += stairsCost(
-          state.destination.details?.floor,
-          state.destination.details?.hasElevator,
-          state.items,
-          pricing.floorSurcharge,
-          pricing.stairs
-        )
-
-        // Cuadrilla: el bulto más pesado define cuánta gente hace falta, y el cliente
-        // puede sumar ayudantes por encima de ese mínimo.
-        const crewByWeight = requiredPeople(state.items, pricing.crew)
-        const totalCrew = Math.min(
-          pricing.crew.maxPeople,
-          crewByWeight + Math.max(0, state.additionalServices.extraHelpers || 0)
-        )
-        basePrice += crewCost(totalCrew, pricing.crew)
-
-        // Cargo por fin de semana: sábado (6) y domingo (0) con el mismo porcentaje
-        if (state.dateTime) {
-          const dayOfWeek = new Date(state.dateTime).getDay()
-          if (dayOfWeek === 6 || dayOfWeek === 0) {
-            basePrice += (basePrice * pricing.timeSurcharges.saturday) / 100
-          }
-        }
-
-        // Servicios adicionales
-        if (state.additionalServices.disassembly) basePrice += pricing.additionalServices.disassembly
-        if (state.additionalServices.assembly) basePrice += pricing.additionalServices.assembly
-        // packing y unpacking requieren contacto con ejecutivo, no se suman al precio
-
-        // Desarmado de refrigerador: va acá, junto al desarme y el armado, porque es el
-        // mismo tipo de cobro (mano de obra) y sigue su misma suerte —recargo de fin de
-        // semana y descuento por flexibilidad—. Se exige que el refrigerador SIGA en la
-        // lista: si el cliente lo marcó y después borró el item, el cargo desaparece.
-        if (state.additionalServices.fridgeDisassembly && hasFridge(state.items)) {
-          basePrice += pricing.additionalServices.fridgeDisassembly
-        }
-
-        // Costo de embalaje especial - CORREGIDO: se calcula por volumen de items con embalaje
-        // Agrupar items por tipo de embalaje y calcular el volumen específico de cada tipo
-        const packagingCost = state.items
-          .filter(item => item.packaging && item.packaging.type !== 'none')
-          .reduce((acc, item) => {
-            const itemVolume = item.volume * item.quantity
-            const itemPackagingCost = item.packaging?.pricePerUnit || 0
-            return acc + (itemPackagingCost * itemVolume)
-          }, 0)
-
-        basePrice += packagingCost
-
-        // Items frágiles o de vidrio
-        const fragileCount = state.items.filter((item) => item.isFragile || item.isGlass).length
-        basePrice += fragileCount * pricing.specialPackaging.fragile
-
-        // Descuento por flexibilidad
-        if (state.isFlexible) {
-          basePrice -= (basePrice * pricing.discounts.flexibility) / 100
-        }
-
-        // Recargo por exceso de volumen y Priority: PLANOS y al final, después del
-        // descuento por flexibilidad y del recargo de fin de semana, antes del IVA.
-        //
-        // Van acá y no arriba porque Tomás los definió como montos fijos ($29.990 y
-        // $99.990): sumarlos antes haría que el recargo de sábado y el descuento por
-        // flexibilidad los movieran, y dejarían de ser el número que él dijo. El IVA sí
-        // los alcanza, porque es un impuesto sobre el total.
-        basePrice += overCapacitySurcharge(totalVolume, pricing.additionalServices)
-        if (state.additionalServices.priority) basePrice += pricing.additionalServices.priority
-
-        // Agregar IVA si es empresa (factura)
-        if (state.personalInfo?.isCompany) {
-          basePrice = basePrice * 1.19
-        }
+        const result = calculateQuote({
+          items: state.items,
+          origin: state.origin.details,
+          destination: state.destination.details,
+          distanceKm: distance,
+          dateTime: state.dateTime,
+          isFlexible: state.isFlexible,
+          isCompany: state.personalInfo?.isCompany,
+          additionalServices: state.additionalServices,
+          pricing,
+        })
 
         set({
-          totalVolume,
-          totalWeight,
+          totalVolume: result.totalVolume,
+          totalWeight: result.totalWeight,
           totalDistance: distance,
-          estimatedPrice: Math.round(basePrice),
-          recommendedVehicle,
-          requiredCrew: crewByWeight,
-          totalCrew,
-          stairTrips: trips,
+          estimatedPrice: result.estimatedPrice,
+          recommendedVehicle: result.recommendedVehicle,
+          requiredCrew: result.requiredCrew,
+          totalCrew: result.totalCrew,
+          stairTrips: result.stairTrips,
         })
       },
 

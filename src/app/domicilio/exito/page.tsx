@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import { CheckCircle, Home, Loader2, Download } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { generateHomePDF } from '@/lib/homePdfGenerator'
+import { useHomeVisitPrice } from '@/lib/useHomeVisitPrice'
 import toast from 'react-hot-toast'
 
 function PaymentSuccessContent() {
@@ -24,18 +25,19 @@ function PaymentSuccessContent() {
     const [isDownloading, setIsDownloading] = useState(false)
     const [isPdfUploaded, setIsPdfUploaded] = useState(false)
     const [isUploadingPdf, setIsUploadingPdf] = useState(false)
+    const homeVisitPrice = useHomeVisitPrice()
 
     useEffect(() => {
         setPaymentInfo({
             token: searchParams.get('token') || '',
             order: searchParams.get('order') || '',
-            amount: searchParams.get('amount') || '23000',
+            amount: searchParams.get('amount') || String(homeVisitPrice),
             bookingId: searchParams.get('bookingId') || '',
             clientName: searchParams.get('clientName') || '',
             clientEmail: searchParams.get('clientEmail') || '',
             visitAddress: searchParams.get('visitAddress') || '',
         })
-    }, [searchParams])
+    }, [searchParams, homeVisitPrice])
 
     // Subir PDF automáticamente cuando se carga la página
     useEffect(() => {

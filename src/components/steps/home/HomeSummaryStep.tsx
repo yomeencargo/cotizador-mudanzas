@@ -10,22 +10,23 @@ import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { pushDataLayerMonto } from '@/lib/tracking'
 import { attributionForSubmit } from '@/lib/attribution'
+import { formatHomeVisitPrice } from '@/lib/homeVisitPricing'
+import { useHomeVisitPrice } from '@/lib/useHomeVisitPrice'
 
 interface HomeSummaryStepProps {
   onPrevious: () => void
   onReset: () => void
 }
 
-const FIXED_PRICE = 23000
-
 export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStepProps) {
   const { personalInfo, visitAddress, visitSchedule, setConfirmed } = useHomeQuoteStore()
   const [loading, setLoading] = useState(false)
+  const price = useHomeVisitPrice()
 
   // Monto de la visita a domicilio al dataLayer (para GTM: evento "Pagar")
   useEffect(() => {
-    pushDataLayerMonto(FIXED_PRICE)
-  }, [])
+    pushDataLayerMonto(price)
+  }, [price])
 
   const handlePayment = async () => {
     if (!personalInfo || !visitAddress || !visitSchedule) {
@@ -54,8 +55,8 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
           visit_address: visitAddr,
           scheduled_date: visitSchedule.date,
           scheduled_time: visitSchedule.time,
-          total_price: FIXED_PRICE,
-          original_price: FIXED_PRICE,
+          total_price: price,
+          original_price: price,
           attribution: attributionForSubmit(),
         }),
       }).catch(err => console.error('Error saving domicilio prospect:', err))
@@ -68,8 +69,8 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
         client_phone: personalInfo.phone,
         booking_type: 'domicilio',
         visit_address: `${visitAddress.street} ${visitAddress.number}, ${visitAddress.commune}, ${visitAddress.region}${visitAddress.additionalInfo ? ` (${visitAddress.additionalInfo})` : ''}`,
-        total_price: FIXED_PRICE,
-        original_price: FIXED_PRICE,
+        total_price: price,
+        original_price: price,
         scheduled_date: visitSchedule.date,
         scheduled_time: visitSchedule.time,
         duration_hours: 1,
@@ -97,7 +98,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId: booking.quote_id, // Usar quote_id para que Flow lo devuelva
-          amount: FIXED_PRICE,
+          amount: price,
           email: personalInfo.email, // Campo requerido por la API
           subject: 'Cotización a Domicilio - Yo Me Encargo',
           paymentType: 'completo',
@@ -232,7 +233,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
               </div>
               <div className="text-right">
                 <p className="text-3xl font-bold text-green-600">
-                  ${FIXED_PRICE.toLocaleString()}
+                  {formatHomeVisitPrice(price)}
                 </p>
                 <p className="text-xs text-gray-500">Precio fijo</p>
               </div>
@@ -240,7 +241,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
             <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-4">
               <p className="text-sm text-blue-900">
                 💡 <strong>Importante:</strong> Si contratas el servicio de mudanza o transporte después de la cotización, 
-                los $23.000 pagados se descontarán del valor total del flete.
+                los {formatHomeVisitPrice(price)} pagados se descontarán del valor total del flete.
               </p>
             </div>
           </div>
@@ -285,7 +286,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
             ← Volver
           </Button>
           <Button
-            onPointerDown={() => pushDataLayerMonto(FIXED_PRICE)}
+            onPointerDown={() => pushDataLayerMonto(price)}
             onClick={handlePayment}
             disabled={loading}
             size="lg"
@@ -297,7 +298,7 @@ export default function HomeSummaryStep({ onPrevious, onReset }: HomeSummaryStep
               </>
             ) : (
               <>
-                Pagar ${FIXED_PRICE.toLocaleString()} →
+                Pagar {formatHomeVisitPrice(price)} →
               </>
             )}
           </Button>
