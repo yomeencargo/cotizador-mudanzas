@@ -1,4 +1,4 @@
-import { servicePrice } from './revenueBreakdown'
+import { countsForRevenue, paidAmount, pendingAmount, servicePrice } from './revenueBreakdown'
 import {
   buildCustomerIdentityIndex,
   normalizeCustomerEmail,
@@ -10,7 +10,12 @@ export interface MonthlyPoint {
   month: string // 'YYYY-MM'
   label: string // mes corto en español
   count: number
+  /** Valor de los servicios reservados ese mes (cobrado + por cobrar). */
   revenue: number
+  /** Plata efectivamente recibida. */
+  paid: number
+  /** Comprometido y todavía no cobrado. */
+  pending: number
 }
 
 export interface SourceCount {
@@ -116,37 +121,49 @@ export function groupBookingsByMonth(bookings: BookingLike[], monthsBack: number
   }
 
   // Agrupar los bookings por mes
-  const monthlyMap = new Map<string, { count: number; revenue: number }>()
+  const monthlyMap = new Map<
+    string,
+    { count: number; revenue: number; paid: number; pending: number }
+  >()
 
   for (const month of months) {
-    monthlyMap.set(month.monthKey, { count: 0, revenue: 0 })
+    monthlyMap.set(month.monthKey, { count: 0, revenue: 0, paid: 0, pending: 0 })
   }
 
   for (const booking of bookings) {
-    if (!booking.scheduled_date || booking.status === 'cancelled') continue
+    if (!booking.scheduled_date) continue
+
+    // MISMO criterio que las tarjetas de Ingresos (`countsForRevenue`): excluye
+    // canceladas, no atendidas Y pre-reservas sin pagar.
+    //
+    // Antes acá solo se excluían las canceladas, así que el gráfico contaba las
+    // pre-reservas y las tarjetas no: en septiembre-2026 eso daba $4.784.551 en el
+    // gráfico contra $3.345.214 en las tarjetas — 6 pre-reservas, $1.439.337 de
+    // diferencia. Dos definiciones distintas de "ingresos" sin decirlo.
+    if (!countsForRevenue(booking)) continue
 
     const monthKey = booking.scheduled_date.slice(0, 7)
 
     if (monthlyMap.has(monthKey)) {
       const bookingMonth = monthlyMap.get(monthKey)!
-
-      // Incrementar count y revenue
       bookingMonth.count += 1
-
       bookingMonth.revenue += servicePrice(booking)
-
+      bookingMonth.paid += paidAmount(booking)
+      bookingMonth.pending += pendingAmount(booking)
       monthlyMap.set(monthKey, bookingMonth)
     }
   }
 
   return months.map(({ monthKey, label }) => {
-    const { count, revenue } = monthlyMap.get(monthKey)!
+    const { count, revenue, paid, pending } = monthlyMap.get(monthKey)!
 
     return {
       month: monthKey,
       label,
       count,
       revenue,
+      paid,
+      pending,
     }
   })
 }

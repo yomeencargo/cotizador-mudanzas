@@ -93,6 +93,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   // Búsqueda inicial para la pestaña Reservas (viene por ?q= al abrir desde el dashboard).
   const [bookingsSearch, setBookingsSearch] = useState('')
+  const [bookingsRange, setBookingsRange] = useState<{ desde: string; hasta: string } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     username: string
     displayName: string
@@ -133,8 +134,13 @@ export default function AdminDashboard() {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
     const q = params.get('q')
+    // Rango de fechas: lo usa el clic en una barra del gráfico mensual para abrir las
+    // reservas de ese mes.
+    const desde = params.get('desde')
+    const hasta = params.get('hasta')
     if (tab && tabs.some((t) => t.id === tab)) setActiveTab(tab)
     if (q) setBookingsSearch(q)
+    if (desde && hasta) setBookingsRange({ desde, hasta })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -699,6 +705,7 @@ export default function AdminDashboard() {
         {activeTab === 'bookings' && (
           <BookingsManagement
             initialSearch={bookingsSearch}
+            initialDateRange={bookingsRange}
             canAdjustAmounts={currentUser?.role === 'administrator'}
           />
         )}

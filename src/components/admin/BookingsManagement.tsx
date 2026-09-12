@@ -200,12 +200,15 @@ function toWhatsAppNumber(phone: string): string {
 interface BookingsManagementProps {
   /** Búsqueda precargada (p. ej. al abrir una reserva desde el dashboard con ?q=). */
   initialSearch?: string
+  /** Rango precargado: lo manda el clic en un mes del gráfico del dashboard. */
+  initialDateRange?: { desde: string; hasta: string } | null
   /** Permiso derivado del perfil firmado; el backend vuelve a validarlo al guardar. */
   canAdjustAmounts?: boolean
 }
 
 export default function BookingsManagement({
   initialSearch = '',
+  initialDateRange = null,
   canAdjustAmounts = false,
 }: BookingsManagementProps) {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -221,9 +224,9 @@ export default function BookingsManagement({
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [selectedBookingIds, setSelectedBookingIds] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
-  const [dateFilter, setDateFilter] = useState('all')
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
+  const [dateFilter, setDateFilter] = useState(initialDateRange ? 'range' : 'all')
+  const [customStartDate, setCustomStartDate] = useState(initialDateRange?.desde || '')
+  const [customEndDate, setCustomEndDate] = useState(initialDateRange?.hasta || '')
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
