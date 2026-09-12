@@ -79,6 +79,15 @@ interface TodayBooking {
   scheduled_time: string
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   estimated_price: number | null
+  client_email?: string | null
+  /** Horas estimadas del servicio. */
+  duration_hours?: number | null
+  /** Volumen a mover. Sale de la cotización, no de la reserva. */
+  volume_m3?: number | null
+  /** Resumen de embalaje ya contado por tipo, p. ej. "3x caja, 2x film". */
+  packaging_summary?: string | null
+  /** Lo que falta cobrar. Misma función que las tarjetas de Ingresos. */
+  pending_amount?: number | null
   /** Camión asignado, con el color con el que lo ven los choferes. */
   vehicle?: {
     id: number
@@ -105,6 +114,10 @@ export default function AdminDashboard() {
   const [activeSettingsTab, setActiveSettingsTab] = useState('pricing')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([])
+  /** Flota activa, para el selector de camión de cada fila. */
+  const [fleet, setFleet] = useState<Array<{ id: number; name: string; status?: string }>>([])
+  /** id de la reserva sobre la que hay una acción en curso. */
+  const [rowBusy, setRowBusy] = useState<string | null>(null)
   const [tomorrowBookings, setTomorrowBookings] = useState<TodayBooking[]>([])
   const [weekBookings, setWeekBookings] = useState<TodayBooking[]>([])
   const [loading, setLoading] = useState(true)
@@ -172,6 +185,14 @@ export default function AdminDashboard() {
       setStats(statsData)
 
       // Trae reservas de hoy hasta 6 días adelante y las separa en Hoy / Mañana / Esta semana
+      fetch('/api/admin/fleet-config')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((cfg) => {
+          const vs = Array.isArray(cfg?.vehicles) ? cfg.vehicles : []
+          setFleet(vs.filter((v: any) => v?.status !== 'maintenance'))
+        })
+        .catch(() => setFleet([]))
+
       const bookingsResponse = await fetch('/api/admin/today-bookings')
       const bookingsData: TodayBooking[] = await bookingsResponse.json()
 
@@ -250,6 +271,51 @@ export default function AdminDashboard() {
     window.open(url, '_blank', 'noopener')
   }
 
+  /** Teléfono chileno a formato wa.me (569XXXXXXXX). */
+  const toWhatsApp = (phone: string) => {
+    const d = (phone || '').replace(/\D/g, '')
+    if (!d) return ''
+    if (d.startsWith('56')) return d
+    return d.length === 9 ? `56${d}` : d
+  }
+
+  /** Cambia el camión sin salir del dashboard. Misma ruta que usa Reservas. */
+  const cambiarCamion = async (booking: TodayBooking, vehicleId: number | null) => {
+    setRowBusy(booking.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicle_id: vehicleId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || 'No se pudo cambiar el camión')
+      }
+      await fetchDashboardData()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo cambiar el camión')
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
+  /** Link de Flow por el saldo. El monto lo calcula el servidor, no esta pantalla. */
+  const linkDeSaldo = async (booking: TodayBooking) => {
+    setRowBusy(booking.id)
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/payment-link`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.url) throw new Error(data?.error || 'No se pudo generar el link')
+      await navigator.clipboard.writeText(data.url).catch(() => {})
+      alert(`Link por $${Number(data.amount).toLocaleString('es-CL')} copiado al portapapeles.`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo generar el link')
+    } finally {
+      setRowBusy(null)
+    }
+  }
+
   const renderBookingRow = (booking: TodayBooking) => (
     <div
       key={booking.id}
@@ -293,6 +359,70 @@ export default function AdminDashboard() {
               {booking.vehicle.name}
             </span>
           )}
+
+          {/* Datos operativos que antes obligaban a abrir Reservas. */}
+          {(booking.volume_m3 || booking.duration_hours || booking.packaging_summary) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              {booking.volume_m3 ? <span>{booking.volume_m3.toFixed(1)} m³</span> : null}
+              {booking.duration_hours ? <span>{booking.duration_hours} h estimadas</span> : null}
+              {booking.packaging_summary ? (
+                <span>Embalaje: {booking.packaging_summary}</span>
+              ) : null}
+            </div>
+          )}
+
+          {/* Acciones directas. `stopPropagation` en todas: la fila entera es un botón
+              que abre Reservas, y sin esto cualquier acción abriría además esa pestaña. */}
+          <div
+            className="mt-2 flex flex-wrap items-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {booking.client_phone && (
+              <a
+                href={`https://wa.me/${toWhatsApp(booking.client_phone)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-green-300 px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
+              >
+                WhatsApp
+              </a>
+            )}
+            {booking.client_email && (
+              <a
+                href={`mailto:${booking.client_email}`}
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-100"
+              >
+                Email
+              </a>
+            )}
+            {(booking.pending_amount || 0) > 0 && (
+              <button
+                type="button"
+                disabled={rowBusy === booking.id}
+                onClick={() => void linkDeSaldo(booking)}
+                className="rounded-md border border-amber-300 px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+              >
+                Link por ${Number(booking.pending_amount).toLocaleString('es-CL')}
+              </button>
+            )}
+            {fleet.length > 0 && (
+              <select
+                value={booking.vehicle?.id ?? ''}
+                disabled={rowBusy === booking.id}
+                onChange={(e) =>
+                  void cambiarCamion(booking, e.target.value === '' ? null : Number(e.target.value))
+                }
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] text-gray-600 disabled:opacity-50"
+              >
+                <option value="">Sin asignar</option>
+                {fleet.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </div>
       <div className="text-right">

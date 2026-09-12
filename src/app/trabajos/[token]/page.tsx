@@ -171,6 +171,20 @@ function JobCard({
       {/* Lo que el chofer escribe DESPUÉS del trabajo. Va aparte de la nota de arriba,
           que es la que dejó el admin antes y el chofer no puede tocar. */}
       <DriverJobNotes token={token} bookingId={job.id} initialNotes={notes} />
+
+      {/* Cambiar el camión se hace en el panel, no acá.
+          Esta pantalla la abre un chofer con un PIN de 4 dígitos compartido: meterle una
+          acción que reescribe la agenda sería darle a ese PIN un permiso que no le
+          corresponde. El link lleva a la reserva ya buscada; a quien no tenga sesión de
+          administrador, el panel le pide login y no ve nada. */}
+      {job.quote_id && (
+        <a
+          href={`/admin?tab=bookings&q=${encodeURIComponent(job.quote_id)}`}
+          className="mt-2 inline-block text-[11px] text-gray-400 underline underline-offset-2"
+        >
+          Abrir en el panel (reasignar camión · solo administradores)
+        </a>
+      )}
     </div>
   )
 }
