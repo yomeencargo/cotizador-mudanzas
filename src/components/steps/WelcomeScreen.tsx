@@ -4,6 +4,8 @@ import { Truck, Clock, Shield, DollarSign, CheckCircle, TrendingDown, Home } fro
 import { useRouter } from 'next/navigation'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
+import { formatHomeVisitPrice } from '@/lib/homeVisitPricing'
+import { useHomeVisitPrice } from '@/lib/useHomeVisitPrice'
 
 interface WelcomeScreenProps {
   onNext: () => void
@@ -11,6 +13,7 @@ interface WelcomeScreenProps {
 
 export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   const router = useRouter()
+  const homeVisitPrice = useHomeVisitPrice()
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -82,12 +85,12 @@ export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                  <span><strong>$23.000</strong> - Solo RM</span>
+                  <span><strong>{formatHomeVisitPrice(homeVisitPrice)}</strong> - Solo RM</span>
                 </li>
               </ul>
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-left">
                 <p className="text-xs text-blue-800">
-                  💡 <strong>¿Contratas después?</strong> Los $23.000 se descuentan del valor total de tu mudanza o flete.
+                  💡 <strong>¿Contratas después?</strong> Los {formatHomeVisitPrice(homeVisitPrice)} se descuentan del valor total de tu mudanza o flete.
                 </p>
               </div>
               <Button

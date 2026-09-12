@@ -32,6 +32,8 @@ interface PricingConfig {
     priority: number
     overCapacityThresholdM3: number
     overCapacityPrice: number
+    /** Precio de la visita a domicilio. Ver src/lib/homeVisitPricing.ts. */
+    homeVisitPrice: number
   }
   specialPackaging: {
     fragile: number
@@ -439,6 +441,30 @@ export default function PricingConfiguration() {
               </div>
               <p className="mt-1 text-xs text-gray-500">
                 Cualquiera de los dos en 0 apaga el recargo.
+              </p>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="mb-1 text-sm font-semibold text-gray-900">
+                Visita a domicilio
+              </h4>
+              <p className="mb-3 text-xs text-gray-500">
+                No es un extra de la mudanza: es el precio del servicio de cotización a
+                domicilio, el que se cobra en /domicilio.
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio de la visita (CLP)
+              </label>
+              <Input
+                type="number"
+                value={config.additionalServices.homeVisitPrice}
+                onChange={(e) => handleInputChange('additionalServices.homeVisitPrice', Number(e.target.value))}
+                placeholder="23000"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Cambia lo que se cobra y lo que dice la página, la pantalla de bienvenida del
+                cotizador y el comprobante. Acá el 0 no apaga nada: se ignora y se usan
+                $23.000, porque el servicio se cobra siempre.
               </p>
             </div>
 

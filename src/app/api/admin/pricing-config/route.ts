@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { DEFAULT_CREW, DEFAULT_STAIRS } from '@/lib/crewPricing'
 import { DEFAULT_EXTRA_SERVICES, withExtraServicesDefaults } from '@/lib/extraServices'
+import { DEFAULT_HOME_VISIT_PRICE, normalizeHomeVisitPrice } from '@/lib/homeVisitPricing'
 
 /**
  * Completa los servicios/recargos agregados en sep-2026 sobre lo que haya guardado.
@@ -11,7 +12,13 @@ import { DEFAULT_EXTRA_SERVICES, withExtraServicesDefaults } from '@/lib/extraSe
  */
 function withServiceDefaults(services: unknown) {
   const s = (services || {}) as Record<string, unknown>
-  return { ...s, ...withExtraServicesDefaults(s) }
+  return {
+    ...s,
+    ...withExtraServicesDefaults(s),
+    // La visita a domicilio vive acá dentro por el mismo motivo (la columna ya es JSONB),
+    // pero se normaliza aparte: un 0 no la apaga, la dejaría cobrando nada.
+    homeVisitPrice: normalizeHomeVisitPrice(s.homeVisitPrice),
+  }
 }
 
 /**
@@ -72,6 +79,7 @@ export async function GET() {
           unpacking: 20000,
           disassembly: 15000,
           assembly: 15000,
+          homeVisitPrice: DEFAULT_HOME_VISIT_PRICE,
           ...DEFAULT_EXTRA_SERVICES
         },
         specialPackaging: {

@@ -128,8 +128,11 @@ export const generateHomePDF = async (
         pdf.setFont('helvetica', 'normal')
         pdf.setFontSize(11)
 
+        // El monto sale del pago, no de la configuración: quien pagó $23.000 tiene que
+        // seguir leyendo $23.000 en su comprobante aunque después cambie el precio.
+        const montoPagado = formatCurrency(parseInt(paymentInfo.amount))
         const services = [
-            '✓ Si contratas el servicio después, los $23.000 se descuentan',
+            `✓ Si contratas el servicio después, los ${montoPagado} se descuentan`,
             '   del valor total del flete',
             '✓ Visita profesional a tu domicilio',
             '✓ Evaluación completa de tus muebles y objetos',

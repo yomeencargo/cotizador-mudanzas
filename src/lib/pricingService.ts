@@ -7,6 +7,7 @@
 
 import { DEFAULT_CREW, DEFAULT_STAIRS, type CrewConfig, type StairsConfig } from '@/lib/crewPricing'
 import { DEFAULT_EXTRA_SERVICES, type ExtraServicesConfig } from '@/lib/extraServices'
+import { DEFAULT_HOME_VISIT_PRICE } from '@/lib/homeVisitPricing'
 
 export interface PricingConfig {
   basePrice: number
@@ -29,6 +30,8 @@ export interface PricingConfig {
     unpacking: number
     disassembly: number
     assembly: number
+    /** Precio de la visita a domicilio. Ver `homeVisitPricing.ts`. */
+    homeVisitPrice: number
   } & ExtraServicesConfig
   specialPackaging: {
     fragile: number
@@ -87,6 +90,7 @@ export async function getPricingConfig(): Promise<PricingConfig> {
       unpacking: 20000,
       disassembly: 15000,
       assembly: 15000,
+      homeVisitPrice: DEFAULT_HOME_VISIT_PRICE,
       ...DEFAULT_EXTRA_SERVICES
     },
       specialPackaging: {
