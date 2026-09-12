@@ -242,6 +242,13 @@ export default function BookingsManagement({
    */
   const [editCapacityWarning, setEditCapacityWarning] = useState<CapacityWarning | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
+  /**
+   * Origen del cliente mientras se edita la reserva. Va aparte de `selectedBooking`
+   * porque NO es un campo de la reserva: es del CLIENTE, vive en `quote_prospects` y se
+   * aplica a todas sus reservas. Se guarda por la misma ruta que usa la pestaña
+   * Clientes, para que siga existiendo una sola clasificación por email.
+   */
+  const [editCustomerOrigin, setEditCustomerOrigin] = useState<string>('web')
   const [blockOnly, setBlockOnly] = useState(false)
   const [newBooking, setNewBooking] = useState({ ...EMPTY_NEW_BOOKING })
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState('manual')
@@ -301,6 +308,7 @@ export default function BookingsManagement({
 
   const openEditBooking = (booking: Booking) => {
     setSelectedBooking(booking)
+    setEditCustomerOrigin(normalizeOrigin(booking.source))
     // El aviso es de la reserva anterior: si queda pegado, bloquea el botón de guardar
     // de una reserva que no tiene ningún conflicto.
     setEditCapacityWarning(null)
@@ -699,6 +707,40 @@ export default function BookingsManagement({
         throw new Error(err?.error || 'Error al guardar')
       }
       setEditCapacityWarning(null)
+
+      // El origen del cliente va por su propia ruta: no es un campo de la reserva sino
+      // del cliente, y se aplica por email a todo su histórico. Se manda solo si cambió.
+      const origenOriginal = normalizeOrigin(booking.source)
+      if (editCustomerOrigin !== origenOriginal && booking.client_email) {
+        try {
+          const res = await fetch('/api/admin/customers', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: booking.client_email,
+              name: booking.client_name,
+              phone: booking.client_phone,
+              source: editCustomerOrigin,
+              is_company: booking.is_company === true,
+              company_name: booking.company_name || null,
+              company_rut: booking.company_rut || null,
+            }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(data?.error || 'No se pudo cambiar el origen')
+        } catch (originErr) {
+          // La reserva YA se guardó: no se revierte por esto, pero hay que decirlo.
+          console.error('Error cambiando el origen del cliente:', originErr)
+          toast.error(
+            originErr instanceof Error
+              ? `Reserva guardada, pero el origen no cambió: ${originErr.message}`
+              : 'Reserva guardada, pero el origen no cambió'
+          )
+          fetchBookings()
+          return true
+        }
+      }
+
       toast.success(
         overrideCapacity
           ? 'Reserva guardada — quedaron dos en el mismo horario'
@@ -2701,6 +2743,28 @@ export default function BookingsManagement({
                 reservas a la misma hora.
               </p>
             </div>
+
+            {/* Origen del cliente. OJO: no es un dato de la reserva, es del CLIENTE —
+                se aplica por email a todas sus reservas, pasadas y futuras. Se edita acá
+                porque Tomás lo busca en el contexto de la reserva, pero escribe en la
+                misma ficha que la pestaña Clientes: una sola clasificación por persona. */}
+            {selectedBooking.client_email && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Origen del cliente
+                </label>
+                <Select
+                  value={editCustomerOrigin}
+                  onChange={(e) => setEditCustomerOrigin(e.target.value)}
+                  options={SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Clasifica a <strong>{selectedBooking.client_name}</strong> y se aplica a
+                  todas sus reservas, no solo a esta. Es la misma clasificación que se ve
+                  en la pestaña Clientes.
+                </p>
+              </div>
+            )}
 
             {/* Direcciones. Las de una visita a domicilio viven en otro campo
                 (`visit_address`) y no tienen origen ni destino, así que se muestra el
