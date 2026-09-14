@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { pickAttribution, hasAttribution, backfillAttribution } from '@/lib/attributionServer'
 import { normalizeStops } from '@/lib/stops'
+import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 
 // Crea (o confirma) una RESERVA real a partir de un prospecto, sin pasar por pago online.
 // Útil cuando el admin cierra el trato por WhatsApp/teléfono. La reserva queda confirmada
@@ -231,6 +232,11 @@ export async function POST(request: NextRequest) {
       },
       request,
     })
+
+    // Correo de ingreso (#05). Antes solo llegaba si se marcaba «ya pagó», y recién con
+    // el cron de la hora siguiente; una reserva cerrada por WhatsApp sin pago no lo recibía.
+    // Idempotente: si esta reserva ya lo tenía (p.ej. una pre-reserva pagada), no se repite.
+    await sendBookingConfirmedIfEligible(bookingId)
 
     return NextResponse.json({ success: true, bookingId, quoteId, price: effectivePrice })
   } catch (error) {

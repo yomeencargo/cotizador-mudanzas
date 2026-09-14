@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { flowService } from '@/lib/flowService'
 import { computeQuoteAmounts, createQuoteFlowOrder } from '@/lib/quoteCheckout'
 import { chileTodayString } from '@/lib/vehicleAssignment'
-import { sendBookingConfirmed } from '@/lib/transactionalEmails'
+import { bookingConfirmedSkipReason, sendBookingConfirmed } from '@/lib/transactionalEmails'
 import {
   bookingScope,
   claimAndSend,
@@ -332,11 +332,13 @@ async function rulePaymentRejected(tally: Tally): Promise<void> {
  * y esto no hace nada.
  */
 async function ruleBookingConfirmedSafetyNet(tally: Tally): Promise<void> {
+  const desde = hoursAgo(CONFIRMED_WINDOW_HOURS)
+
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .select(BOOKING_FIELDS)
+    .select(`${BOOKING_FIELDS}, flow_token, is_provisional`)
     .eq('payment_status', 'approved')
-    .gt('payment_date', hoursAgo(CONFIRMED_WINDOW_HOURS))
+    .gt('payment_date', desde)
     .not('client_email', 'is', null)
 
   if (error) {
@@ -344,7 +346,33 @@ async function ruleBookingConfirmedSafetyNet(tally: Tally): Promise<void> {
     return
   }
 
-  for (const b of (data || []) as BookingRow[]) {
+  // Reservas cargadas desde el panel en las últimas 24 h, confirmadas o pagadas. El #05
+  // se les manda en línea al crearlas; esto cubre que n8n estuviera caído en ese momento.
+  // No tienen `payment_date` (el modal de Nueva Reserva no lo escribe), por eso la
+  // ventana va por creación o por confirmación.
+  const { data: manuales, error: manualesError } = await supabaseAdmin
+    .from('bookings')
+    .select(`${BOOKING_FIELDS}, flow_token, is_provisional`)
+    .is('flow_token', null)
+    .or(`created_at.gt.${desde},confirmed_at.gt.${desde}`)
+    .not('client_email', 'is', null)
+
+  if (manualesError) {
+    console.error('[cron/emails] Error buscando reservas manuales recientes:', manualesError)
+  }
+
+  const candidatas = new Map<string, BookingRow & { flow_token?: string | null; is_provisional?: boolean | null }>()
+  for (const b of [...(data || []), ...(manuales || [])] as (BookingRow & {
+    flow_token?: string | null
+    is_provisional?: boolean | null
+  })[]) {
+    candidatas.set(b.id, b)
+  }
+
+  for (const b of candidatas.values()) {
+    // Lo que entró por Flow sigue igual que siempre. Lo manual pasa por las guardas:
+    // bloqueos de agenda, correos que no son correos, fechas que ya pasaron.
+    if (!b.flow_token && bookingConfirmedSkipReason(b)) continue
     tallyUp(tally, '05_booking_confirmed', await sendBookingConfirmed(b.id))
   }
 }

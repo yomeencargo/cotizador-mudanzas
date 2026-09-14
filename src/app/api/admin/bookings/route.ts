@@ -5,6 +5,7 @@ import { getDriverNotesFor } from '@/lib/driverNotes'
 import { getActiveCapacity } from '@/lib/fleetCapacity'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { normalizeOrigin } from '@/lib/prospectSource'
+import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 import {
   ensureVehicleAssignments,
   getAllVehicleAssignments,
@@ -490,6 +491,14 @@ export async function POST(request: NextRequest) {
       },
       request,
     })
+
+    // Correo de ingreso (#05). Hasta sep-2026 solo lo disparaba un pago de Flow, así que
+    // las reservas cargadas a mano no lo recibían nunca: medido, 64 de 66 manuales desde
+    // el 18-ago se quedaron sin él. Los bloqueos de agenda, las fechas pasadas y las
+    // reservas tentativas quedan afuera (ver `bookingConfirmedSkipReason`). No lanza.
+    if (!skip_customer_record) {
+      await sendBookingConfirmedIfEligible(booking.id)
+    }
 
     return NextResponse.json(
       {
