@@ -99,6 +99,12 @@ interface Prospect {
   is_frequent?: boolean
   customer_origin?: string
   is_existing_customer?: boolean
+  /**
+   * Lo cobrado y lo que falta de la reserva vinculada, calculados en la API con
+   * `revenueBreakdown`. `null` = el lead todavía no tiene reserva.
+   */
+  booking_paid_amount?: number | null
+  booking_pending_amount?: number | null
   created_at: string
   updated_at: string
 }
@@ -214,7 +220,10 @@ export default function ProspectsManagement() {
 
   // Los convertidos también se necesitan cuando el filtro de estado es 'converted'
   // (no solo con el checkbox "Ver convertidos").
-  const includeConverted = showConverted || statusFilter === 'converted'
+  // Con «Por cobrar» también: quien debe plata ya reservó, así que está convertido
+  // (medido el 15-sep-2026, los 21 leads con saldo pendiente lo están).
+  const includeConverted =
+    showConverted || statusFilter === 'converted' || statusFilter === 'por_cobrar'
 
   // Memoizado a propósito: el editor de precios usa esta lista como identidad para
   // saber cuándo descartar su borrador. Recalcularla en cada render cancelaría la
@@ -260,7 +269,10 @@ export default function ProspectsManagement() {
       )
     }
 
-    if (statusFilter !== 'all') {
+    if (statusFilter === 'por_cobrar') {
+      // No es un estado del lead: es plata pendiente en su reserva.
+      filtered = filtered.filter(p => (Number(p.booking_pending_amount) || 0) > 0)
+    } else if (statusFilter !== 'all') {
       filtered = filtered.filter(p => p.status === statusFilter)
     }
 
@@ -1084,6 +1096,7 @@ export default function ProspectsManagement() {
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: 'all', label: 'Todos' },
+                { value: 'por_cobrar', label: 'Por cobrar (reservó y falta pagar)' },
                 { value: 'new', label: 'Nuevo' },
                 { value: 'contacted', label: 'Contactado' },
                 { value: 'no_response', label: 'Sin respuesta' },
@@ -1353,6 +1366,11 @@ export default function ProspectsManagement() {
                       {prospect.status === 'converted' && prospect.converted_booking_id && (
                         <div className="text-[11px] text-green-700 mt-1" title={`Reserva ${prospect.converted_booking_id}`}>
                           → en Reservas
+                        </div>
+                      )}
+                      {(Number(prospect.booking_pending_amount) || 0) > 0 && (
+                        <div className="text-[11px] font-semibold text-orange-700 mt-1" title="Saldo pendiente de su reserva">
+                          Falta ${Number(prospect.booking_pending_amount).toLocaleString('es-CL')}
                         </div>
                       )}
                     </td>

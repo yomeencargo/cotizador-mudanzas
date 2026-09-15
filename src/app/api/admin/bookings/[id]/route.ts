@@ -10,6 +10,7 @@ import {
   type FieldChange,
 } from '@/lib/activityLog'
 import { isAdministrator } from '@/lib/adminPermissions'
+import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 
 /** Etiqueta legible de una reserva, para poder leer el log aunque luego se borre. */
 function bookingLabel(b: { client_name?: string | null; scheduled_date?: string | null }) {
@@ -629,6 +630,16 @@ export async function PATCH(
       updateData,
       capacityOverride: capacityOverrideApproved,
     })
+
+    // Una reserva que nació tentativa (el modal de Nueva Reserva arranca en «pendiente»)
+    // entra de verdad cuando se confirma o cuando su pago queda aprobado: ese es su
+    // ingreso, y ahí va el #05. Solo en la TRANSICIÓN, para que editar una dirección de
+    // una reserva confirmada hace meses no le mande nada a nadie. Idempotente y no lanza.
+    const seConfirmo = before?.status !== 'confirmed' && booking?.status === 'confirmed'
+    const sePago = before?.payment_status !== 'approved' && booking?.payment_status === 'approved'
+    if (seConfirmo || sePago) {
+      await sendBookingConfirmedIfEligible(id)
+    }
 
     return NextResponse.json({
       success: true,
