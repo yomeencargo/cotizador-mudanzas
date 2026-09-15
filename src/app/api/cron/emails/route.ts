@@ -336,7 +336,7 @@ async function ruleBookingConfirmedSafetyNet(tally: Tally): Promise<void> {
 
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .select(`${BOOKING_FIELDS}, flow_token, is_provisional`)
+    .select(`${BOOKING_FIELDS}, flow_token, is_provisional, booking_type, original_price, adjusted_price`)
     .eq('payment_status', 'approved')
     .gt('payment_date', desde)
     .not('client_email', 'is', null)
@@ -352,7 +352,7 @@ async function ruleBookingConfirmedSafetyNet(tally: Tally): Promise<void> {
   // ventana va por creación o por confirmación.
   const { data: manuales, error: manualesError } = await supabaseAdmin
     .from('bookings')
-    .select(`${BOOKING_FIELDS}, flow_token, is_provisional`)
+    .select(`${BOOKING_FIELDS}, flow_token, is_provisional, booking_type, original_price, adjusted_price`)
     .is('flow_token', null)
     .or(`created_at.gt.${desde},confirmed_at.gt.${desde}`)
     .not('client_email', 'is', null)
@@ -361,11 +361,15 @@ async function ruleBookingConfirmedSafetyNet(tally: Tally): Promise<void> {
     console.error('[cron/emails] Error buscando reservas manuales recientes:', manualesError)
   }
 
-  const candidatas = new Map<string, BookingRow & { flow_token?: string | null; is_provisional?: boolean | null }>()
-  for (const b of [...(data || []), ...(manuales || [])] as (BookingRow & {
+  type Candidata = BookingRow & {
     flow_token?: string | null
     is_provisional?: boolean | null
-  })[]) {
+    booking_type?: string | null
+    original_price?: number | null
+    adjusted_price?: number | null
+  }
+  const candidatas = new Map<string, Candidata>()
+  for (const b of [...(data || []), ...(manuales || [])] as Candidata[]) {
     candidatas.set(b.id, b)
   }
 

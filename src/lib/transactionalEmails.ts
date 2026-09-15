@@ -16,7 +16,7 @@ import { chileTodayString } from '@/lib/vehicleAssignment'
 const BOOKING_CONFIRMED_FIELDS = `id, quote_id, client_name, client_email, client_phone, scheduled_date,
   scheduled_time, origin_address, destination_address, total_price, original_price,
   adjusted_price, amount_paid, payment_type, payment_status, payment_date, status,
-  is_provisional, flow_token`
+  is_provisional, flow_token, booking_type`
 
 /**
  * #05 Reserva confirmada. Idempotente por la clave de `email_log`: da igual cuántas
@@ -86,25 +86,39 @@ export interface BookingConfirmedCandidate {
   status?: string | null
   payment_status?: string | null
   is_provisional?: boolean | null
+  booking_type?: string | null
+  total_price?: number | null
+  original_price?: number | null
+  adjusted_price?: number | null
 }
 
 export type BookingConfirmedSkip =
   | 'bloqueo'
   | 'email_invalido'
+  | 'visita_domicilio'
   | 'estado_cerrado'
   | 'pre_reserva'
   | 'no_confirmada'
-  | 'fecha_pasada'
+  | 'sin_precio'
+  | 'fecha_no_futura'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * ¿Por qué NO mandarle el #05 a una reserva que entró por el panel? `null` = sí va.
  *
- * Cada guarda sale de medir las reservas manuales de producción el 14-sep-2026:
+ * Cada guarda sale de medir las reservas manuales de producción (14 y 15-sep-2026):
  *  - 9 de 98 tienen en `client_email` un nombre o una palabra ('sinnumero', 'dorca').
  *  - Solo 17 de 98 son para una fecha futura: el panel se usa mucho para registrar
  *    mudanzas que ya pasaron, y «tu mudanza del 3 de marzo está confirmada» sería absurdo.
+ *    El día de la mudanza tampoco va: el 15-sep se cargaron en la tarde tres mudanzas
+ *    de ese mismo día, con toda probabilidad ya hechas. El correo sirve para confirmar
+ *    ANTES de ir; a partir de mañana.
+ *  - Sin precio cargado no va. Son sobre todo cuentas recurrentes que se facturan aparte:
+ *    un solo cliente corporativo tenía 11 reservas sin precio, casi una por día, y le
+ *    habría llegado «tu mudanza está confirmada» con el checklist de embalaje cada vez.
+ *  - Las visitas a domicilio no son mudanzas: la plantilla habla de embalar y de subir
+ *    muebles.
  *  - Los bloqueos de agenda son reservas con `ADMIN-BLOQUEO-` y un correo de example.com.
  *  - El modal de Nueva Reserva nace en `pending`: eso es tentativo, no un ingreso. Entra
  *    cuando se confirma o cuando el pago queda aprobado (7 manuales están pagadas y
@@ -119,11 +133,15 @@ export function bookingConfirmedSkipReason(
     return 'bloqueo'
   }
   if (!EMAIL_RE.test(email)) return 'email_invalido'
+  if (b.booking_type === 'domicilio' || String(b.quote_id || '').startsWith('DOMICILIO-')) {
+    return 'visita_domicilio'
+  }
   const status = String(b.status || '')
   if (['cancelled', 'no_show', 'completed'].includes(status)) return 'estado_cerrado'
   if (b.is_provisional) return 'pre_reserva'
   if (status !== 'confirmed' && b.payment_status !== 'approved') return 'no_confirmada'
-  if (!b.scheduled_date || b.scheduled_date < today) return 'fecha_pasada'
+  if (servicePrice(b) <= 0) return 'sin_precio'
+  if (!b.scheduled_date || b.scheduled_date <= today) return 'fecha_no_futura'
   return null
 }
 
