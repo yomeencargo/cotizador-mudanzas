@@ -405,6 +405,24 @@ export default function BookingsManagement({
     // Filtrar por estado (incluye opción especial 'provisional' = pre-reservas sin pagar)
     if (statusFilter === 'provisional') {
       filtered = filtered.filter(booking => booking.is_provisional === true)
+    } else if (statusFilter === 'por_cobrar') {
+      // A quién hay que ir a cobrar: toda reserva real con plata pendiente, pagara algo o
+      // nada. Es la MISMA cuenta que «Falta cobrar» en la fila y en el detalle
+      // (`pendingAmount`), así que la lista y los montos no pueden contradecirse.
+      //
+      // Hacía falta porque los dos filtros que había dejaban afuera a la mayoría: «Sin
+      // pagar» solo mira pre-reservas web y «Abonó 50%» exige ese tipo de pago. Medido el
+      // 15-sep-2026: 46 reservas deben $5.594.633, y 30 de ellas ($4.891.314) no salían
+      // en ninguno — casi todas confirmadas a mano que todavía no pagaron nada.
+      //
+      // `pendingAmount` ya devuelve 0 para pre-reservas, canceladas y no atendidas, y para
+      // quien pagó completo (el 5% es descuento, no deuda). Una reserva sin precio cargado
+      // tampoco aparece: no se puede deber un monto que no existe.
+      filtered = filtered.filter(
+        booking =>
+          !String(booking.quote_id || '').startsWith('ADMIN-BLOQUEO-') &&
+          pendingAmount(booking) > 0
+      )
     } else if (statusFilter === 'saldo_pendiente') {
       // Abonos del 50% ya cobrados: falta el saldo. Es la lista de a quién hay que ir a
       // cobrar, así que se excluyen las canceladas y las que nunca pagaron el abono.
@@ -1299,6 +1317,7 @@ export default function BookingsManagement({
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: 'all', label: 'Todos los estados' },
+                { value: 'por_cobrar', label: 'Por cobrar (falta pagar)' },
                 { value: 'provisional', label: 'Sin pagar (provisional)' },
                 { value: 'saldo_pendiente', label: 'Abonó 50% — falta el saldo' },
                 { value: 'pending', label: 'Pendiente' },

@@ -12,6 +12,7 @@ import {
   normalizeOrigin,
 } from '@/lib/prospectSource'
 import { applyItemPackagingPrices, describePriceChanges } from '@/lib/quoteItemPricing'
+import { actualPaidAmount, pendingAmount, type BookingLike } from '@/lib/revenueBreakdown'
 
 /** Etiqueta legible del lead, duplicada en el log para poder leerlo si se borra. */
 function prospectLabel(p: { name?: string | null; email?: string | null }) {
@@ -39,6 +40,29 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Lo que debe cada lead que ya reservó, para el filtro «Por cobrar». Un lead no tiene
+    // pagos propios: la plata vive en su reserva, así que se cruza con ella. Se calcula
+    // con `pendingAmount`, la misma cuenta que muestra Reservas en «Falta cobrar», para
+    // que las dos pestañas no digan montos distintos de la misma persona.
+    //
+    // No alcanza con el estado: «Convertido» no significa pagado. Una reserva creada
+    // desde el lead sin marcar «ya pagó» también lo deja convertido.
+    const { data: bookings, error: bookingsError } = await supabaseAdmin
+      .from('bookings')
+      .select(
+        'id, quote_id, status, payment_status, payment_type, is_provisional, total_price, original_price, adjusted_price, amount_paid'
+      )
+    if (bookingsError) {
+      // Sin reservas el panel sigue funcionando; solo el filtro de cobro queda vacío.
+      console.error('[Admin Prospects] Error leyendo reservas para el cobro:', bookingsError)
+    }
+    const bookingById = new Map<string, BookingLike & { id: string; quote_id: string | null }>()
+    const bookingByQuote = new Map<string, BookingLike & { id: string; quote_id: string | null }>()
+    for (const b of bookings || []) {
+      bookingById.set(b.id, b)
+      if (b.quote_id) bookingByQuote.set(b.quote_id, b)
+    }
+
     // Las fichas creadas desde Clientes/Reservas comparten la base de contactos,
     // pero no son oportunidades del embudo y no deben reaparecer en Prospectos.
     const allProspects = prospects || []
@@ -52,11 +76,18 @@ export async function GET(request: NextRequest) {
       })
       .map((prospect) => {
         const identity = identities.get(normalizeCustomerEmail(prospect.email))
+        // Primero el vínculo directo (lo escribe la conversión), después el quote_id.
+        const booking =
+          (prospect.converted_booking_id && bookingById.get(prospect.converted_booking_id)) ||
+          (prospect.quote_id && bookingByQuote.get(prospect.quote_id)) ||
+          null
         return {
           ...prospect,
           customer_origin: identity?.origin || normalizeOrigin(prospect.source),
           is_existing_customer: Boolean(identity?.isCustomer),
           is_frequent: Boolean(prospect.is_frequent) || Boolean(identity?.isFrequent),
+          booking_paid_amount: booking ? actualPaidAmount(booking) : null,
+          booking_pending_amount: booking ? pendingAmount(booking) : null,
         }
       })
 
