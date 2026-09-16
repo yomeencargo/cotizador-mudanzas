@@ -405,7 +405,7 @@ const QUOTE_SEQUENCE_START = '2026-08-18T00:00:00Z'
 const PROSPECT_FIELDS = `
   id, quote_id, name, email, origin_address, destination_address,
   scheduled_date, scheduled_time, total_price, adjusted_price, is_flexible,
-  recommended_vehicle, pdf_url, status, created_at
+  recommended_vehicle, pdf_url, status, created_at, quote_sent_at
 `
 
 interface ProspectRow {
@@ -424,6 +424,8 @@ interface ProspectRow {
   pdf_url: string | null
   status: string | null
   created_at: string
+  /** Se envió la cotización por correo a mano (panel o botón «Enviar» de la web). */
+  quote_sent_at: string | null
 }
 
 /**
@@ -477,6 +479,22 @@ async function ruleQuoteSequence(tally: Tally): Promise<void> {
         personScope(email),
         new Date(new Date(p.created_at).getTime() + skipped.hours * 3600_000)
       )
+    }
+
+    // Un solo correo con la cotización (decisión de Tomás, 16-sep-2026). Si ya se le
+    // mandó a mano —con el PDF y los links de pago, desde el panel o desde el botón
+    // «Enviar» de la web—, el #01 automático sería un segundo «tu cotización está lista»
+    // dentro de la misma hora. Se marca como reemplazado y la secuencia sigue igual desde
+    // el #02: no se adelanta nada, solo se evita el duplicado.
+    if (top.key === '01_quote' && p.quote_sent_at) {
+      await markSuperseded(
+        top.key,
+        email,
+        personScope(email),
+        new Date(new Date(p.created_at).getTime() + top.hours * 3600_000)
+      )
+      tally['01_quote.superseded:ya_enviada'] = (tally['01_quote.superseded:ya_enviada'] || 0) + 1
+      continue
     }
 
     const precio = p.adjusted_price ?? p.total_price ?? 0

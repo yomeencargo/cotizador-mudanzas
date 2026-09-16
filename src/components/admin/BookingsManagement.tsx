@@ -254,6 +254,12 @@ export default function BookingsManagement({
     recommendedFits: boolean
   } | null>(null)
   const [fleetAvailabilityLoading, setFleetAvailabilityLoading] = useState(false)
+  // Choque de camión en el modal Editar. Editar NO valida (decisión de Tomás, 16-sep-2026:
+  // el admin puede saber que un trabajo termina antes), pero avisa: si el camión elegido
+  // ya tiene otro trabajo que se pisa con la fecha/hora de esta reserva, se muestra acá.
+  const [editTruckConflict, setEditTruckConflict] = useState<
+    null | { vehicleName: string; ranges: string }
+  >(null)
   /**
    * Aviso de horario ocupado al REPROGRAMAR. Va aparte de `capacityWarning`, que vive en
    * el modal de Nueva Reserva: son dos pantallas distintas y podrían estar abiertas en
@@ -595,6 +601,51 @@ export default function BookingsManagement({
       clearTimeout(timer)
     }
   }, [showAddModal, newBooking.scheduled_date, newBooking.scheduled_time, newBooking.duration_hours])
+
+  useEffect(() => {
+    const b = selectedBooking
+    const ocupaCamion = b && !['cancelled', 'no_show'].includes(String(b.status || ''))
+    if (!showEditModal || !b || !ocupaCamion || b.vehicle_id == null || !b.scheduled_date || !b.scheduled_time) {
+      setEditTruckConflict(null)
+      return
+    }
+    let vigente = true
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({
+          date: b.scheduled_date,
+          time: String(b.scheduled_time).slice(0, 5),
+          duration: String(Number(b.duration_hours) || 4),
+          excludeId: b.id,
+        })
+        const res = await fetch(`/api/admin/fleet-availability?${params}`)
+        const data = await res.json().catch(() => null)
+        if (!vigente || !res.ok || !data) return
+        const camion = data.vehicles?.find((v: any) => v.id === b.vehicle_id)
+        setEditTruckConflict(
+          camion && camion.status === 'active' && !camion.available
+            ? {
+                vehicleName: camion.name,
+                ranges: camion.overlapping.map((o: any) => `${o.from}–${o.to}`).join(', '),
+              }
+            : null
+        )
+      } catch {
+        if (vigente) setEditTruckConflict(null)
+      }
+    }, 300)
+    return () => {
+      vigente = false
+      clearTimeout(timer)
+    }
+  }, [
+    showEditModal,
+    selectedBooking?.id,
+    selectedBooking?.scheduled_date,
+    selectedBooking?.scheduled_time,
+    selectedBooking?.vehicle_id,
+    selectedBooking?.status,
+  ])
 
   useEffect(() => {
     fetchBookings()
@@ -3076,9 +3127,17 @@ export default function BookingsManagement({
                   Sin asignar
                 </button>
               </div>
+              {editTruckConflict && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <strong>Atención:</strong> {editTruckConflict.vehicleName} ya tiene otro trabajo
+                  que se pisa con esta reserva ({editTruckConflict.ranges}). Editar no bloquea
+                  los choques de camión: si guardas, queda así.
+                </div>
+              )}
               <p className="mt-2 text-xs text-gray-500">
                 Lo que elijas acá manda. &quot;Sin asignar&quot; devuelve la reserva al reparto
-                automático, que le dará el camión activo con menos trabajos ese día.
+                automático, que la pone en el primer camión libre a esa hora (llena uno antes
+                de usar el siguiente).
               </p>
             </div>
 
