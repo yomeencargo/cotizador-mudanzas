@@ -3,6 +3,7 @@ import { useQuoteStore } from '@/store/quoteStore'
 import { formatDate, formatTime, formatCurrency, formatDistanceKm, formatParkingDistance } from './utils'
 import { applyPdfTextSanitizer } from './pdfText'
 import { packagingLabel } from './packagingCatalog'
+import { getPricingConfig } from './pricingService'
 
 type QuotePdfOptions = {
   /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
@@ -40,6 +41,12 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     requiredCrew,
     totalCrew,
   } = useQuoteStore.getState()
+
+  // Los precios de desarme y armado salen de la configuración vigente. Antes estaban
+  // escritos a mano ($15.000) y el PDF mostraba otro valor que el que se cobra: medido el
+  // 16-sep-2026, en producción esos servicios valían $20.000. `getPricingConfig` cachea
+  // cinco minutos, así que no suma una consulta por PDF.
+  const precioServicios = (await getPricingConfig()).additionalServices
   const precioDocumento =
     typeof options?.priceOverride === 'number' && options.priceOverride > 0
       ? Math.round(options.priceOverride)
@@ -287,11 +294,11 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     pdf.setFont('helvetica', 'normal')
     
     if (additionalServices.disassembly) {
-      pdf.text('[OK] Desarme de muebles - $15.000', 20, yPosition)
+      pdf.text(`[OK] Desarme de muebles - ${formatCurrency(precioServicios.disassembly)}`, 20, yPosition)
       yPosition += 6
     }
     if (additionalServices.assembly) {
-      pdf.text('[OK] Armado de muebles - $15.000', 20, yPosition)
+      pdf.text(`[OK] Armado de muebles - ${formatCurrency(precioServicios.assembly)}`, 20, yPosition)
       yPosition += 6
     }
     if (additionalServices.packing) {
@@ -418,6 +425,12 @@ export const generateBookingPDF = async (
     requiredCrew,
     totalCrew,
   } = useQuoteStore.getState()
+
+  // Los precios de desarme y armado salen de la configuración vigente. Antes estaban
+  // escritos a mano ($15.000) y el PDF mostraba otro valor que el que se cobra: medido el
+  // 16-sep-2026, en producción esos servicios valían $20.000. `getPricingConfig` cachea
+  // cinco minutos, así que no suma una consulta por PDF.
+  const precioServicios = (await getPricingConfig()).additionalServices
 
   // Crear nuevo documento PDF
   const pdf = new jsPDF('p', 'mm', 'a4')
@@ -773,11 +786,11 @@ export const generateBookingPDF = async (
     pdf.setFont('helvetica', 'normal')
     
     if (additionalServices.disassembly) {
-      pdf.text('✓ Desarme de muebles - $15.000', 20, yPosition)
+      pdf.text(`✓ Desarme de muebles - ${formatCurrency(precioServicios.disassembly)}`, 20, yPosition)
       yPosition += 6
     }
     if (additionalServices.assembly) {
-      pdf.text('✓ Armado de muebles - $15.000', 20, yPosition)
+      pdf.text(`✓ Armado de muebles - ${formatCurrency(precioServicios.assembly)}`, 20, yPosition)
       yPosition += 6
     }
     if (additionalServices.packing) {
