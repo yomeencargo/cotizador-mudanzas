@@ -7,6 +7,7 @@ import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { normalizeOrigin } from '@/lib/prospectSource'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 import { getVehicleAvailability } from '@/lib/vehicleAvailability'
+import { isValidEmail } from '@/lib/emailFormat'
 import {
   chileTodayString,
   ensureVehicleAssignments,
@@ -293,6 +294,19 @@ export async function POST(request: NextRequest) {
 
     if (!client_name || !client_email || !client_phone || !scheduled_date || !scheduled_time) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+    }
+
+    // El correo es la identidad del cliente (la ficha se arma por email) y el canal de los
+    // avisos automáticos: un nombre en ese campo deja a la persona sin correos y crea una
+    // ficha falsa. Los bloqueos de agenda no son clientes y usan su propio correo fijo.
+    if (!skip_customer_record && !isValidEmail(client_email)) {
+      return NextResponse.json(
+        {
+          error: `«${String(client_email).trim()}» no es un correo válido. Pídele el correo al cliente: con un nombre en ese campo no recibe ningún aviso.`,
+          invalidEmail: true,
+        },
+        { status: 400 }
+      )
     }
 
     // Obtener capacidad de flota (vehículos activos, no total)

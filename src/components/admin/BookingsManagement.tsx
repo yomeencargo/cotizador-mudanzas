@@ -32,6 +32,7 @@ import {
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { isValidEmail } from '@/lib/emailFormat'
 import PdfDownloadMenu from './PdfDownloadMenu'
 import QuoteItemsPricing from './QuoteItemsPricing'
 import {
@@ -1099,6 +1100,10 @@ export default function BookingsManagement({
       }
 
       // Crear reserva normal
+      if (!isValidEmail(newBooking.client_email)) {
+        toast.error('Ingresa un correo válido del cliente (ej. nombre@gmail.com): sin eso no recibe ningún aviso.')
+        return
+      }
       const timestamp = Date.now()
       const method = newBooking.payment_method || 'flow'
       const amount = newBooking.total_price ? Number(newBooking.total_price) : 0
@@ -2165,6 +2170,11 @@ export default function BookingsManagement({
                   value={newBooking.client_email}
                   onChange={(e) => setNewBooking({ ...newBooking, client_email: e.target.value })}
                 />
+                {newBooking.client_email.trim() !== '' && !isValidEmail(newBooking.client_email) && (
+                  <p className="mt-1 text-xs text-red-600">
+                    No es un correo válido. Con un nombre en este campo el cliente no recibe avisos.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
