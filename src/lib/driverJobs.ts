@@ -93,7 +93,7 @@ export async function getUpcomingDriverJobs(
   // 'completed' en el sistema (pago aprobado) y sigue siendo un trabajo real que el
   // chofer necesita ver. Solo excluimos canceladas / no atendidas.
   const BASE_COLUMNS =
-    'id, quote_id, scheduled_date, scheduled_time, client_name, client_phone, booking_type, visit_address, origin_address, origin_floor, origin_has_elevator, origin_parking_distance, destination_address, destination_floor, destination_has_elevator, destination_parking_distance, notes, is_provisional, status'
+    'id, quote_id, scheduled_date, scheduled_time, duration_hours, client_name, client_phone, booking_type, visit_address, origin_address, origin_floor, origin_has_elevator, origin_parking_distance, destination_address, destination_floor, destination_has_elevator, destination_parking_distance, notes, is_provisional, status'
 
   const consultar = (conParadas: boolean) =>
     supabaseAdmin
