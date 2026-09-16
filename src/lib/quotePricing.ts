@@ -12,13 +12,14 @@
  * y por eso el mismo cálculo sirve en los dos lados.
  *
  * EL ORDEN DE LAS SUMAS ES PARTE DE LA DEFINICIÓN DEL PRECIO, no un detalle: el recargo
- * de fin de semana, el descuento por flexibilidad y el IVA son porcentajes, así que mover
+ * de sábado, domingo o feriado, el descuento por flexibilidad y el IVA son porcentajes, así que mover
  * un cargo de lugar cambia la plata. Cada tramo dice por qué está donde está.
  */
 
 import { crewCost, requiredPeople, stairTrips, stairsCost } from '@/lib/crewPricing'
 import { hasFridge, overCapacitySurcharge } from '@/lib/extraServices'
 import type { PricingConfig } from '@/lib/pricingService'
+import { chileDateKey, dayOfWeekFromKey, isChileHoliday } from '@/lib/chileHolidays'
 
 /** Un item de la mudanza, con lo único que el precio necesita saber de él. */
 export interface QuoteItemInput {
@@ -56,7 +57,7 @@ export interface QuotePricingInput {
   destination?: QuotePropertyInput | null
   /** Distancia de la ruta completa, con las paradas ya sumadas. La mide el que llama. */
   distanceKm: number
-  /** Fecha de la mudanza: define el recargo de fin de semana. */
+  /** Fecha de la mudanza: define el recargo de sábado, domingo o feriado. */
   dateTime?: string | Date | null
   isFlexible?: boolean
   /** Empresa = se factura, o sea IVA sobre el total. */
@@ -75,6 +76,45 @@ export interface QuotePricingResult {
   /** Las anteriores más los ayudantes que sumó el cliente, topeado en `crew.maxPeople`. */
   totalCrew: number
   stairTrips: number
+}
+
+export type DateSurchargeKind = 'saturday' | 'sunday' | 'holiday'
+
+export interface DateSurcharge {
+  percent: number
+  /** El recargo que se aplicó; `null` si el día no lleva ninguno. */
+  kind: DateSurchargeKind | null
+}
+
+/**
+ * Recargo por el día de la mudanza. Lo usan el cálculo y el calendario, para que el
+ * «+15%» que ve el cliente sea el mismo que se le cobra.
+ *
+ * Un feriado que cae en domingo NO suma los dos: se cobra el mayor. Son dos razones para
+ * lo mismo (un día en que no se trabaja), no dos cargos distintos.
+ *
+ * Antes sábado y domingo usaban los dos el porcentaje del sábado, y el de domingo y el de
+ * feriado se editaban en el panel sin mover el precio.
+ */
+export function dateSurcharge(
+  dateTime: string | Date | null | undefined,
+  surcharges: { saturday?: number; sunday?: number; holiday?: number } | null | undefined
+): DateSurcharge {
+  const dateKey = chileDateKey(dateTime)
+  if (!dateKey || !surcharges) return { percent: 0, kind: null }
+
+  const candidatos: DateSurcharge[] = []
+  const dia = dayOfWeekFromKey(dateKey)
+  if (dia === 6) candidatos.push({ percent: Number(surcharges.saturday) || 0, kind: 'saturday' })
+  if (dia === 0) candidatos.push({ percent: Number(surcharges.sunday) || 0, kind: 'sunday' })
+  if (isChileHoliday(dateKey)) {
+    candidatos.push({ percent: Number(surcharges.holiday) || 0, kind: 'holiday' })
+  }
+
+  const mayor = candidatos
+    .filter((c) => c.percent > 0)
+    .sort((a, b) => b.percent - a.percent)[0]
+  return mayor || { percent: 0, kind: null }
 }
 
 /** Vehículo que se recomienda para ese volumen. Informativo: no entra en el precio. */
@@ -140,12 +180,10 @@ export function calculateQuote(input: QuotePricingInput): QuotePricingResult {
   )
   basePrice += crewCost(totalCrew, pricing.crew)
 
-  // Cargo por fin de semana: sábado (6) y domingo (0) con el mismo porcentaje
-  if (input.dateTime) {
-    const dayOfWeek = new Date(input.dateTime).getDay()
-    if (dayOfWeek === 6 || dayOfWeek === 0) {
-      basePrice += (basePrice * pricing.timeSurcharges.saturday) / 100
-    }
+  // Recargo por día: sábado, domingo o feriado, cada uno con su porcentaje del panel.
+  const recargoDia = dateSurcharge(input.dateTime, pricing.timeSurcharges)
+  if (recargoDia.percent > 0) {
+    basePrice += (basePrice * recargoDia.percent) / 100
   }
 
   // Servicios adicionales
@@ -154,7 +192,7 @@ export function calculateQuote(input: QuotePricingInput): QuotePricingResult {
   // packing y unpacking requieren contacto con ejecutivo, no se suman al precio
 
   // Desarmado de refrigerador: va acá, junto al desarme y el armado, porque es el mismo
-  // tipo de cobro (mano de obra) y sigue su misma suerte —recargo de fin de semana y
+  // tipo de cobro (mano de obra) y sigue su misma suerte —recargo del día y
   // descuento por flexibilidad—. Se exige que el refrigerador SIGA en la lista: si el
   // cliente lo marcó y después borró el item, el cargo desaparece.
   if (services.fridgeDisassembly && hasFridge(items)) {
@@ -182,10 +220,10 @@ export function calculateQuote(input: QuotePricingInput): QuotePricingResult {
   }
 
   // Recargo por exceso de volumen y Priority: PLANOS y al final, después del descuento
-  // por flexibilidad y del recargo de fin de semana, antes del IVA.
+  // por flexibilidad y del recargo del día, antes del IVA.
   //
   // Van acá y no arriba porque Tomás los definió como montos fijos ($29.990 y $99.990):
-  // sumarlos antes haría que el recargo de sábado y el descuento por flexibilidad los
+  // sumarlos antes haría que el recargo del día y el descuento por flexibilidad los
   // movieran, y dejarían de ser el número que él dijo. El IVA sí los alcanza, porque es
   // un impuesto sobre el total.
   basePrice += overCapacitySurcharge(totalVolume, pricing.additionalServices)
