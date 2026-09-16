@@ -12,6 +12,7 @@ import PricingConfiguration from '@/components/admin/PricingConfiguration'
 import ScheduleConfiguration from '@/components/admin/ScheduleConfiguration'
 import ItemsManagement from '@/components/admin/ItemsManagement'
 import ProspectsManagement from '@/components/admin/ProspectsManagement'
+import AdminQuoteBuilder from '@/components/admin/AdminQuoteBuilder'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import AttendedCustomers from '@/components/admin/AttendedCustomers'
 import DriverAccessCard from '@/components/admin/DriverAccessCard'
@@ -37,7 +38,8 @@ import {
   History,
   ShieldCheck,
   Package,
-  UserPlus
+  UserPlus,
+  FilePlus
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -217,6 +219,7 @@ export default function AdminDashboard() {
     { id: 'calendar', name: 'Calendario', icon: CalendarDays },
     { id: 'bookings', name: 'Reservas', icon: Calendar },
     { id: 'prospects', name: 'Prospectos', icon: UserPlus },
+    { id: 'new-quote', name: 'Nueva cotización', icon: FilePlus },
     { id: 'customers', name: 'Clientes', icon: Users },
     { id: 'fleet', name: 'Flota', icon: Truck },
     { id: 'schedule', name: 'Horarios', icon: Clock },
@@ -842,6 +845,10 @@ export default function AdminDashboard() {
 
         {/* Prospects Tab */}
         {activeTab === 'prospects' && <ProspectsManagement />}
+
+        {activeTab === 'new-quote' && (
+          <AdminQuoteBuilder onGoToProspects={() => setActiveTab('prospects')} />
+        )}
 
         {activeTab === 'customers' && <AttendedCustomers />}
 

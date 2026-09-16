@@ -7,6 +7,12 @@ import { packagingLabel } from './packagingCatalog'
 type QuotePdfOptions = {
   /** Si es false, solo se genera el blob (p. ej. subida silenciosa al llegar al resumen). Por defecto true. */
   download?: boolean
+  /**
+   * Precio a imprimir en lugar del calculado. Lo usa el cotizador interno del panel
+   * cuando la secretaria acordó otro valor con el cliente: el PDF que recibe tiene que
+   * decir ESE precio, no el del cálculo. El resto del documento es el mismo.
+   */
+  priceOverride?: number
 }
 
 export const generateQuotePDF = async (options?: QuotePdfOptions) => {
@@ -34,6 +40,10 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     requiredCrew,
     totalCrew,
   } = useQuoteStore.getState()
+  const precioDocumento =
+    typeof options?.priceOverride === 'number' && options.priceOverride > 0
+      ? Math.round(options.priceOverride)
+      : estimatedPrice
 
   // Crear nuevo documento PDF
   const pdf = new jsPDF('p', 'mm', 'a4')
@@ -335,7 +345,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
   pdf.text('PRECIO ESTIMADO', pageWidth / 2, yPosition + 10, { align: 'center' })
   
   pdf.setFontSize(28)
-  pdf.text(formatCurrency(estimatedPrice), pageWidth / 2, yPosition + 20, { align: 'center' })
+  pdf.text(formatCurrency(precioDocumento), pageWidth / 2, yPosition + 20, { align: 'center' })
   
   pdf.setTextColor(...textColor)
   pdf.setFontSize(10)

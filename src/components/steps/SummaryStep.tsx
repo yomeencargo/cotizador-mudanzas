@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatTime, formatDistanceKm } from '@/lib/utils'
 import { generateQuotePDF } from '@/lib/pdfGenerator'
+import { buildQuoteProspectBody } from '@/lib/quoteProspectPayload'
 import { getPricingConfig } from '@/lib/pricingService'
 import { trackEvent, pushDataLayerMonto } from '@/lib/tracking'
 import { attributionForSubmit } from '@/lib/attribution'
@@ -184,74 +185,43 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
   const saveProspect = async (source: string): Promise<string | null> => {
     try {
-      const originFull = buildAddress(origin)
-      const destinationFull = buildAddress(destination)
-
-      const itemsSummary = items.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        volume: parseFloat((item.volume * item.quantity).toFixed(2)),
-        packaging: item.packaging && item.packaging.type !== 'none' ? item.packaging : undefined,
-      }))
-
+      // El cuerpo lo arma `buildQuoteProspectBody`, compartido con el cotizador interno
+      // del panel: la cotización se guarda igual venga de donde venga.
       const res = await fetch('/api/prospects/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source,
-          quote_id: getQuoteId(),
-          name: personalInfo?.name,
-          email: personalInfo?.email,
-          phone: personalInfo?.phone,
-          is_company: personalInfo?.isCompany || false,
-          company_name: personalInfo?.companyName,
-          company_rut: personalInfo?.companyRut,
-          origin_address: originFull,
-          destination_address: destinationFull,
-          // Paradas intermedias. Van tal cual para que el panel, el PDF y el link del
-          // chofer puedan reconstruir la ruta completa, no solo las dos puntas.
-          stops,
-          origin_floor: origin.details?.floor ?? null,
-          origin_has_elevator: origin.details?.hasElevator ?? null,
-          origin_parking_distance: origin.details?.parkingDistance ?? null,
-          destination_floor: destination.details?.floor ?? null,
-          destination_has_elevator: destination.details?.hasElevator ?? null,
-          destination_parking_distance: destination.details?.parkingDistance ?? null,
-          scheduled_date: dateTime ? format(new Date(dateTime), 'yyyy-MM-dd') : null,
-          scheduled_time: dateTime ? format(new Date(dateTime), 'HH:mm') : null,
-          total_price: estimatedPrice,
-          original_price: isFlexible ? Math.round(estimatedPrice / 0.9) : estimatedPrice,
-          is_flexible: isFlexible,
-          recommended_vehicle: recommendedVehicle,
-          total_volume: totalVolume,
-          total_weight: totalWeight,
-          total_distance: totalDistance,
-          items_summary: itemsSummary,
-          additional_services: {
-            disassembly: additionalServices.disassembly,
-            assembly: additionalServices.assembly,
-            packing: additionalServices.packing,
-            unpacking: additionalServices.unpacking,
-            observations: additionalServices.observations,
-            // La cuadrilla debe sobrevivir al store del navegador: el panel admin usa
-            // estos datos para regenerar tanto la cotización como la orden de trabajo.
-            extraHelpers: additionalServices.extraHelpers || 0,
-            requiredCrew,
-            totalCrew,
-            // Servicios de sep-2026. `fridgeDisassembly` se guarda sólo si el
-            // refrigerador sigue en la lista, igual que en el cálculo del precio, para
-            // que el panel no vea un servicio cobrado que el total no incluye.
-            fridgeDisassembly: Boolean(additionalServices.fridgeDisassembly) && hasFridge(items),
-            priority: Boolean(additionalServices.priority),
-            // El recargo por volumen es automático, no lo elige el cliente: se guarda el
-            // monto aplicado para que la cotización sea reconstruible aunque después se
-            // cambie el precio en el panel.
-            overCapacitySurcharge: overCapacitySurcharge(totalVolume, {
+          // Los valores del render, igual que antes (no `getState()`): cambiar de dónde se
+          // leen podría cambiar qué precio queda guardado si el cálculo aún no terminó.
+          ...buildQuoteProspectBody(
+            {
+              personalInfo,
+              dateTime,
+              isFlexible,
+              origin,
+              destination,
+              stops,
+              items,
+              additionalServices,
+              totalVolume,
+              totalWeight,
+              totalDistance,
+              estimatedPrice,
+              recommendedVehicle,
+              requiredCrew,
+              totalCrew,
+            },
+            {
+            source,
+            quoteId: getQuoteId(),
+            overCapacity: {
               overCapacityThresholdM3: pricingConfig.services.overCapacityThresholdM3,
               overCapacityPrice: pricingConfig.services.overCapacityPrice,
-            }),
-          },
-          // gclid/UTMs capturados de la URL (Google Ads).
+            },
+            }
+          ),
+          // gclid/UTMs capturados de la URL (Google Ads). Solo en la web: en el panel la
+          // cookie sería de la secretaria.
           attribution: attributionForSubmit(),
         }),
       })
