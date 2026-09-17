@@ -377,7 +377,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
       <div className="mb-6 text-center">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Selecciona tus Items</h2>
         <p className="text-gray-600">
-          Marca todos los muebles y objetos que necesitas transportar
+          Pega tu lista de cosas y la reconocemos, o agrégalas una por una desde el catálogo
         </p>
       </div>
 
@@ -386,6 +386,7 @@ export default function ItemsSelectionStep({ onNext, onPrevious }: ItemsSelectio
         <div className="lg:col-span-2">
           <Card variant="elevated">
             {/* Cómo cargar: pegar el listado o buscar item por item */}
+            <p className="text-sm font-semibold text-gray-800 mb-2">¿Cómo quieres agregar tus cosas?</p>
             <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-gray-100 rounded-xl" role="tablist">
               {([
                 ['list', 'Pega tu listado', ClipboardList],
