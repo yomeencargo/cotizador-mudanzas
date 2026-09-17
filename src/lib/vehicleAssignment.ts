@@ -8,6 +8,13 @@ import { resolveVehicleColor, type VehicleColor } from '@/lib/vehicleColors'
 // FUTURAS que todavía no tienen camión, y una vez que escribe el vehicle_id no lo
 // vuelve a mover; si el admin reasigna, esa decisión queda firme.
 //
+// Desde sep-2026 el reparto CONSOLIDA en vez de equilibrar (pedido de Tomás): un trabajo
+// nuevo va al primer camión que esté libre a esa hora, y recién cuando ninguno de los que
+// ya están trabajando ese día puede tomarlo se abre el siguiente. «Libre» mira la
+// DURACIÓN, no solo la hora de inicio: un camión con una mudanza de 09:00 a 13:00 no
+// puede tomar la de las 10:00. La disponibilidad pública (/api/bookings/available) no
+// cambia: sigue contando cupos por horario sobre toda la flota.
+//
 // Todas las lecturas de vehicle_id toleran que la migración add_booking_vehicle_assignment.sql
 // no esté aplicada: en ese caso devuelven vacío y la app funciona igual, sin colores.
 
@@ -22,14 +29,131 @@ export interface VehicleView {
   driver: string
   status: 'active' | 'maintenance'
   color: VehicleColor
+  /** «Mudanzas simultáneas» del panel de Flota. Mínimo 1. */
+  capacity: number
 }
 
 export interface AssignableBooking {
   id: string
   scheduled_date: string
   scheduled_time?: string | null
+  /** Sin dato se asumen `DEFAULT_JOB_HOURS`, igual que al crear una reserva. */
+  duration_hours?: number | null
   is_provisional?: boolean | null
   status?: string | null
+}
+
+/** Duración que se asume cuando la reserva no la trae: la misma que ponen las rutas al crear. */
+export const DEFAULT_JOB_HOURS = 4
+
+const MINUTES_IN_DAY = 24 * 60
+
+/**
+ * Ventana del trabajo dentro de su día, en minutos. Sin hora se toma el día entero: no se
+ * sabe cuándo ocurre, así que no se puede afirmar que otro trabajo quepa al lado. Una
+ * duración que se pasa de medianoche se corta ahí (el reparto es por día).
+ */
+export function jobWindow(b: Pick<AssignableBooking, 'scheduled_time' | 'duration_hours'>): {
+  start: number
+  end: number
+} {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(b.scheduled_time || ''))
+  if (!match) return { start: 0, end: MINUTES_IN_DAY }
+  const start = Number(match[1]) * 60 + Number(match[2])
+  const hours = Number(b.duration_hours)
+  const duration = Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_JOB_HOURS
+  return { start, end: Math.min(start + Math.round(duration * 60), MINUTES_IN_DAY) }
+}
+
+function windowsOverlap(a: { start: number; end: number }, b: { start: number; end: number }) {
+  return a.start < b.end && b.start < a.end
+}
+
+const hhmm = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+
+/** Cómo está cada camión para un trabajo concreto (fecha + hora + duración). */
+export interface VehicleSlotStatus {
+  id: number
+  name: string
+  color: VehicleColor
+  status: 'active' | 'maintenance'
+  capacity: number
+  /** Trabajos de ese camión que se pisan con el nuevo. */
+  overlapping: Array<{ id: string; from: string; to: string }>
+  /** Trabajos que ese camión ya tiene ese día, se pisen o no. */
+  jobsThatDay: number
+  /** Activo y con lugar a esa hora. */
+  available: boolean
+}
+
+/**
+ * Estado de cada camión para un trabajo. `dayJobs` son los trabajos reales del mismo día
+ * (sin el propio) y `assignments` dice en qué camión está cada uno. Un trabajo sin camión
+ * no ocupa a ninguno: todavía no se sabe dónde va.
+ */
+export function vehicleSlotStatuses(
+  target: Pick<AssignableBooking, 'scheduled_time' | 'duration_hours'>,
+  vehicles: VehicleView[],
+  dayJobs: AssignableBooking[],
+  assignments: Map<string, number>
+): VehicleSlotStatus[] {
+  const window = jobWindow(target)
+  return vehicles.map((v) => {
+    const own = dayJobs.filter((j) => isRealJob(j) && assignments.get(j.id) === v.id)
+    const overlapping = own
+      .map((j) => ({ j, w: jobWindow(j) }))
+      .filter(({ w }) => windowsOverlap(window, w))
+      .map(({ j, w }) => ({ id: j.id, from: hhmm(w.start), to: hhmm(w.end) }))
+    return {
+      id: v.id,
+      name: v.name,
+      color: v.color,
+      status: v.status,
+      capacity: v.capacity,
+      overlapping,
+      jobsThatDay: own.length,
+      available: v.status === 'active' && overlapping.length < Math.max(1, v.capacity || 1),
+    }
+  })
+}
+
+/**
+ * El camión que le corresponde a un trabajo nuevo. `statuses` va en el orden de la flota.
+ *
+ * Primero los camiones que YA trabajan ese día y tienen lugar a esa hora, en orden de
+ * flota; después los que todavía no salen. Así se llena uno antes de abrir el siguiente:
+ * con la flota vacía, todo va al Camión 1 hasta que un trabajo se le pise.
+ *
+ * Si ninguno tiene lugar (el horario se sobrevendió, o la web vendió un cupo que se pisa
+ * con una mudanza larga), igual se elige uno —el que menos choques tenga—, con
+ * `fits: false`. Un trabajo sin camión desaparece del link de los choferes, y eso es peor
+ * que un camión con un choque que el admin ve y corrige.
+ */
+export function pickVehicle(
+  statuses: VehicleSlotStatus[]
+): { vehicleId: number; fits: boolean } | null {
+  const active = statuses
+    .map((s, fleetIndex) => ({ s, fleetIndex }))
+    .filter(({ s }) => s.status === 'active')
+  if (active.length === 0) return null
+
+  const fitting = active
+    .filter(({ s }) => s.available)
+    .sort(
+      (a, b) =>
+        (a.s.jobsThatDay > 0 ? 0 : 1) - (b.s.jobsThatDay > 0 ? 0 : 1) ||
+        a.fleetIndex - b.fleetIndex
+    )
+  if (fitting.length > 0) return { vehicleId: fitting[0].s.id, fits: true }
+
+  const leastBad = [...active].sort(
+    (a, b) =>
+      a.s.overlapping.length - b.s.overlapping.length ||
+      a.s.jobsThatDay - b.s.jobsThatDay ||
+      a.fleetIndex - b.fleetIndex
+  )
+  return { vehicleId: leastBad[0].s.id, fits: false }
 }
 
 /** No ocupan camión: pre-reservas sin pagar y trabajos que no se van a hacer. */
@@ -46,6 +170,7 @@ export async function getFleetVehicleViews(): Promise<VehicleView[]> {
     driver: v.driver || '',
     status: v.status === 'maintenance' ? 'maintenance' : 'active',
     color: resolveVehicleColor(v, i),
+    capacity: Math.max(1, Number(v.capacity) || 1),
   }))
 }
 
@@ -90,13 +215,13 @@ function toAssignmentMap(rows: unknown): Map<string, number> {
 }
 
 /**
- * Reparte entre los camiones activos las reservas futuras que aún no tienen camión y
- * persiste el resultado. Devuelve el mapa completo (lo que ya había + lo nuevo).
+ * Asigna camión a las reservas futuras que aún no tienen uno y persiste el resultado.
+ * Devuelve el mapa completo (lo que ya había + lo nuevo).
  *
- * El reparto equilibra por carga del día: cada trabajo va al camión activo con menos
- * trabajos ese día, en orden de hora. No se usa `capacity` como tope duro porque un
- * trabajo sin camión asignado es peor que un camión con un trabajo de más: el admin
- * corrige a mano, pero nunca se queda algo fuera de la vista de los choferes.
+ * Cada trabajo, en orden de hora, va al camión que devuelve `pickVehicle`: consolida en
+ * el primero que tenga lugar a esa hora antes de abrir otro. Lo que ya tenía camión no se
+ * mueve, aunque con esta regla hubiera quedado en otro: puede haberlo puesto el admin a
+ * mano, y no hay forma de distinguirlo.
  */
 export async function ensureVehicleAssignments(
   bookings: AssignableBooking[],
@@ -120,23 +245,13 @@ export async function ensureVehicleAssignments(
   })
   if (pending.length === 0) return existing
 
-  // Carga inicial por camión y por día, contando lo que ya está asignado.
-  const loads = new Map<string, Map<number, number>>()
-  const loadFor = (date: string) => {
-    let byVehicle = loads.get(date)
-    if (!byVehicle) {
-      byVehicle = new Map(active.map((v) => [v.id, 0]))
-      for (const b of relevant) {
-        if (b.scheduled_date !== date) continue
-        const assigned = existing.get(b.id)
-        if (assigned !== undefined && byVehicle.has(assigned)) {
-          byVehicle.set(assigned, (byVehicle.get(assigned) || 0) + 1)
-        }
-      }
-      loads.set(date, byVehicle)
-    }
-    return byVehicle
-  }
+  // Lo que ocupa camión mientras se reparte: lo ya asignado a camiones activos, más lo
+  // que se va asignando en esta misma pasada (así dos trabajos nuevos del mismo día no
+  // caen los dos en el mismo hueco).
+  const working = new Map<string, number>()
+  existing.forEach((vehicleId, bookingId) => {
+    if (activeIds.has(vehicleId)) working.set(bookingId, vehicleId)
+  })
 
   // Orden estable: mismo input, mismo reparto, aunque dos pestañas lo calculen a la vez.
   const ordered = [...pending].sort((a, b) => {
@@ -150,13 +265,13 @@ export async function ensureVehicleAssignments(
   const writes: Array<{ id: string; vehicle_id: number }> = []
 
   for (const booking of ordered) {
-    const byVehicle = loadFor(booking.scheduled_date)
-    let pick = active[0]
-    for (const v of active) {
-      if ((byVehicle.get(v.id) || 0) < (byVehicle.get(pick.id) || 0)) pick = v
-    }
-    byVehicle.set(pick.id, (byVehicle.get(pick.id) || 0) + 1)
-    writes.push({ id: booking.id, vehicle_id: pick.id })
+    const dayJobs = relevant.filter(
+      (b) => b.scheduled_date === booking.scheduled_date && b.id !== booking.id
+    )
+    const pick = pickVehicle(vehicleSlotStatuses(booking, active, dayJobs, working))
+    if (!pick) continue
+    working.set(booking.id, pick.vehicleId)
+    writes.push({ id: booking.id, vehicle_id: pick.vehicleId })
   }
 
   const saved = await Promise.all(

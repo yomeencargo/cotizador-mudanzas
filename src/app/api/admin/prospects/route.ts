@@ -13,6 +13,7 @@ import {
 } from '@/lib/prospectSource'
 import { applyItemPackagingPrices, describePriceChanges } from '@/lib/quoteItemPricing'
 import { actualPaidAmount, pendingAmount, type BookingLike } from '@/lib/revenueBreakdown'
+import { fetchAllRows } from '@/lib/server/fetchAllRows'
 
 /** Etiqueta legible del lead, duplicada en el log para poder leerlo si se borra. */
 function prospectLabel(p: { name?: string | null; email?: string | null }) {
@@ -25,12 +26,16 @@ export async function GET(request: NextRequest) {
     // convertidos (para consultarlos desde el panel sin perderlos de vista).
     const includeConverted = new URL(request.url).searchParams.get('includeConverted') === '1'
 
-    const query = supabaseAdmin
-      .from('quote_prospects')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    const { data: prospects, error } = await query
+    // De a páginas: con una sola consulta PostgREST corta en 1.000 filas y los leads más
+    // antiguos desaparecían del panel sin ningún error.
+    const { data: prospects, error } = await fetchAllRows<any>((from, to) =>
+      supabaseAdmin
+        .from('quote_prospects')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to)
+    )
 
     if (error) {
       console.error('[Admin Prospects] Error fetching:', error)
@@ -47,11 +52,16 @@ export async function GET(request: NextRequest) {
     //
     // No alcanza con el estado: «Convertido» no significa pagado. Una reserva creada
     // desde el lead sin marcar «ya pagó» también lo deja convertido.
-    const { data: bookings, error: bookingsError } = await supabaseAdmin
-      .from('bookings')
-      .select(
-        'id, quote_id, status, payment_status, payment_type, is_provisional, total_price, original_price, adjusted_price, amount_paid'
-      )
+    const { data: bookings, error: bookingsError } = await fetchAllRows<any>((from, to) =>
+      supabaseAdmin
+        .from('bookings')
+        .select(
+          'id, quote_id, status, payment_status, payment_type, is_provisional, total_price, original_price, adjusted_price, amount_paid'
+        )
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    )
     if (bookingsError) {
       // Sin reservas el panel sigue funcionando; solo el filtro de cobro queda vacío.
       console.error('[Admin Prospects] Error leyendo reservas para el cobro:', bookingsError)

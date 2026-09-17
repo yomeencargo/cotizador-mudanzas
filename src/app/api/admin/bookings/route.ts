@@ -6,7 +6,10 @@ import { getActiveCapacity } from '@/lib/fleetCapacity'
 import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { normalizeOrigin } from '@/lib/prospectSource'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
+import { getVehicleAvailability } from '@/lib/vehicleAvailability'
+import { isValidEmail } from '@/lib/emailFormat'
 import {
+  chileTodayString,
   ensureVehicleAssignments,
   getAllVehicleAssignments,
   getFleetVehicleViews,
@@ -284,11 +287,26 @@ export async function POST(request: NextRequest) {
       customer_origin,
       skip_customer_record = false,
       override_capacity = false,
+      // Camión: un id elige uno a mano; 'auto' (o nada) deja que decida el reparto.
+      vehicle_id: vehicleChoice,
     } = body
     const capacityOverrideApproved = override_capacity === true
 
     if (!client_name || !client_email || !client_phone || !scheduled_date || !scheduled_time) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+    }
+
+    // El correo es la identidad del cliente (la ficha se arma por email) y el canal de los
+    // avisos automáticos: un nombre en ese campo deja a la persona sin correos y crea una
+    // ficha falsa. Los bloqueos de agenda no son clientes y usan su propio correo fijo.
+    if (!skip_customer_record && !isValidEmail(client_email)) {
+      return NextResponse.json(
+        {
+          error: `«${String(client_email).trim()}» no es un correo válido. Pídele el correo al cliente: con un nombre en ese campo no recibe ningún aviso.`,
+          invalidEmail: true,
+        },
+        { status: 400 }
+      )
     }
 
     // Obtener capacidad de flota (vehículos activos, no total)
@@ -342,6 +360,63 @@ export async function POST(request: NextRequest) {
         },
         { status: 409 }
       )
+    }
+
+    // Camión, resuelto ANTES de escribir nada: si el elegido no puede, no debe quedar ni
+    // la ficha del cliente a medio crear.
+    //
+    // Elegido a mano: se respeta mientras no choque con la operación — que exista, que no
+    // esté en mantención y que no tenga ya un trabajo que se pise a esa hora. Esas tres
+    // son las que el selector deshabilita, así que acá solo llega por una carrera (otro
+    // admin tomó el hueco) o por un llamado directo a la API.
+    //
+    // «Automático»: el mismo `pickVehicle` que usa el reparto. Se asigna en el momento
+    // para que el camión quede visible de inmediato en el panel y en el link del chofer.
+    // Las reservas de fechas pasadas no se auto-asignan (misma regla que el reparto).
+    let vehicleIdToSave: number | null = null
+    const occupiesTruck = !['cancelled', 'no_show'].includes(String(status))
+    const manualVehicle =
+      vehicleChoice !== undefined && vehicleChoice !== null && vehicleChoice !== 'auto'
+        ? Number(vehicleChoice)
+        : null
+    if (manualVehicle !== null && !Number.isInteger(manualVehicle)) {
+      return NextResponse.json({ error: 'Camión inválido' }, { status: 400 })
+    }
+    if (manualVehicle !== null || (occupiesTruck && scheduled_date >= chileTodayString())) {
+      const availability = await getVehicleAvailability({
+        scheduled_date,
+        scheduled_time,
+        duration_hours: Number(duration_hours) || null,
+      })
+      if (manualVehicle !== null) {
+        const target = availability.vehicles.find((v) => v.id === manualVehicle)
+        if (!target) {
+          return NextResponse.json(
+            { error: 'El camión indicado no existe en la flota' },
+            { status: 400 }
+          )
+        }
+        if (target.status === 'maintenance') {
+          return NextResponse.json(
+            { error: `${target.name} está en mantención: actívalo en Flota para asignarle trabajos` },
+            { status: 409 }
+          )
+        }
+        if (occupiesTruck && !target.available) {
+          const choque = target.overlapping.map((o) => `${o.from}–${o.to}`).join(', ')
+          return NextResponse.json(
+            {
+              error: `${target.name} ya tiene un trabajo a esa hora (${choque}). Elige otro camión o «Automático».`,
+              vehicleUnavailable: true,
+              vehicles: availability.vehicles,
+            },
+            { status: 409 }
+          )
+        }
+        vehicleIdToSave = manualVehicle
+      } else {
+        vehicleIdToSave = availability.recommendedVehicleId
+      }
     }
 
     const bookingQuoteId = quote_id || `ADMIN-${Date.now()}`
@@ -436,6 +511,7 @@ export async function POST(request: NextRequest) {
         is_company,
         company_name: is_company ? company_name : null,
         company_rut: is_company ? company_rut : null,
+        ...(vehicleIdToSave !== null ? { vehicle_id: vehicleIdToSave } : {}),
       })
       .select()
       .single()
@@ -486,6 +562,8 @@ export async function POST(request: NextRequest) {
             status: booking.status,
             customer_origin: customerOrigin,
             override_capacity: capacityOverrideApproved,
+            vehicle_id: vehicleIdToSave,
+            vehicle_choice: manualVehicle !== null ? 'manual' : 'automatico',
           },
         },
       },

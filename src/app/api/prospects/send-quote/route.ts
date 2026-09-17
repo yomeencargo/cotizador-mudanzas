@@ -150,6 +150,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Marca de «ya se le mandó la cotización». Solo con envío confirmado, igual que en el
+    // panel: la usa el cron para no mandar el #01 automático encima de este correo.
+    if (prospectId) {
+      const { error: marcaError } = await supabaseAdmin
+        .from('quote_prospects')
+        .update({ quote_sent_at: new Date().toISOString() })
+        .eq('id', prospectId)
+      if (marcaError) console.error('[send-quote] No se pudo marcar quote_sent_at:', marcaError)
+    }
+
     return NextResponse.json({ success: true, paymentUrl })
   } catch (error) {
     if (error instanceof SlotUnavailableError) {

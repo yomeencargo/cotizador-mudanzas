@@ -402,7 +402,7 @@ export default function PricingConfiguration() {
                 placeholder="99990"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Monto fijo: no lo mueve el recargo de fin de semana ni el descuento por
+                Monto fijo: no lo mueve el recargo de sábado, domingo o feriado ni el descuento por
                 flexibilidad. En 0 no se ofrece.
               </p>
             </div>

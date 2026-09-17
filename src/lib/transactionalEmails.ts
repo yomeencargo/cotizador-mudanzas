@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { bookingScope, claimAndSend, type SendOutcome } from '@/lib/emailLog'
 import { actualPaidAmount, pendingAmount, servicePrice } from '@/lib/revenueBreakdown'
 import { chileTodayString } from '@/lib/vehicleAssignment'
+import { EMAIL_RE } from '@/lib/emailFormat'
 
 const BOOKING_CONFIRMED_FIELDS = `id, quote_id, client_name, client_email, client_phone, scheduled_date,
   scheduled_time, origin_address, destination_address, total_price, original_price,
@@ -102,7 +103,6 @@ export type BookingConfirmedSkip =
   | 'sin_precio'
   | 'fecha_no_futura'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
  * ¿Por qué NO mandarle el #05 a una reserva que entró por el panel? `null` = sí va.

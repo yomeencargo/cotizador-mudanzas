@@ -32,6 +32,7 @@ import {
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { isValidEmail } from '@/lib/emailFormat'
 import PdfDownloadMenu from './PdfDownloadMenu'
 import QuoteItemsPricing from './QuoteItemsPricing'
 import {
@@ -171,6 +172,8 @@ const EMPTY_NEW_BOOKING = {
   destination_address: '',
   notes: '',
   customer_origin: 'web',
+  /** 'auto' = lo decide el reparto; si no, el id del camión elegido. */
+  vehicle_choice: 'auto',
 }
 
 /**
@@ -238,6 +241,26 @@ export default function BookingsManagement({
   })
   const [creating, setCreating] = useState(false)
   const [capacityWarning, setCapacityWarning] = useState<CapacityWarning | null>(null)
+  // Disponibilidad por camión para el selector de Nueva Reserva. La calcula el servidor
+  // con la misma función que valida al guardar, así lo que se ofrece es lo que se acepta.
+  const [fleetAvailability, setFleetAvailability] = useState<{
+    vehicles: Array<{
+      id: number
+      name: string
+      status: 'active' | 'maintenance'
+      available: boolean
+      overlapping: Array<{ from: string; to: string }>
+    }>
+    recommendedVehicleId: number | null
+    recommendedFits: boolean
+  } | null>(null)
+  const [fleetAvailabilityLoading, setFleetAvailabilityLoading] = useState(false)
+  // Choque de camión en el modal Editar. Editar NO valida (decisión de Tomás, 16-sep-2026:
+  // el admin puede saber que un trabajo termina antes), pero avisa: si el camión elegido
+  // ya tiene otro trabajo que se pisa con la fecha/hora de esta reserva, se muestra acá.
+  const [editTruckConflict, setEditTruckConflict] = useState<
+    null | { vehicleName: string; ranges: string }
+  >(null)
   /**
    * Aviso de horario ocupado al REPROGRAMAR. Va aparte de `capacityWarning`, que vive en
    * el modal de Nueva Reserva: son dos pantallas distintas y podrían estar abiertas en
@@ -538,6 +561,92 @@ export default function BookingsManagement({
 
     setFilteredBookings(filtered)
   }, [bookings, searchTerm, statusFilter, bookingTypeFilter, clientTypeFilter, sourceFilter, vehicleFilter, dateFilter, customStartDate, customEndDate])
+
+  useEffect(() => {
+    const date = newBooking.scheduled_date
+    const time = newBooking.scheduled_time
+    if (!showAddModal || !date || !time) {
+      setFleetAvailability(null)
+      return
+    }
+    let vigente = true
+    const timer = setTimeout(async () => {
+      setFleetAvailabilityLoading(true)
+      try {
+        const params = new URLSearchParams({
+          date,
+          time,
+          duration: String(Number(newBooking.duration_hours) || 4),
+        })
+        const res = await fetch(`/api/admin/fleet-availability?${params}`)
+        const data = await res.json().catch(() => null)
+        if (!vigente) return
+        if (!res.ok || !data) {
+          setFleetAvailability(null)
+          return
+        }
+        setFleetAvailability(data)
+        // Si el camión elegido dejó de servir con la fecha/hora nueva, se vuelve a
+        // «Automático» en vez de dejar seleccionada una opción que el servidor rechazará.
+        setNewBooking((prev) => {
+          if (prev.vehicle_choice === 'auto') return prev
+          const elegido = data.vehicles?.find((v: any) => String(v.id) === prev.vehicle_choice)
+          return elegido?.available ? prev : { ...prev, vehicle_choice: 'auto' }
+        })
+      } finally {
+        if (vigente) setFleetAvailabilityLoading(false)
+      }
+    }, 300)
+    return () => {
+      vigente = false
+      clearTimeout(timer)
+    }
+  }, [showAddModal, newBooking.scheduled_date, newBooking.scheduled_time, newBooking.duration_hours])
+
+  useEffect(() => {
+    const b = selectedBooking
+    const ocupaCamion = b && !['cancelled', 'no_show'].includes(String(b.status || ''))
+    if (!showEditModal || !b || !ocupaCamion || b.vehicle_id == null || !b.scheduled_date || !b.scheduled_time) {
+      setEditTruckConflict(null)
+      return
+    }
+    let vigente = true
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({
+          date: b.scheduled_date,
+          time: String(b.scheduled_time).slice(0, 5),
+          duration: String(Number(b.duration_hours) || 4),
+          excludeId: b.id,
+        })
+        const res = await fetch(`/api/admin/fleet-availability?${params}`)
+        const data = await res.json().catch(() => null)
+        if (!vigente || !res.ok || !data) return
+        const camion = data.vehicles?.find((v: any) => v.id === b.vehicle_id)
+        setEditTruckConflict(
+          camion && camion.status === 'active' && !camion.available
+            ? {
+                vehicleName: camion.name,
+                ranges: camion.overlapping.map((o: any) => `${o.from}–${o.to}`).join(', '),
+              }
+            : null
+        )
+      } catch {
+        if (vigente) setEditTruckConflict(null)
+      }
+    }, 300)
+    return () => {
+      vigente = false
+      clearTimeout(timer)
+    }
+  }, [
+    showEditModal,
+    selectedBooking?.id,
+    selectedBooking?.scheduled_date,
+    selectedBooking?.scheduled_time,
+    selectedBooking?.vehicle_id,
+    selectedBooking?.status,
+  ])
 
   useEffect(() => {
     fetchBookings()
@@ -961,6 +1070,7 @@ export default function BookingsManagement({
           notes: newBooking.notes || 'Reserva de cupo sin cliente (admin)',
           skip_customer_record: true,
           override_capacity: overrideCapacity,
+          vehicle_id: newBooking.vehicle_choice === 'auto' ? 'auto' : Number(newBooking.vehicle_choice),
         }
         const response = await fetch('/api/admin/bookings', {
           method: 'POST',
@@ -990,6 +1100,10 @@ export default function BookingsManagement({
       }
 
       // Crear reserva normal
+      if (!isValidEmail(newBooking.client_email)) {
+        toast.error('Ingresa un correo válido del cliente (ej. nombre@gmail.com): sin eso no recibe ningún aviso.')
+        return
+      }
       const timestamp = Date.now()
       const method = newBooking.payment_method || 'flow'
       const amount = newBooking.total_price ? Number(newBooking.total_price) : 0
@@ -1023,6 +1137,7 @@ export default function BookingsManagement({
         notes: newBooking.notes || null,
         customer_origin: newBooking.customer_origin,
         override_capacity: overrideCapacity,
+        vehicle_id: newBooking.vehicle_choice === 'auto' ? 'auto' : Number(newBooking.vehicle_choice),
       }
 
       const response = await fetch('/api/admin/bookings', {
@@ -1949,6 +2064,50 @@ export default function BookingsManagement({
                 onChange={(e) => setNewBooking({ ...newBooking, duration_hours: Number(e.target.value) as any })}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Camión</label>
+              {/* Select nativo: el componente Select del sistema no admite opciones
+                  deshabilitadas, y acá hace falta mostrar el camión ocupado y POR QUÉ no
+                  se puede elegir, no esconderlo. */}
+              <select
+                value={newBooking.vehicle_choice}
+                onChange={(e) => setNewBooking({ ...newBooking, vehicle_choice: e.target.value })}
+                disabled={!newBooking.scheduled_date || !newBooking.scheduled_time}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="auto">
+                  {(() => {
+                    const rec = fleetAvailability?.vehicles.find(
+                      (v) => v.id === fleetAvailability?.recommendedVehicleId
+                    )
+                    return rec ? `Automático (recomendado: ${rec.name})` : 'Automático'
+                  })()}
+                </option>
+                {(fleetAvailability?.vehicles || []).map((v) => {
+                  const motivo =
+                    v.status === 'maintenance'
+                      ? ' — en mantención'
+                      : !v.available
+                        ? ` — ocupado ${v.overlapping.map((o) => `${o.from}–${o.to}`).join(', ')}`
+                        : ''
+                  return (
+                    <option key={v.id} value={String(v.id)} disabled={Boolean(motivo)}>
+                      {v.name}
+                      {motivo}
+                    </option>
+                  )
+                })}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                {!newBooking.scheduled_date || !newBooking.scheduled_time
+                  ? 'Elige fecha y hora para ver qué camiones están libres.'
+                  : fleetAvailabilityLoading
+                    ? 'Revisando camiones…'
+                    : fleetAvailability && !fleetAvailability.recommendedFits
+                      ? 'Ningún camión está libre a esa hora: «Automático» asignará el de menos choques.'
+                      : 'Automático llena primero un camión antes de usar el siguiente.'}
+              </p>
+            </div>
             {!blockOnly && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
@@ -2011,6 +2170,11 @@ export default function BookingsManagement({
                   value={newBooking.client_email}
                   onChange={(e) => setNewBooking({ ...newBooking, client_email: e.target.value })}
                 />
+                {newBooking.client_email.trim() !== '' && !isValidEmail(newBooking.client_email) && (
+                  <p className="mt-1 text-xs text-red-600">
+                    No es un correo válido. Con un nombre en este campo el cliente no recibe avisos.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
@@ -2973,9 +3137,17 @@ export default function BookingsManagement({
                   Sin asignar
                 </button>
               </div>
+              {editTruckConflict && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <strong>Atención:</strong> {editTruckConflict.vehicleName} ya tiene otro trabajo
+                  que se pisa con esta reserva ({editTruckConflict.ranges}). Editar no bloquea
+                  los choques de camión: si guardas, queda así.
+                </div>
+              )}
               <p className="mt-2 text-xs text-gray-500">
                 Lo que elijas acá manda. &quot;Sin asignar&quot; devuelve la reserva al reparto
-                automático, que le dará el camión activo con menos trabajos ese día.
+                automático, que la pone en el primer camión libre a esa hora (llena uno antes
+                de usar el siguiente).
               </p>
             </div>
 
