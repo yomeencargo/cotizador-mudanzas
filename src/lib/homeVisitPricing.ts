@@ -13,11 +13,14 @@
  * eso no aparece en la lista de extras del cotizador: cada consumidor de esa columna
  * nombra las claves que usa, ninguno las recorre.
  *
- * El valor por defecto sigue siendo 23.000 a propósito: si la configuración no se
- * puede leer, la página cobra lo mismo que hoy en vez de romperse o cobrar cero.
+ * El valor por defecto acompaña al precio vigente (33.000 desde el 23-sep-2026, pedido
+ * de Tomás): si la configuración no se puede leer, la página cobra lo que corresponde
+ * hoy en vez de romperse, cobrar cero o volver a un precio viejo. Medido el 23-sep, la
+ * configuración de producción NO tiene guardada la clave `homeVisitPrice`, así que este
+ * default es el que se está cobrando de verdad.
  */
 
-export const DEFAULT_HOME_VISIT_PRICE = 23000
+export const DEFAULT_HOME_VISIT_PRICE = 33000
 
 /**
  * Normaliza el precio leído de la base o de la API.
@@ -31,7 +34,7 @@ export function normalizeHomeVisitPrice(value: unknown): number {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : DEFAULT_HOME_VISIT_PRICE
 }
 
-/** El precio como se escribe en pantalla: "$23.000". */
+/** El precio como se escribe en pantalla: "$33.000". */
 export function formatHomeVisitPrice(value: number): string {
   return `$${normalizeHomeVisitPrice(value).toLocaleString('es-CL')}`
 }

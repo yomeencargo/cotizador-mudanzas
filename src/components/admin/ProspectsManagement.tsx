@@ -219,7 +219,8 @@ export default function ProspectsManagement() {
   const [quoteTime, setQuoteTime] = useState('')
   const [quoteAlreadyPaid, setQuoteAlreadyPaid] = useState(false)
   const [quotePaymentMethod, setQuotePaymentMethod] = useState<'transferencia' | 'efectivo' | 'otro'>('transferencia')
-  const [quotePaymentType, setQuotePaymentType] = useState<'mitad' | 'completo'>('completo')
+  /** Lo que el cliente ya entregó. Vacío = el total del precio acordado. */
+  const [quotePaidAmount, setQuotePaidAmount] = useState('')
   const [isSavingAdjust, setIsSavingAdjust] = useState(false)
   const [isSendingQuote, setIsSendingQuote] = useState(false)
   const [isCreatingBooking, setIsCreatingBooking] = useState(false)
@@ -710,7 +711,7 @@ export default function ProspectsManagement() {
     setQuoteTime(p.scheduled_time ? p.scheduled_time.slice(0, 5) : '')
     setQuoteAlreadyPaid(false)
     setQuotePaymentMethod('transferencia')
-    setQuotePaymentType('completo')
+    setQuotePaidAmount('')
     setShowQuoteModal(true)
   }
 
@@ -780,6 +781,15 @@ export default function ProspectsManagement() {
     }
   }
 
+  // Vista previa de lo que se va a guardar: el monto y el saldo que verá Reservas.
+  const quotePriceNumber = quotePrice === '' ? 0 : Math.round(Number(quotePrice) || 0)
+  const quotePaidPreview = !quoteAlreadyPaid
+    ? null
+    : String(quotePaidAmount).trim() === ''
+      ? quotePriceNumber
+      : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
+  const quotePendingPreview = Math.max(0, quotePriceNumber - (quotePaidPreview ?? 0))
+
   const createBookingFromProspect = async () => {
     if (!selectedProspect) return
     const price = quotePrice === '' ? null : Math.round(Number(quotePrice))
@@ -791,8 +801,17 @@ export default function ProspectsManagement() {
       toast.error('Agrega fecha y hora para crear la reserva')
       return
     }
+    const montoPagado =
+      String(quotePaidAmount).trim() === '' ? price : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
+    if (quoteAlreadyPaid && montoPagado <= 0) {
+      toast.error('Ingresa cuánto pagó el cliente, o desmarca «Cliente ya pagó»')
+      return
+    }
+    const saldo = Math.max(0, price - montoPagado)
     const paidNote = quoteAlreadyPaid
-      ? ` Se registrará como PAGADA (${quotePaymentMethod}, ${quotePaymentType === 'mitad' ? 'abono 50%' : 'pago completo'}).`
+      ? ` Se registrará como PAGADA $${montoPagado.toLocaleString('es-CL')} (${quotePaymentMethod})${
+          saldo > 0 ? ` y quedarán $${saldo.toLocaleString('es-CL')} por cobrar` : ''
+        }.`
       : ''
     if (!confirm(`¿Crear una reserva confirmada para ${selectedProspect.name} el ${quoteDate} a las ${quoteTime} por $${price.toLocaleString('es-CL')}? Esta reserva ocupará cupo.${paidNote}`)) return
     try {
@@ -808,7 +827,8 @@ export default function ProspectsManagement() {
           time: quoteTime,
           paid: quoteAlreadyPaid,
           paymentMethod: quoteAlreadyPaid ? quotePaymentMethod : undefined,
-          paymentType: quoteAlreadyPaid ? quotePaymentType : undefined,
+          // El monto manda: el servidor deriva de acá si fue pago completo o abono.
+          amountPaid: quoteAlreadyPaid ? montoPagado : undefined,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -1928,19 +1948,32 @@ export default function ProspectsManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Monto pagado</label>
-                    <Select
-                      value={quotePaymentType}
-                      onChange={(e) => setQuotePaymentType(e.target.value as 'mitad' | 'completo')}
-                      options={[
-                        { value: 'completo', label: 'Pago completo (100%)' },
-                        { value: 'mitad', label: 'Abono 50%' },
-                      ]}
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Monto pagado
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder={quotePriceNumber ? String(quotePriceNumber) : 'Lo que ya entregó'}
+                      value={quotePaidAmount}
+                      onChange={(e) => setQuotePaidAmount(e.target.value)}
                     />
                   </div>
-                  <p className="col-span-2 text-xs text-gray-500 mt-1">
-                    Al crear la reserva quedará marcada como pagada de inmediato (no aparecerá &ldquo;Pago pendiente&rdquo;). Si es abono 50%, se mostrará como &ldquo;Pagado (50%)&rdquo; en vez de pendiente.
-                  </p>
+                  <div className="col-span-2 text-xs text-gray-500 space-y-1">
+                    <p>
+                      Cárgalo tal como lo pagó: sirve cualquier monto, no solo la mitad o el
+                      total. Vacío = pagó el precio completo.
+                    </p>
+                    {quotePaidPreview !== null && (
+                      <p className="font-medium text-gray-700">
+                        Queda pagado ${quotePaidPreview.toLocaleString('es-CL')}
+                        {quotePendingPreview > 0
+                          ? ` y por cobrar $${quotePendingPreview.toLocaleString('es-CL')}, que aparecerá en «Por cobrar».`
+                          : ', sin saldo pendiente.'}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
