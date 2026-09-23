@@ -16,6 +16,7 @@ import AdminQuoteBuilder from '@/components/admin/AdminQuoteBuilder'
 import DashboardCharts from '@/components/admin/DashboardCharts'
 import AttendedCustomers from '@/components/admin/AttendedCustomers'
 import DriverAccessCard from '@/components/admin/DriverAccessCard'
+import { buildWhatsAppLink, bookingFollowUpMessage } from '@/lib/whatsapp'
 import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
 import ActivityLog from '@/components/admin/ActivityLog'
 import UsersManagement from '@/components/admin/UsersManagement'
@@ -274,13 +275,6 @@ export default function AdminDashboard() {
     window.open(url, '_blank', 'noopener')
   }
 
-  /** Teléfono chileno a formato wa.me (569XXXXXXXX). */
-  const toWhatsApp = (phone: string) => {
-    const d = (phone || '').replace(/\D/g, '')
-    if (!d) return ''
-    if (d.startsWith('56')) return d
-    return d.length === 9 ? `56${d}` : d
-  }
 
   /** Cambia el camión sin salir del dashboard. Misma ruta que usa Reservas. */
   const cambiarCamion = async (booking: TodayBooking, vehicleId: number | null) => {
@@ -401,16 +395,22 @@ export default function AdminDashboard() {
             className="mt-2 flex flex-wrap items-center gap-2"
             onClick={(e) => e.stopPropagation()}
           >
-            {booking.client_phone && (
-              <a
-                href={`https://wa.me/${toWhatsApp(booking.client_phone)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md border border-green-300 px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
-              >
-                WhatsApp
-              </a>
-            )}
+            {(() => {
+              // Mismo mensaje y mismas reglas de teléfono que el botón de Reservas: antes
+              // este link iba sin `?text=`, así que desde el Dashboard el mensaje no salía.
+              const waLink = buildWhatsAppLink(booking.client_phone, bookingFollowUpMessage(booking))
+              if (!waLink) return null
+              return (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md border border-green-300 px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
+                >
+                  WhatsApp
+                </a>
+              )
+            })()}
             {booking.client_email && (
               <a
                 href={`mailto:${booking.client_email}`}

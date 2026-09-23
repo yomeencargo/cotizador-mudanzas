@@ -27,6 +27,12 @@ import {
   Calendar,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import {
+  buildWhatsAppLink,
+  openWhatsApp,
+  quoteFollowUpMessage,
+  whatsAppUnavailableReason,
+} from '@/lib/whatsapp'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
@@ -621,36 +627,20 @@ export default function ProspectsManagement() {
     }
   }
 
-  // Normaliza un teléfono chileno a formato internacional para wa.me (solo dígitos, con 56)
-  const normalizePhoneCL = (raw?: string) => {
-    const digits = (raw || '').replace(/\D/g, '')
-    if (!digits) return ''
-    if (digits.startsWith('56')) return digits
-    if (digits.length === 9 && digits.startsWith('9')) return '56' + digits
-    if (digits.length === 8) return '569' + digits
-    return '56' + digits
-  }
+  /** Link de WhatsApp del prospecto, o null si el teléfono no sirve. */
+  const buildWhatsappLink = (p: Prospect) =>
+    buildWhatsAppLink(p.phone, quoteFollowUpMessage(p, p.adjusted_price ?? p.total_price))
 
-  const buildWhatsappLink = (p: Prospect) => {
-    const phone = normalizePhoneCL(p.phone)
-    const price = p.adjusted_price ?? p.total_price
-    const precioTxt = price ? ` por $${price.toLocaleString('es-CL')}` : ''
-    const firstName = p.name?.split(' ')[0] || ''
-    // Incluir fecha/hora de la cotización si el prospecto las tiene
-    let cuando = ''
-    if (p.scheduled_date) {
-      const [y, m, d] = p.scheduled_date.split('-').map(Number)
-      const fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
-      cuando = ` para el ${fechaTxt}${p.scheduled_time ? ` a las ${p.scheduled_time.slice(0, 5)}` : ''}`
-    }
-    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu cotización de mudanza${cuando}${precioTxt}. ¿Cómo estás? Quería coordinar contigo los detalles para asegurar tu fecha.`
-    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-  }
-
-  // Contacto por WhatsApp: reutiliza una sola ventana (no abre pestaña nueva cada
-  // vez) y marca el prospecto como "contactado" si todavía estaba en "nuevo".
+  // Contacto por WhatsApp: abre la pestaña de ESE cliente y marca el prospecto como
+  // "contactado" si estaba en "nuevo". Si el teléfono no sirve no se marca nada: antes
+  // se daba por contactado aunque no se hubiera podido escribir a nadie.
   const contactWhatsApp = (p: Prospect) => {
-    window.open(buildWhatsappLink(p), 'whatsapp_yme')
+    const link = buildWhatsappLink(p)
+    if (!link) {
+      toast.error(whatsAppUnavailableReason(p.phone) || 'No se puede escribir por WhatsApp')
+      return
+    }
+    openWhatsApp(link, p.phone)
     if (p.status === 'new') {
       void updateProspectStatus(p.id, 'contacted')
     }
@@ -1406,8 +1396,12 @@ export default function ProspectsManagement() {
                             onClick={() => contactWhatsApp(prospect)}
                             variant="outline"
                             size="sm"
-                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
-                            title="Contactar por WhatsApp (marca como contactado)"
+                            disabled={!buildWhatsappLink(prospect)}
+                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100 disabled:opacity-40"
+                            title={
+                              whatsAppUnavailableReason(prospect.phone) ||
+                              'Contactar por WhatsApp (marca como contactado)'
+                            }
                           >
                             <MessageCircle className="w-4 h-4" />
                           </Button>

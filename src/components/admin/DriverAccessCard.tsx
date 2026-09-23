@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { Link2, Copy, RefreshCw, MessageCircle, Check, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { resolveVehicleColor } from '@/lib/vehicleColors'
+import { buildWhatsAppShareLink, driverAccessMessage } from '@/lib/whatsapp'
 
 interface VehicleLink {
   id: number
@@ -66,12 +67,10 @@ export default function DriverAccessCard() {
     }
   }
 
+  // Sin destinatario a propósito: abre el selector de contactos de WhatsApp para elegir
+  // a quién mandarle el acceso de ese camión.
   const waHref = (link: string, label: string, pin: string) =>
-    link
-      ? `https://wa.me/?text=${encodeURIComponent(
-          `Trabajos de ${label} · Yo Me Encargo:\n${link}\n\nClave de acceso: ${pin}`
-        )}`
-      : ''
+    link ? buildWhatsAppShareLink(driverAccessMessage(label, link, pin)) : ''
 
   const generate = async (vehicle: VehicleLink) => {
     setWorking(String(vehicle.id))
