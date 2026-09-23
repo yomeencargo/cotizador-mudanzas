@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: request.url.startsWith('https://'),
       sameSite: 'lax',
-      maxAge: 12 * 60 * 60,
+      // Igual que el TTL del token firmado (driverSession.DEFAULT_TTL_MS): 30 días.
+      maxAge: 30 * 24 * 60 * 60,
       path: '/',
     })
 

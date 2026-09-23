@@ -57,11 +57,11 @@ export default function DriverAccessCard() {
 
   const linkFor = (token: string | null) => (token && origin ? `${origin}/trabajos/${token}` : '')
 
-  const copy = async (link: string) => {
-    if (!link) return
+  const copy = async (texto: string, aviso = 'Link copiado') => {
+    if (!texto) return
     try {
-      await navigator.clipboard.writeText(link)
-      toast.success('Link copiado')
+      await navigator.clipboard.writeText(texto)
+      toast.success(aviso)
     } catch {
       toast.error('No se pudo copiar')
     }
@@ -163,7 +163,8 @@ export default function DriverAccessCard() {
           <p className="text-sm text-gray-600">
             Un link por camión: cada chofer ve <strong>solo los trabajos de su camión</strong> de
             los próximos 4 días, sin precios. Cada link pide su propia clave, que puedes cambiar
-            acá abajo.
+            acá abajo; una vez que la escribe, <strong>no se la vuelve a pedir por 30 días</strong>.
+            «Copiar acceso» y «WhatsApp» mandan el link y la clave juntos.
           </p>
         </div>
       </div>
@@ -212,9 +213,19 @@ export default function DriverAccessCard() {
                         className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700"
                       />
                       <div className="flex gap-2">
-                        <Button onClick={() => copy(link)} variant="outline" size="sm">
+                        <Button
+                          onClick={() =>
+                            copy(
+                              driverAccessMessage(label, link, vehicle.pin),
+                              'Link y clave copiados'
+                            )
+                          }
+                          variant="outline"
+                          size="sm"
+                          title="Copia el mensaje completo: link y clave, listo para pegar donde sea"
+                        >
                           <Copy className="mr-2 h-4 w-4" />
-                          Copiar
+                          Copiar acceso
                         </Button>
                         <a
                           href={waHref(link, label, vehicle.pin)}
