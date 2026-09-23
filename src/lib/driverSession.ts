@@ -13,7 +13,11 @@
 // deploy, los choferes tienen que volver a poner el PIN. Una vez.
 
 const TOKEN_VERSION = 'd2'
-const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000 // 12h: cubre una jornada, no más.
+// 30 días. Eran 12 h —una jornada— y en la práctica el chofer tenía que pedirle la clave
+// al panel casi todos los días, así que compartir el acceso nunca terminaba de resolverse.
+// El link sigue siendo revocable en cualquier momento: regenerarlo corta la sesión, porque
+// el token de la URL deja de existir.
+const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 export const DRIVER_SESSION_COOKIE = 'driver_access'
 

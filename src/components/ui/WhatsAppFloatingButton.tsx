@@ -1,9 +1,9 @@
 'use client'
 
 import { trackEvent } from '@/lib/tracking'
+import { companyWhatsAppLink } from '@/lib/whatsapp'
 
-const WHATSAPP_URL =
-  'https://wa.me/56952334799?text=Hola,%20necesito%20información%20sobre%20sus%20servicios'
+const WHATSAPP_URL = companyWhatsAppLink('Hola, necesito información sobre sus servicios')
 
 export default function WhatsAppFloatingButton() {
   const handleClick = () => {

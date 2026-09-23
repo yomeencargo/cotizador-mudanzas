@@ -33,6 +33,13 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { isValidEmail } from '@/lib/emailFormat'
+import {
+  buildWhatsAppLink,
+  bookingFollowUpMessage,
+  openWhatsApp,
+  paymentLinkMessage,
+  whatsAppUnavailableReason,
+} from '@/lib/whatsapp'
 import PdfDownloadMenu from './PdfDownloadMenu'
 import QuoteItemsPricing from './QuoteItemsPricing'
 import {
@@ -189,16 +196,6 @@ const OPCIONES_ASCENSOR = [
 const ascensorValor = (v: boolean | null | undefined) =>
   v === true ? 'true' : v === false ? 'false' : ''
 const ascensorDesdeValor = (v: string) => (v === 'true' ? true : v === 'false' ? false : null)
-
-/** Normaliza un teléfono chileno a formato wa.me (569XXXXXXXX). */
-function toWhatsAppNumber(phone: string): string {
-  const digits = (phone || '').replace(/\D/g, '')
-  if (!digits) return ''
-  if (digits.startsWith('56')) return digits
-  // 9 dígitos locales (9XXXXXXXX) => prefijo país
-  if (digits.length === 9) return `56${digits}`
-  return digits
-}
 
 interface BookingsManagementProps {
   /** Búsqueda precargada (p. ej. al abrir una reserva desde el dashboard con ?q=). */
@@ -960,28 +957,9 @@ export default function BookingsManagement({
     }
   }
 
-  // WhatsApp: normaliza teléfono chileno y arma mensaje según la reserva
-  const normalizePhoneCL = (raw?: string) => {
-    const digits = (raw || '').replace(/\D/g, '')
-    if (!digits) return ''
-    if (digits.startsWith('56')) return digits
-    if (digits.length === 9 && digits.startsWith('9')) return '56' + digits
-    if (digits.length === 8) return '569' + digits
-    return '56' + digits
-  }
-
-  const buildWhatsappLink = (b: Booking) => {
-    const phone = normalizePhoneCL(b.client_phone)
-    const firstName = b.client_name?.split(' ')[0] || ''
-    let fechaTxt = ''
-    if (b.scheduled_date) {
-      const [y, m, d] = b.scheduled_date.split('-').map(Number)
-      fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
-    }
-    const cuando = fechaTxt ? ` del ${fechaTxt}${b.scheduled_time ? ` a las ${b.scheduled_time.slice(0, 5)}` : ''}` : ''
-    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu reserva de mudanza${cuando}. ¿Cómo estás? Quería coordinar contigo los detalles del traslado.`
-    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-  }
+  /** Link de WhatsApp de una reserva, o null si el teléfono no sirve. */
+  const buildWhatsappLink = (b: Booking) =>
+    buildWhatsAppLink(b.client_phone, bookingFollowUpMessage(b))
 
   // Email: arma un mailto: con asunto y mensaje prellenado (mismo criterio que WhatsApp).
   const buildEmailLink = (b: Booking) => {
@@ -1831,15 +1809,22 @@ export default function BookingsManagement({
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button
-                            onClick={() => window.open(buildWhatsappLink(booking), 'whatsapp_yme')}
-                            variant="outline"
-                            size="sm"
-                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
-                            title="Contactar por WhatsApp"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </Button>
+                          {(() => {
+                            const waLink = buildWhatsappLink(booking)
+                            const motivo = whatsAppUnavailableReason(booking.client_phone)
+                            return (
+                              <Button
+                                onClick={() => waLink && openWhatsApp(waLink, booking.client_phone)}
+                                variant="outline"
+                                size="sm"
+                                disabled={!waLink}
+                                className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100 disabled:opacity-40"
+                                title={motivo || 'Contactar por WhatsApp'}
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </Button>
+                            )
+                          })()}
                           <Button
                             onClick={() => window.open(buildEmailLink(booking), '_self')}
                             variant="outline"
@@ -2400,11 +2385,14 @@ export default function BookingsManagement({
                 Copiar link
               </Button>
 
-              {toWhatsAppNumber(paymentLink.clientPhone) && (
+              {buildWhatsAppLink(paymentLink.clientPhone) && (
                 <a
-                  href={`https://wa.me/${toWhatsAppNumber(paymentLink.clientPhone)}?text=${encodeURIComponent(
-                    `Hola ${paymentLink.clientName}, aquí está el link para pagar tu mudanza con Yo Me Encargo por $${paymentLink.amount.toLocaleString('es-CL')}:\n${paymentLink.url}`
-                  )}`}
+                  href={
+                    buildWhatsAppLink(
+                      paymentLink.clientPhone,
+                      paymentLinkMessage(paymentLink.clientName, paymentLink.amount, paymentLink.url)
+                    ) as string
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                 >

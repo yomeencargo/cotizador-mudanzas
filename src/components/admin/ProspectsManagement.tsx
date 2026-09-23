@@ -27,6 +27,12 @@ import {
   Calendar,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import {
+  buildWhatsAppLink,
+  openWhatsApp,
+  quoteFollowUpMessage,
+  whatsAppUnavailableReason,
+} from '@/lib/whatsapp'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import PdfDownloadMenu from './PdfDownloadMenu'
@@ -213,7 +219,8 @@ export default function ProspectsManagement() {
   const [quoteTime, setQuoteTime] = useState('')
   const [quoteAlreadyPaid, setQuoteAlreadyPaid] = useState(false)
   const [quotePaymentMethod, setQuotePaymentMethod] = useState<'transferencia' | 'efectivo' | 'otro'>('transferencia')
-  const [quotePaymentType, setQuotePaymentType] = useState<'mitad' | 'completo'>('completo')
+  /** Lo que el cliente ya entregó. Vacío = el total del precio acordado. */
+  const [quotePaidAmount, setQuotePaidAmount] = useState('')
   const [isSavingAdjust, setIsSavingAdjust] = useState(false)
   const [isSendingQuote, setIsSendingQuote] = useState(false)
   const [isCreatingBooking, setIsCreatingBooking] = useState(false)
@@ -621,36 +628,20 @@ export default function ProspectsManagement() {
     }
   }
 
-  // Normaliza un teléfono chileno a formato internacional para wa.me (solo dígitos, con 56)
-  const normalizePhoneCL = (raw?: string) => {
-    const digits = (raw || '').replace(/\D/g, '')
-    if (!digits) return ''
-    if (digits.startsWith('56')) return digits
-    if (digits.length === 9 && digits.startsWith('9')) return '56' + digits
-    if (digits.length === 8) return '569' + digits
-    return '56' + digits
-  }
+  /** Link de WhatsApp del prospecto, o null si el teléfono no sirve. */
+  const buildWhatsappLink = (p: Prospect) =>
+    buildWhatsAppLink(p.phone, quoteFollowUpMessage(p, p.adjusted_price ?? p.total_price))
 
-  const buildWhatsappLink = (p: Prospect) => {
-    const phone = normalizePhoneCL(p.phone)
-    const price = p.adjusted_price ?? p.total_price
-    const precioTxt = price ? ` por $${price.toLocaleString('es-CL')}` : ''
-    const firstName = p.name?.split(' ')[0] || ''
-    // Incluir fecha/hora de la cotización si el prospecto las tiene
-    let cuando = ''
-    if (p.scheduled_date) {
-      const [y, m, d] = p.scheduled_date.split('-').map(Number)
-      const fechaTxt = format(new Date(y, (m || 1) - 1, d || 1), "d 'de' MMMM", { locale: es })
-      cuando = ` para el ${fechaTxt}${p.scheduled_time ? ` a las ${p.scheduled_time.slice(0, 5)}` : ''}`
-    }
-    const msg = `Hola ${firstName}, te contacto de Yo me Encargo por tu cotización de mudanza${cuando}${precioTxt}. ¿Cómo estás? Quería coordinar contigo los detalles para asegurar tu fecha.`
-    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-  }
-
-  // Contacto por WhatsApp: reutiliza una sola ventana (no abre pestaña nueva cada
-  // vez) y marca el prospecto como "contactado" si todavía estaba en "nuevo".
+  // Contacto por WhatsApp: abre la pestaña de ESE cliente y marca el prospecto como
+  // "contactado" si estaba en "nuevo". Si el teléfono no sirve no se marca nada: antes
+  // se daba por contactado aunque no se hubiera podido escribir a nadie.
   const contactWhatsApp = (p: Prospect) => {
-    window.open(buildWhatsappLink(p), 'whatsapp_yme')
+    const link = buildWhatsappLink(p)
+    if (!link) {
+      toast.error(whatsAppUnavailableReason(p.phone) || 'No se puede escribir por WhatsApp')
+      return
+    }
+    openWhatsApp(link, p.phone)
     if (p.status === 'new') {
       void updateProspectStatus(p.id, 'contacted')
     }
@@ -720,7 +711,7 @@ export default function ProspectsManagement() {
     setQuoteTime(p.scheduled_time ? p.scheduled_time.slice(0, 5) : '')
     setQuoteAlreadyPaid(false)
     setQuotePaymentMethod('transferencia')
-    setQuotePaymentType('completo')
+    setQuotePaidAmount('')
     setShowQuoteModal(true)
   }
 
@@ -790,6 +781,15 @@ export default function ProspectsManagement() {
     }
   }
 
+  // Vista previa de lo que se va a guardar: el monto y el saldo que verá Reservas.
+  const quotePriceNumber = quotePrice === '' ? 0 : Math.round(Number(quotePrice) || 0)
+  const quotePaidPreview = !quoteAlreadyPaid
+    ? null
+    : String(quotePaidAmount).trim() === ''
+      ? quotePriceNumber
+      : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
+  const quotePendingPreview = Math.max(0, quotePriceNumber - (quotePaidPreview ?? 0))
+
   const createBookingFromProspect = async () => {
     if (!selectedProspect) return
     const price = quotePrice === '' ? null : Math.round(Number(quotePrice))
@@ -801,8 +801,17 @@ export default function ProspectsManagement() {
       toast.error('Agrega fecha y hora para crear la reserva')
       return
     }
+    const montoPagado =
+      String(quotePaidAmount).trim() === '' ? price : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
+    if (quoteAlreadyPaid && montoPagado <= 0) {
+      toast.error('Ingresa cuánto pagó el cliente, o desmarca «Cliente ya pagó»')
+      return
+    }
+    const saldo = Math.max(0, price - montoPagado)
     const paidNote = quoteAlreadyPaid
-      ? ` Se registrará como PAGADA (${quotePaymentMethod}, ${quotePaymentType === 'mitad' ? 'abono 50%' : 'pago completo'}).`
+      ? ` Se registrará como PAGADA $${montoPagado.toLocaleString('es-CL')} (${quotePaymentMethod})${
+          saldo > 0 ? ` y quedarán $${saldo.toLocaleString('es-CL')} por cobrar` : ''
+        }.`
       : ''
     if (!confirm(`¿Crear una reserva confirmada para ${selectedProspect.name} el ${quoteDate} a las ${quoteTime} por $${price.toLocaleString('es-CL')}? Esta reserva ocupará cupo.${paidNote}`)) return
     try {
@@ -818,7 +827,8 @@ export default function ProspectsManagement() {
           time: quoteTime,
           paid: quoteAlreadyPaid,
           paymentMethod: quoteAlreadyPaid ? quotePaymentMethod : undefined,
-          paymentType: quoteAlreadyPaid ? quotePaymentType : undefined,
+          // El monto manda: el servidor deriva de acá si fue pago completo o abono.
+          amountPaid: quoteAlreadyPaid ? montoPagado : undefined,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -1406,8 +1416,12 @@ export default function ProspectsManagement() {
                             onClick={() => contactWhatsApp(prospect)}
                             variant="outline"
                             size="sm"
-                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100"
-                            title="Contactar por WhatsApp (marca como contactado)"
+                            disabled={!buildWhatsappLink(prospect)}
+                            className="text-green-700 border-green-300 bg-green-50 hover:bg-green-100 disabled:opacity-40"
+                            title={
+                              whatsAppUnavailableReason(prospect.phone) ||
+                              'Contactar por WhatsApp (marca como contactado)'
+                            }
                           >
                             <MessageCircle className="w-4 h-4" />
                           </Button>
@@ -1934,19 +1948,32 @@ export default function ProspectsManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Monto pagado</label>
-                    <Select
-                      value={quotePaymentType}
-                      onChange={(e) => setQuotePaymentType(e.target.value as 'mitad' | 'completo')}
-                      options={[
-                        { value: 'completo', label: 'Pago completo (100%)' },
-                        { value: 'mitad', label: 'Abono 50%' },
-                      ]}
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Monto pagado
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder={quotePriceNumber ? String(quotePriceNumber) : 'Lo que ya entregó'}
+                      value={quotePaidAmount}
+                      onChange={(e) => setQuotePaidAmount(e.target.value)}
                     />
                   </div>
-                  <p className="col-span-2 text-xs text-gray-500 mt-1">
-                    Al crear la reserva quedará marcada como pagada de inmediato (no aparecerá &ldquo;Pago pendiente&rdquo;). Si es abono 50%, se mostrará como &ldquo;Pagado (50%)&rdquo; en vez de pendiente.
-                  </p>
+                  <div className="col-span-2 text-xs text-gray-500 space-y-1">
+                    <p>
+                      Cárgalo tal como lo pagó: sirve cualquier monto, no solo la mitad o el
+                      total. Vacío = pagó el precio completo.
+                    </p>
+                    {quotePaidPreview !== null && (
+                      <p className="font-medium text-gray-700">
+                        Queda pagado ${quotePaidPreview.toLocaleString('es-CL')}
+                        {quotePendingPreview > 0
+                          ? ` y por cobrar $${quotePendingPreview.toLocaleString('es-CL')}, que aparecerá en «Por cobrar».`
+                          : ', sin saldo pendiente.'}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

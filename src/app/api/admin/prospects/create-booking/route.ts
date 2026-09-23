@@ -4,6 +4,7 @@ import { getActorFromRequest, logAdminAction } from '@/lib/activityLog'
 import { pickAttribution, hasAttribution, backfillAttribution } from '@/lib/attributionServer'
 import { normalizeStops } from '@/lib/stops'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
+import { FULL_RATIO } from '@/lib/revenueBreakdown'
 
 // Crea (o confirma) una RESERVA real a partir de un prospecto, sin pasar por pago online.
 // Útil cuando el admin cierra el trato por WhatsApp/teléfono. La reserva queda confirmada
@@ -20,7 +21,16 @@ export async function POST(request: NextRequest) {
     const alreadyPaid = body.paid === true
     const paymentMethod =
       typeof body.paymentMethod === 'string' && body.paymentMethod ? body.paymentMethod : 'manual'
-    const paymentType = body.paymentType === 'mitad' ? 'mitad' : 'completo'
+    // Cuánto entregó el cliente. `paymentType` sigue aceptándose por compatibilidad, pero
+    // el monto manda: antes se DEDUCÍA del tipo (50% o 100% exactos) y no había forma de
+    // registrar un abono de $30.000 — la secretaria tenía que elegir entre dos montos que
+    // no eran el real.
+    const amountPaidInput = body.amountPaid
+    const parsedAmountPaid =
+      amountPaidInput === undefined || amountPaidInput === null || amountPaidInput === ''
+        ? null
+        : Math.max(0, Math.round(Number(amountPaidInput) || 0))
+    const legacyPaymentType = body.paymentType === 'mitad' ? 'mitad' : 'completo'
 
     if (!prospectId) {
       return NextResponse.json({ error: 'prospectId requerido' }, { status: 400 })
@@ -58,6 +68,26 @@ export async function POST(request: NextRequest) {
     const effectivePrice = parsedPrice ?? prospect.adjusted_price ?? prospect.total_price
     if (!effectivePrice || effectivePrice <= 0) {
       return NextResponse.json({ error: 'Precio inválido' }, { status: 400 })
+    }
+
+    // Monto realmente entregado y modalidad que se deriva de él: pagar el total (o más)
+    // es «completo»; cualquier abono parcial queda como «mitad», que es como el resto del
+    // panel lee «pagó algo y falta el saldo» (filtro «Por cobrar», link de saldo, correo).
+    const paidAmount =
+      parsedAmountPaid ??
+      (legacyPaymentType === 'mitad'
+        ? Math.round(Number(effectivePrice) * 0.5)
+        : Number(effectivePrice))
+    // Umbral del pago completo: el 95% del precio, porque pagar todo por adelantado lleva
+    // 5% de descuento. Quien transfiere ese monto pagó completo y no debe nada; cualquier
+    // cosa por debajo es un abono y deja saldo.
+    const paymentType =
+      paidAmount >= Math.round(Number(effectivePrice) * FULL_RATIO) ? 'completo' : 'mitad'
+    if (alreadyPaid && paidAmount <= 0) {
+      return NextResponse.json(
+        { error: 'El monto pagado debe ser mayor que cero' },
+        { status: 400 }
+      )
     }
 
     const comment = commentInput !== undefined ? commentInput : prospect.adjustment_comment || ''
@@ -100,10 +130,7 @@ export async function POST(request: NextRequest) {
                 payment_method: paymentMethod,
                 payment_type: paymentType,
                 payment_date: new Date().toISOString(),
-                amount_paid:
-                  paymentType === 'mitad'
-                    ? Math.round(Number(effectivePrice) * 0.5)
-                    : Number(effectivePrice),
+                amount_paid: paidAmount,
               }
             : {}),
         })
@@ -172,11 +199,7 @@ export async function POST(request: NextRequest) {
             prospect.total_price && Number(prospect.total_price) !== Number(effectivePrice)
               ? effectivePrice
               : null,
-          amount_paid: alreadyPaid
-            ? paymentType === 'mitad'
-              ? Math.round(Number(effectivePrice) * 0.5)
-              : Number(effectivePrice)
-            : 0,
+          amount_paid: alreadyPaid ? paidAmount : 0,
           origin_address: prospect.origin_address || null,
           destination_address: prospect.destination_address || null,
           // La ruta viaja con la reserva: si el cliente cotizó con paradas, el chofer
@@ -223,11 +246,25 @@ export async function POST(request: NextRequest) {
       entityType: 'booking',
       entityId: bookingId,
       entityLabel: [prospect.name, effDate].filter(Boolean).join(' · '),
-      summary: `Convirtió el lead ${prospect.name || prospect.email || ''} en reserva para ${effDate} ${String(effTime || '').slice(0, 5)} por $${Number(effectivePrice).toLocaleString('es-CL')}`,
+      summary: `Convirtió el lead ${prospect.name || prospect.email || ''} en reserva para ${effDate} ${String(effTime || '').slice(0, 5)} por $${Number(effectivePrice).toLocaleString('es-CL')}${
+        alreadyPaid
+          ? ` · pagó $${paidAmount.toLocaleString('es-CL')} (${paymentMethod}), saldo $${Math.max(
+              0,
+              Number(effectivePrice) - paidAmount
+            ).toLocaleString('es-CL')}`
+          : ''
+      }`,
       changes: {
         converted: {
           from: { prospect_id: prospect.id },
-          to: { booking_id: bookingId, quote_id: quoteId, price: effectivePrice },
+          to: {
+            booking_id: bookingId,
+            quote_id: quoteId,
+            price: effectivePrice,
+            ...(alreadyPaid
+              ? { amount_paid: paidAmount, payment_type: paymentType, payment_method: paymentMethod }
+              : {}),
+          },
         },
       },
       request,

@@ -75,7 +75,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
   pdf.setTextColor(255, 255, 255)
   pdf.setFontSize(24)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('COTIZACION DE MUDANZA', pageWidth / 2, 15, { align: 'center' })
+  pdf.text('COTIZACIÓN DE MUDANZA', pageWidth / 2, 15, { align: 'center' })
   
   pdf.setFontSize(12)
   pdf.setFont('helvetica', 'normal')
@@ -89,7 +89,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
   pdf.setTextColor(...textColor)
   pdf.setFontSize(16)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('INFORMACION DEL CLIENTE', 20, yPosition)
+  pdf.text('INFORMACIÓN DEL CLIENTE', 20, yPosition)
   
   yPosition += 10
   pdf.setFontSize(12)
@@ -100,7 +100,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     yPosition += 7
     pdf.text(`Email: ${personalInfo.email}`, 20, yPosition)
     yPosition += 7
-    pdf.text(`Telefono: ${personalInfo.phone}`, 20, yPosition)
+    pdf.text(`Teléfono: ${personalInfo.phone}`, 20, yPosition)
     yPosition += 7
     
     if (personalInfo.isCompany && personalInfo.companyName) {
@@ -119,7 +119,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
       pdf.setFont('helvetica', 'normal')
       pdf.setTextColor(...textColor)
       yPosition += 8
-      pdf.text(`Razon Social: ${personalInfo.companyName}`, 25, yPosition)
+      pdf.text(`Razón Social: ${personalInfo.companyName}`, 25, yPosition)
       yPosition += 6
       pdf.text(`RUT: ${personalInfo.companyRut || 'No especificado'}`, 25, yPosition)
       yPosition += 8
@@ -128,7 +128,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
       pdf.setFont('helvetica', 'bold')
       pdf.setTextColor(220, 38, 38) // red-600
       pdf.setFontSize(10)
-      pdf.text('ESTE DOCUMENTO NO ES VALIDO COMO FACTURA', pageWidth / 2, yPosition, { align: 'center' })
+      pdf.text('ESTE DOCUMENTO NO ES VÁLIDO COMO FACTURA', pageWidth / 2, yPosition, { align: 'center' })
       
       pdf.setTextColor(...textColor)
       pdf.setFontSize(12)
@@ -176,7 +176,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     pdf.text(`Origen: ${origin.address.street} ${origin.address.number}, ${origin.address.commune}`, 20, yPosition)
     yPosition += 7
     if (origin.details) {
-      pdf.text(`Tipo: ${origin.details.propertyType} - Piso ${origin.details.floor}${origin.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
+      pdf.text(`${origin.details.propertyType ? `Tipo: ${origin.details.propertyType} - ` : ''}Piso ${origin.details.floor}${origin.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 7
       const originParking = formatParkingDistance(origin.details.parkingDistance)
       if (originParking) {
@@ -190,7 +190,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     pdf.text(`Destino: ${destination.address.street} ${destination.address.number}, ${destination.address.commune}`, 20, yPosition)
     yPosition += 7
     if (destination.details) {
-      pdf.text(`Tipo: ${destination.details.propertyType} - Piso ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
+      pdf.text(`${destination.details.propertyType ? `Tipo: ${destination.details.propertyType} - ` : ''}Piso ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 7
       const destinationParking = formatParkingDistance(destination.details.parkingDistance)
       if (destinationParking) {
@@ -314,7 +314,7 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
       yPosition += 6
       if (additionalServices.extraHelpers > 0) {
         pdf.text(
-          `    Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (minimo por peso: ${requiredCrew})`,
+          `    Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (mínimo por peso: ${requiredCrew})`,
           20,
           yPosition
         )
@@ -368,14 +368,14 @@ export const generateQuotePDF = async (options?: QuotePdfOptions) => {
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(220, 38, 38) // red-600
     pdf.setFontSize(9)
-    pdf.text('NOTA: Este documento NO es valido como factura. La factura se emitira al momento del pago.', pageWidth / 2, footerY - 15, { align: 'center' })
+    pdf.text('NOTA: Este documento NO es válido como factura. La factura se emitirá al momento del pago.', pageWidth / 2, footerY - 15, { align: 'center' })
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(128, 128, 128)
     pdf.setFontSize(8)
   }
   
-  pdf.text('Esta cotizacion es valida por 7 dias desde la fecha de emision.', pageWidth / 2, footerY - 10, { align: 'center' })
-  pdf.text('Para confirmar tu reserva, contactanos al +56 9 5233 4799', pageWidth / 2, footerY - 5, { align: 'center' })
+  pdf.text('Esta cotización es válida por 7 días desde la fecha de emisión.', pageWidth / 2, footerY - 10, { align: 'center' })
+  pdf.text('Para confirmar tu reserva, contáctanos al +56 9 5233 4799', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl | contacto@yomeencargo.cl', pageWidth / 2, footerY, { align: 'center' })
 
   const fileName = `Cotizacion_Mudanza_${personalInfo?.name?.replace(/\s/g, '_') || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`
@@ -434,6 +434,8 @@ export const generateBookingPDF = async (
 
   // Crear nuevo documento PDF
   const pdf = new jsPDF('p', 'mm', 'a4')
+  // Sin esto, los ✓ y los emojis de las notas se dibujan como basura (ver pdfText.ts).
+  applyPdfTextSanitizer(pdf as any)
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
@@ -479,7 +481,7 @@ export const generateBookingPDF = async (
   pdf.text('Yo Me Encargo - Servicios de Mudanza', pageWidth / 2, 25, { align: 'center' })
   
   pdf.setFontSize(11)
-  pdf.text(`Fecha de emision: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL')}`, pageWidth / 2, 33, { align: 'center' })
+  pdf.text(`Fecha de emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL')}`, pageWidth / 2, 33, { align: 'center' })
 
   // Estado de Pago
   pdf.setFillColor(...greenColor)
@@ -496,7 +498,7 @@ export const generateBookingPDF = async (
     pdf.setTextColor(...textColor)
     pdf.setFontSize(16)
     pdf.setFont('helvetica', 'bold')
-    pdf.text('INFORMACION DEL PAGO', 20, yPosition)
+    pdf.text('INFORMACIÓN DEL PAGO', 20, yPosition)
     
     yPosition += 10
     
@@ -508,9 +510,9 @@ export const generateBookingPDF = async (
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(...textColor)
     
-    pdf.text(`Numero de Orden: #${paymentInfo.order}`, 25, yPosition + 2)
+    pdf.text(`Número de Orden: #${paymentInfo.order}`, 25, yPosition + 2)
     yPosition += 8
-    pdf.text(`Token de Transaccion: ${paymentInfo.token}`, 25, yPosition)
+    pdf.text(`Token de Transacción: ${paymentInfo.token}`, 25, yPosition)
     yPosition += 8
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(...greenColor)
@@ -529,7 +531,7 @@ export const generateBookingPDF = async (
   pdf.setTextColor(...textColor)
   pdf.setFontSize(16)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('INFORMACION DEL CLIENTE', 20, yPosition)
+  pdf.text('INFORMACIÓN DEL CLIENTE', 20, yPosition)
   
   yPosition += 10
   pdf.setFontSize(12)
@@ -540,7 +542,7 @@ export const generateBookingPDF = async (
     yPosition += 7
     pdf.text(`Email: ${personalInfo.email}`, 20, yPosition)
     yPosition += 7
-    pdf.text(`Telefono: ${personalInfo.phone}`, 20, yPosition)
+    pdf.text(`Teléfono: ${personalInfo.phone}`, 20, yPosition)
     yPosition += 7
     
     if (personalInfo.isCompany && personalInfo.companyName) {
@@ -559,7 +561,7 @@ export const generateBookingPDF = async (
       pdf.setFont('helvetica', 'normal')
       pdf.setTextColor(...textColor)
       yPosition += 8
-      pdf.text(`Razon Social: ${personalInfo.companyName}`, 25, yPosition)
+      pdf.text(`Razón Social: ${personalInfo.companyName}`, 25, yPosition)
       yPosition += 6
       pdf.text(`RUT: ${personalInfo.companyRut || 'No especificado'}`, 25, yPosition)
       yPosition += 10
@@ -620,7 +622,7 @@ export const generateBookingPDF = async (
     pdf.text(`${origin.address.street} ${origin.address.number}, ${origin.address.commune}`, 20, yPosition)
     yPosition += 6
     if (origin.address.region) {
-      pdf.text(`Region: ${origin.address.region}`, 20, yPosition)
+      pdf.text(`Región: ${origin.address.region}`, 20, yPosition)
       yPosition += 6
     }
     if (origin.address.additionalInfo) {
@@ -628,7 +630,7 @@ export const generateBookingPDF = async (
       yPosition += 6
     }
     if (origin.details) {
-      pdf.text(`Tipo: ${origin.details.propertyType} | Piso: ${origin.details.floor} | Ascensor: ${origin.details.hasElevator ? 'Si' : 'No'}`, 20, yPosition)
+      pdf.text(`${origin.details.propertyType ? `Tipo: ${origin.details.propertyType} | ` : ''}Piso: ${origin.details.floor} | Ascensor: ${origin.details.hasElevator ? 'Sí' : 'No'}`, 20, yPosition)
       yPosition += 6
       const originParking = formatParkingDistance(origin.details.parkingDistance)
       if (originParking) {
@@ -647,7 +649,7 @@ export const generateBookingPDF = async (
     pdf.text(`${destination.address.street} ${destination.address.number}, ${destination.address.commune}`, 20, yPosition)
     yPosition += 6
     if (destination.address.region) {
-      pdf.text(`Region: ${destination.address.region}`, 20, yPosition)
+      pdf.text(`Región: ${destination.address.region}`, 20, yPosition)
       yPosition += 6
     }
     if (destination.address.additionalInfo) {
@@ -655,7 +657,7 @@ export const generateBookingPDF = async (
       yPosition += 6
     }
     if (destination.details) {
-      pdf.text(`Tipo: ${destination.details.propertyType} | Piso: ${destination.details.floor} | Ascensor: ${destination.details.hasElevator ? 'Si' : 'No'}`, 20, yPosition)
+      pdf.text(`${destination.details.propertyType ? `Tipo: ${destination.details.propertyType} | ` : ''}Piso: ${destination.details.floor} | Ascensor: ${destination.details.hasElevator ? 'Sí' : 'No'}`, 20, yPosition)
       yPosition += 6
       const destinationParking = formatParkingDistance(destination.details.parkingDistance)
       if (destinationParking) {
@@ -759,7 +761,7 @@ export const generateBookingPDF = async (
   yPosition += 7
   pdf.text(`Peso Total: ${totalWeight} kg`, 20, yPosition)
   yPosition += 7
-  pdf.text(`Vehiculo Recomendado: ${recommendedVehicle}`, 20, yPosition)
+  pdf.text(`Vehículo Recomendado: ${recommendedVehicle}`, 20, yPosition)
 
   yPosition += 15
 
@@ -806,7 +808,7 @@ export const generateBookingPDF = async (
       yPosition += 6
       if (additionalServices.extraHelpers > 0) {
         pdf.text(
-          `  Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (minimo por peso: ${requiredCrew})`,
+          `  Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (mínimo por peso: ${requiredCrew})`,
           20,
           yPosition
         )
@@ -883,8 +885,8 @@ export const generateBookingPDF = async (
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(10)
   pdf.text('• Conserva este documento como comprobante de tu reserva', 25, yPosition + 14)
-  pdf.text('• Te contactaremos via WhatsApp para confirmar detalles', 25, yPosition + 20)
-  pdf.text('• Un ejecutivo te llamara en las proximas 24 horas', 25, yPosition + 26)
+  pdf.text('• Te contactaremos vía WhatsApp para confirmar detalles', 25, yPosition + 20)
+  pdf.text('• Un ejecutivo te llamará en las próximas 24 horas', 25, yPosition + 26)
 
   // Footer
   const footerY = pageHeight - 20
@@ -895,13 +897,13 @@ export const generateBookingPDF = async (
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(220, 38, 38) // red-600
     pdf.setFontSize(9)
-    pdf.text('NOTA: La factura se enviara por correo electronico en las proximas 48 horas habiles.', pageWidth / 2, footerY - 15, { align: 'center' })
+    pdf.text('NOTA: La factura se enviará por correo electrónico en las próximas 48 horas hábiles.', pageWidth / 2, footerY - 15, { align: 'center' })
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(128, 128, 128)
     pdf.setFontSize(8)
   }
   
-  pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
+  pdf.text('Para consultas o cambios, contáctanos:', pageWidth / 2, footerY - 10, { align: 'center' })
   pdf.text('+56 9 5233 4799 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 
@@ -957,6 +959,8 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
 
   // Crear nuevo documento PDF
   const pdf = new jsPDF('p', 'mm', 'a4')
+  // Sin esto, los ✓ y los emojis de las notas se dibujan como basura (ver pdfText.ts).
+  applyPdfTextSanitizer(pdf as any)
   const pageWidth = pdf.internal.pageSize.getWidth()
   const pageHeight = pdf.internal.pageSize.getHeight()
   
@@ -976,14 +980,14 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   pdf.setTextColor(255, 255, 255)
   pdf.setFontSize(26)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('COTIZACION CONFIRMADA', pageWidth / 2, 15, { align: 'center' })
+  pdf.text('COTIZACIÓN CONFIRMADA', pageWidth / 2, 15, { align: 'center' })
   
   pdf.setFontSize(14)
   pdf.setFont('helvetica', 'normal')
   pdf.text('Yo Me Encargo - Servicios de Mudanza', pageWidth / 2, 25, { align: 'center' })
   
   pdf.setFontSize(11)
-  pdf.text(`Fecha de emision: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL')}`, pageWidth / 2, 33, { align: 'center' })
+  pdf.text(`Fecha de emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL')}`, pageWidth / 2, 33, { align: 'center' })
 
   // Banner de cotización
   pdf.setFillColor(...blueColor)
@@ -999,7 +1003,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   pdf.setTextColor(...textColor)
   pdf.setFontSize(16)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('INFORMACION DEL CLIENTE', 20, yPosition)
+  pdf.text('INFORMACIÓN DEL CLIENTE', 20, yPosition)
   
   yPosition += 10
   pdf.setFontSize(12)
@@ -1010,7 +1014,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     yPosition += 7
     pdf.text(`Email: ${personalInfo.email}`, 20, yPosition)
     yPosition += 7
-    pdf.text(`Telefono: ${personalInfo.phone}`, 20, yPosition)
+    pdf.text(`Teléfono: ${personalInfo.phone}`, 20, yPosition)
     yPosition += 7
     
     if (personalInfo.isCompany && personalInfo.companyName) {
@@ -1029,7 +1033,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
       pdf.setFont('helvetica', 'normal')
       pdf.setTextColor(...textColor)
       yPosition += 8
-      pdf.text(`Razon Social: ${personalInfo.companyName}`, 25, yPosition)
+      pdf.text(`Razón Social: ${personalInfo.companyName}`, 25, yPosition)
       yPosition += 6
       pdf.text(`RUT: ${personalInfo.companyRut || 'No especificado'}`, 25, yPosition)
       yPosition += 10
@@ -1090,7 +1094,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     pdf.text(`${origin.address.street} ${origin.address.number}, ${origin.address.commune}`, 20, yPosition)
     yPosition += 6
     if (origin.address.region) {
-      pdf.text(`Region: ${origin.address.region}`, 20, yPosition)
+      pdf.text(`Región: ${origin.address.region}`, 20, yPosition)
       yPosition += 6
     }
     if (origin.address.additionalInfo) {
@@ -1098,7 +1102,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
       yPosition += 6
     }
     if (origin.details) {
-      pdf.text(`Tipo: ${origin.details.propertyType} | Piso: ${origin.details.floor}${origin.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
+      pdf.text(`${origin.details.propertyType ? `Tipo: ${origin.details.propertyType} | ` : ''}Piso: ${origin.details.floor}${origin.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 6
       const originParking = formatParkingDistance(origin.details.parkingDistance)
       if (originParking) {
@@ -1118,7 +1122,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     pdf.text(`${destination.address.street} ${destination.address.number}, ${destination.address.commune}`, 20, yPosition)
     yPosition += 6
     if (destination.address.region) {
-      pdf.text(`Region: ${destination.address.region}`, 20, yPosition)
+      pdf.text(`Región: ${destination.address.region}`, 20, yPosition)
       yPosition += 6
     }
     if (destination.address.additionalInfo) {
@@ -1126,7 +1130,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
       yPosition += 6
     }
     if (destination.details) {
-      pdf.text(`Tipo: ${destination.details.propertyType} | Piso: ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
+      pdf.text(`${destination.details.propertyType ? `Tipo: ${destination.details.propertyType} | ` : ''}Piso: ${destination.details.floor}${destination.details.hasElevator ? ' (con ascensor)' : ' (sin ascensor)'}`, 20, yPosition)
       yPosition += 6
       const destinationParking = formatParkingDistance(destination.details.parkingDistance)
       if (destinationParking) {
@@ -1231,7 +1235,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   pdf.text(`Volumen total: ${parseFloat(totalVolume.toFixed(2))} m³`, 25, yPosition)
   pdf.text(`Peso total: ${totalWeight} kg`, pageWidth / 2, yPosition)
   yPosition += 6
-  pdf.text(`Vehiculo recomendado: ${recommendedVehicle}`, 25, yPosition)
+  pdf.text(`Vehículo recomendado: ${recommendedVehicle}`, 25, yPosition)
 
   yPosition += 12
 
@@ -1277,7 +1281,7 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
       yPosition += 6
       if (additionalServices.extraHelpers > 0) {
         pdf.text(
-          `  Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (minimo por peso: ${requiredCrew})`,
+          `  Ayudantes adicionales seleccionados: ${additionalServices.extraHelpers} (mínimo por peso: ${requiredCrew})`,
           25,
           yPosition
         )
@@ -1383,14 +1387,14 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
   pdf.setFont('helvetica', 'bold')
   pdf.setTextColor(21, 128, 61) // green-700
   pdf.setFontSize(12)
-  pdf.text('PROXIMO PASO', 25, yPosition + 7)
+  pdf.text('PRÓXIMO PASO', 25, yPosition + 7)
   
   pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(10)
   pdf.setTextColor(...textColor)
-  pdf.text('• Confirma tu reserva seleccionando una opcion de pago', 25, yPosition + 14)
-  pdf.text('• Seras redirigido a Flow para completar el pago de forma segura', 25, yPosition + 20)
-  pdf.text('• Recibiras la confirmacion por correo electronico', 25, yPosition + 26)
+  pdf.text('• Confirma tu reserva seleccionando una opción de pago', 25, yPosition + 14)
+  pdf.text('• Serás redirigido a Flow para completar el pago de forma segura', 25, yPosition + 20)
+  pdf.text('• Recibirás la confirmación por correo electrónico', 25, yPosition + 26)
 
   // Footer
   const footerY = pageHeight - 20
@@ -1401,13 +1405,13 @@ export const generateCheckoutPDF = async (options?: CheckoutPdfOptions) => {
     pdf.setFont('helvetica', 'bold')
     pdf.setTextColor(220, 38, 38) // red-600
     pdf.setFontSize(9)
-    pdf.text('NOTA: La factura se enviara por correo electronico en las proximas 48 horas habiles.', pageWidth / 2, footerY - 15, { align: 'center' })
+    pdf.text('NOTA: La factura se enviará por correo electrónico en las próximas 48 horas hábiles.', pageWidth / 2, footerY - 15, { align: 'center' })
     pdf.setFont('helvetica', 'normal')
     pdf.setTextColor(128, 128, 128)
     pdf.setFontSize(8)
   }
   
-  pdf.text('Para consultas o cambios, contactanos:', pageWidth / 2, footerY - 10, { align: 'center' })
+  pdf.text('Para consultas o cambios, contáctanos:', pageWidth / 2, footerY - 10, { align: 'center' })
   pdf.text('+56 9 5233 4799 | contacto@yomeencargo.cl', pageWidth / 2, footerY - 5, { align: 'center' })
   pdf.text('www.yomeencargo.cl - Yo Me Encargo Spa', pageWidth / 2, footerY, { align: 'center' })
 

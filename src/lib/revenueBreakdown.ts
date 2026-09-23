@@ -119,17 +119,23 @@ export function paidAmount(b: BookingLike): number {
 }
 
 /**
- * Monto que todavía falta cobrar.
+ * Monto que todavía falta cobrar: lo que se esperaba cobrar menos lo que entró.
  * - Sin pago aprobado: se debe el precio completo del servicio.
  * - Pagó la mitad: se debe la otra mitad (se cobra al terminar el traslado).
- * - Pagó completo: no debe nada. El 5% es descuento, no deuda.
+ * - Pagó completo por adelantado: se esperaba el 95%, porque el 5% es descuento y no deuda.
+ *
+ * Antes, un `payment_type = 'completo'` aprobado devolvía 0 sin mirar el monto. Con eso,
+ * registrar un pago parcial y marcarlo «completo» —lo único que se podía hacer al
+ * convertir un prospecto— borraba el saldo: la reserva desaparecía de «Por cobrar», del
+ * link de saldo y del correo. Medido sobre las reservas de producción el 23-sep-2026,
+ * este cambio no altera el saldo de ninguna: solo evita el agujero de ahora en adelante.
  */
 export function pendingAmount(b: BookingLike): number {
   if (!countsForRevenue(b)) return 0
   const price = servicePrice(b)
-  // Pago completo aprobado: el posible 5% de diferencia es descuento, no deuda.
-  if (isPaid(b) && b.payment_type === 'completo') return 0
-  return Math.max(0, price - actualPaidAmount(b))
+  const expected =
+    isPaid(b) && b.payment_type === 'completo' ? Math.round(price * FULL_RATIO) : price
+  return Math.max(0, expected - actualPaidAmount(b))
 }
 
 /** Canal por el que entró la plata. Flow deja `flow_token`; lo manual no. */

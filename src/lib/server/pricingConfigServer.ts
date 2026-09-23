@@ -16,6 +16,7 @@ import { DEFAULT_CREW, DEFAULT_STAIRS } from '@/lib/crewPricing'
 import { DEFAULT_EXTRA_SERVICES, withExtraServicesDefaults } from '@/lib/extraServices'
 import { DEFAULT_HOME_VISIT_PRICE, normalizeHomeVisitPrice } from '@/lib/homeVisitPricing'
 import type { PricingConfig } from '@/lib/pricingService'
+import { DEFAULT_PRICING_CONFIG } from '@/lib/pricingDefaults'
 
 /**
  * Completa los servicios/recargos agregados en sep-2026 sobre lo que haya guardado.
@@ -59,39 +60,8 @@ export function withStairsDefaults(stairs: unknown) {
   return { itemsPerTrip }
 }
 
-/** La configuración que se usa cuando la tabla está vacía. */
-export const DEFAULT_PRICING_CONFIG: PricingConfig = {
-  basePrice: 50000,
-  pricePerCubicMeter: 15000,
-  pricePerKilometer: 800,
-  freeKilometers: 50,
-  floorSurcharge: 5000,
-  additionalServices: {
-    packing: 25000,
-    unpacking: 20000,
-    disassembly: 15000,
-    assembly: 15000,
-    homeVisitPrice: DEFAULT_HOME_VISIT_PRICE,
-    ...DEFAULT_EXTRA_SERVICES,
-  },
-  specialPackaging: {
-    fragile: 10000,
-    electronics: 15000,
-    artwork: 25000,
-  },
-  timeSurcharges: {
-    saturday: 20,
-    sunday: 50,
-    holiday: 100,
-  },
-  discounts: {
-    flexibility: 10,
-    advanceBooking: 5,
-    repeatCustomer: 15,
-  },
-  crew: { ...DEFAULT_CREW },
-  stairs: { ...DEFAULT_STAIRS },
-}
+// La lista por defecto vive en `@/lib/pricingDefaults`, compartida con el navegador.
+export { DEFAULT_PRICING_CONFIG }
 
 /**
  * Lee la configuración vigente (la fila más reciente) y la devuelve ya normalizada.

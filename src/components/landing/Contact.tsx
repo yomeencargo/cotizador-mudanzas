@@ -3,6 +3,7 @@
 import { Mail, Phone, Clock, MessageCircle, ArrowRight, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { trackEvent } from '@/lib/tracking'
+import { companyWhatsAppLink } from '@/lib/whatsapp'
 
 function WhatsAppIcon() {
   return (
@@ -27,7 +28,7 @@ export default function Contact() {
       title: 'WhatsApp',
       value: '+56 9 5233 4799',
       description: 'Respuesta inmediata',
-      href: 'https://wa.me/56952334799',
+      href: companyWhatsAppLink(),
       gradient: 'from-green-500 to-emerald-600',
       bgGradient: 'from-green-50 to-emerald-50',
       iconBg: 'bg-gradient-to-br from-green-400 to-emerald-500',

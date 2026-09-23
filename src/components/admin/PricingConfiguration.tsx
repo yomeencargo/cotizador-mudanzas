@@ -459,12 +459,12 @@ export default function PricingConfiguration() {
                 type="number"
                 value={config.additionalServices.homeVisitPrice}
                 onChange={(e) => handleInputChange('additionalServices.homeVisitPrice', Number(e.target.value))}
-                placeholder="23000"
+                placeholder="33000"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Cambia lo que se cobra y lo que dice la página, la pantalla de bienvenida del
                 cotizador y el comprobante. Acá el 0 no apaga nada: se ignora y se usan
-                $23.000, porque el servicio se cobra siempre.
+                $33.000, porque el servicio se cobra siempre.
               </p>
             </div>
 
