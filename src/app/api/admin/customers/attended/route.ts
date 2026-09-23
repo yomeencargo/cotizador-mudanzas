@@ -38,6 +38,18 @@ export async function GET() {
     const enrichedBookings = mergeBookingQuoteDetails(bookingsResult.data || [], prospects)
     const customers = buildUnifiedCustomers(enrichedBookings, prospects)
 
+    // Orden alfabético por nombre (pedido de Tomás, 23-sep-2026): esta lista se usa para
+    // BUSCAR a una persona —en la pestaña Clientes y en el selector de Nueva Reserva—, y
+    // por antigüedad no se encuentra a nadie. `localeCompare` en español para que las
+    // tildes y las mayúsculas no manden a «Ángela» al final; quien no tiene nombre
+    // cargado se ordena por su correo.
+    customers.sort((a, b) =>
+      String(a.name || a.email || '').localeCompare(String(b.name || b.email || ''), 'es', {
+        sensitivity: 'base',
+        numeric: true,
+      })
+    )
+
     return NextResponse.json(customers)
   } catch (error) {
     console.error('Error in /api/admin/customers/attended:', error)
