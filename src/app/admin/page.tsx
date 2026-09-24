@@ -4,22 +4,34 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import BookingsManagement from '@/components/admin/BookingsManagement'
-import CalendarView from '@/components/admin/CalendarView'
-import FleetManagement from '@/components/admin/FleetManagement'
-import ScheduleManagement from '@/components/admin/ScheduleManagement'
-import PricingConfiguration from '@/components/admin/PricingConfiguration'
-import ScheduleConfiguration from '@/components/admin/ScheduleConfiguration'
-import ItemsManagement from '@/components/admin/ItemsManagement'
-import ProspectsManagement from '@/components/admin/ProspectsManagement'
-import AdminQuoteBuilder from '@/components/admin/AdminQuoteBuilder'
-import DashboardCharts from '@/components/admin/DashboardCharts'
-import AttendedCustomers from '@/components/admin/AttendedCustomers'
-import DriverAccessCard from '@/components/admin/DriverAccessCard'
+import dynamic from 'next/dynamic'
 import { buildWhatsAppLink, bookingFollowUpMessage } from '@/lib/whatsapp'
-import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
-import ActivityLog from '@/components/admin/ActivityLog'
-import UsersManagement from '@/components/admin/UsersManagement'
+
+// Cada pestaña baja su código recién cuando se abre. Antes iban todas en un solo paquete
+// (460 kB de JavaScript en la primera carga, medido el 24-sep-2026) aunque se usara una:
+// el cotizador interno completo, los gráficos, Reservas con sus 3.000 líneas…
+function CargandoPestana() {
+  return (
+    <div className="flex items-center justify-center py-16">
+      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600" />
+    </div>
+  )
+}
+const BookingsManagement = dynamic(() => import('@/components/admin/BookingsManagement'), { loading: CargandoPestana, ssr: false })
+const CalendarView = dynamic(() => import('@/components/admin/CalendarView'), { loading: CargandoPestana, ssr: false })
+const FleetManagement = dynamic(() => import('@/components/admin/FleetManagement'), { loading: CargandoPestana, ssr: false })
+const ScheduleManagement = dynamic(() => import('@/components/admin/ScheduleManagement'), { loading: CargandoPestana, ssr: false })
+const PricingConfiguration = dynamic(() => import('@/components/admin/PricingConfiguration'), { loading: CargandoPestana, ssr: false })
+const ScheduleConfiguration = dynamic(() => import('@/components/admin/ScheduleConfiguration'), { loading: CargandoPestana, ssr: false })
+const ItemsManagement = dynamic(() => import('@/components/admin/ItemsManagement'), { loading: CargandoPestana, ssr: false })
+const ProspectsManagement = dynamic(() => import('@/components/admin/ProspectsManagement'), { loading: CargandoPestana, ssr: false })
+const AdminQuoteBuilder = dynamic(() => import('@/components/admin/AdminQuoteBuilder'), { loading: CargandoPestana, ssr: false })
+const DashboardCharts = dynamic(() => import('@/components/admin/DashboardCharts'), { loading: CargandoPestana, ssr: false })
+const AttendedCustomers = dynamic(() => import('@/components/admin/AttendedCustomers'), { loading: CargandoPestana, ssr: false })
+const DriverAccessCard = dynamic(() => import('@/components/admin/DriverAccessCard'), { loading: CargandoPestana, ssr: false })
+const ChangePasswordModal = dynamic(() => import('@/components/admin/ChangePasswordModal'), { ssr: false })
+const ActivityLog = dynamic(() => import('@/components/admin/ActivityLog'), { loading: CargandoPestana, ssr: false })
+const UsersManagement = dynamic(() => import('@/components/admin/UsersManagement'), { loading: CargandoPestana, ssr: false })
 import {
   Calendar,
   CalendarDays,
@@ -182,12 +194,8 @@ export default function AdminDashboard() {
     try {
       setLoading(true)
       
-      // Fetch stats
-      const statsResponse = await fetch('/api/admin/stats')
-      const statsData = await statsResponse.json()
-      setStats(statsData)
-
-      // Trae reservas de hoy hasta 6 días adelante y las separa en Hoy / Mañana / Esta semana
+      // Los tres pedidos salen a la vez: antes el de reservas esperaba a que terminara
+      // el resumen, y el Dashboard mostraba el cargando la suma de los dos.
       fetch('/api/admin/fleet-config')
         .then((r) => (r.ok ? r.json() : null))
         .then((cfg) => {
@@ -196,8 +204,12 @@ export default function AdminDashboard() {
         })
         .catch(() => setFleet([]))
 
-      const bookingsResponse = await fetch('/api/admin/today-bookings')
-      const bookingsData: TodayBooking[] = await bookingsResponse.json()
+      // Trae reservas de hoy hasta 6 días adelante y las separa en Hoy / Mañana / Esta semana
+      const [statsData, bookingsData] = await Promise.all([
+        fetch('/api/admin/stats').then((r) => r.json()),
+        fetch('/api/admin/today-bookings').then((r) => r.json()) as Promise<TodayBooking[]>,
+      ])
+      setStats(statsData)
 
       const todayStr = format(new Date(), 'yyyy-MM-dd')
       const tomorrowDate = new Date()

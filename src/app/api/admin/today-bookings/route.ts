@@ -39,6 +39,11 @@ export async function GET() {
     // OJO: total_volume NO es columna de bookings. Vive en la cotización y llega por
     // mergeBookingQuoteDetails más abajo. Pedirla en este select devuelve 42703
     // (undefined_column) y deja el dashboard sin reservas. Verificado el 12-sep-2026.
+    // La flota y los camiones ya asignados de la semana no dependen de la lista: se piden
+    // a la vez que ella, en vez de después.
+    const vehiclesPromise = getFleetVehicleViews()
+    const assignmentsPromise = getVehicleAssignmentsInRange(today, weekEnd)
+
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
       .select(`
@@ -82,29 +87,29 @@ export async function GET() {
 
     console.log(`[API] Successfully fetched ${bookings?.length || 0} upcoming bookings`)
 
-    // Camión de cada trabajo: se resuelve acá (nombre + color ya listos) para que el
-    // dashboard no tenga que ir a buscar la flota por su cuenta.
-    const vehicles = await getFleetVehicleViews()
-    const assignments = await ensureVehicleAssignments(
-      bookings || [],
-      vehicles,
-      await getVehicleAssignmentsInRange(today, weekEnd)
-    )
-
     // El volumen y el embalaje viven en la cotización (`quote_prospects.items_summary`),
     // no en la reserva. Se traen acá para que el dashboard los muestre sin obligar a
     // saltar a Reservas, que es justo lo que se pidió evitar.
     const quoteIds = Array.from(
       new Set((bookings || []).map((b) => b.quote_id).filter((q): q is string => Boolean(q)))
     )
-    let prospects: any[] = []
-    if (quoteIds.length > 0) {
-      const { data } = await supabaseAdmin
-        .from('quote_prospects')
-        .select('quote_id, email, source, items_summary, additional_services, total_volume')
-        .in('quote_id', quoteIds)
-      prospects = data || []
-    }
+
+    // Camión de cada trabajo y cotizaciones: no dependen una de otra, van en paralelo.
+    const vehicles = await vehiclesPromise
+    const [assignments, prospects] = await Promise.all([
+      // Camión de cada trabajo: se resuelve acá (nombre + color ya listos) para que el
+      // dashboard no tenga que ir a buscar la flota por su cuenta.
+      assignmentsPromise.then((current) =>
+        ensureVehicleAssignments(bookings || [], vehicles, current)
+      ),
+      quoteIds.length > 0
+        ? supabaseAdmin
+            .from('quote_prospects')
+            .select('quote_id, email, source, items_summary, additional_services, total_volume')
+            .in('quote_id', quoteIds)
+            .then(({ data }) => data || [])
+        : Promise.resolve([] as any[]),
+    ])
     const enriquecidas = mergeBookingQuoteDetails(bookings || [], prospects) as any[]
 
     const result = enriquecidas.map((booking: any) => {
