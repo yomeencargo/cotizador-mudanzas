@@ -11,6 +11,7 @@ import {
 } from '@/lib/activityLog'
 import { isAdministrator } from '@/lib/adminPermissions'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
+import { isMissingColumnError, normalizeTaxDocument, taxDocumentLabel } from '@/lib/taxDocument'
 
 /** Etiqueta legible de una reserva, para poder leer el log aunque luego se borre. */
 function bookingLabel(b: { client_name?: string | null; scheduled_date?: string | null }) {
@@ -192,6 +193,18 @@ async function logBookingUpdate(args: {
       changes: financialChanges,
     })
   }
+
+  // Documento tributario: queda escrito quién lo marcó y qué había antes.
+  if ('tax_document' in updateData && (before?.tax_document ?? null) !== (after?.tax_document ?? null)) {
+    await logAdminAction({
+      ...base,
+      action: 'booking.tax_document_changed',
+      summary: `Marcó el documento como ${taxDocumentLabel(after?.tax_document)} (antes: ${taxDocumentLabel(
+        before?.tax_document
+      )})`,
+      changes: { tax_document: { from: before?.tax_document ?? null, to: after?.tax_document ?? null } },
+    })
+  }
 }
 
 export async function PATCH(
@@ -232,6 +245,13 @@ export async function PATCH(
       override_capacity = false,
     } = body
     const capacityOverrideApproved = override_capacity === true
+    // Documento tributario. `null` vuelve a «sin definir»; cualquier valor inválido se
+    // rechaza en vez de guardarse como otra cosa.
+    const taxDocumentRequested = 'tax_document' in body
+    const taxDocument = normalizeTaxDocument(body.tax_document)
+    if (taxDocumentRequested && body.tax_document !== null && body.tax_document !== '' && !taxDocument) {
+      return NextResponse.json({ error: 'Documento tributario inválido' }, { status: 400 })
+    }
 
     const reschedules = Boolean(scheduled_date || scheduled_time)
     const addressRequested =
@@ -256,7 +276,8 @@ export async function PATCH(
       vehicle_id === undefined &&
       !financialRequested &&
       !reschedules &&
-      !addressRequested
+      !addressRequested &&
+      !taxDocumentRequested
     ) {
       return NextResponse.json(
         { error: 'No hay cambios que aplicar' },
@@ -270,6 +291,7 @@ export async function PATCH(
     if (payment_type) updateData.payment_type = payment_type
     if (payment_status) updateData.payment_status = payment_status
     if (service_completed_at !== undefined) updateData.service_completed_at = service_completed_at
+    if (taxDocumentRequested) updateData.tax_document = taxDocument
 
     // Reajustes posteriores al abono: doble barrera. La UI los oculta para Secretaría,
     // pero el permiso real se valida acá para que no se pueda saltar llamando la API.
@@ -598,13 +620,21 @@ export async function PATCH(
     }
 
     // Estado previo para el log (antes → después). Se lee aquí, justo antes de mutar.
-    const { data: before } = await supabaseAdmin
+    const BEFORE_FIELDS =
+      'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id, original_price, total_price, adjusted_price, amount_paid, adjustment_comment'
+    let { data: before, error: beforeError } = await supabaseAdmin
       .from('bookings')
-      .select(
-        'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id, original_price, total_price, adjusted_price, amount_paid, adjustment_comment'
-      )
+      .select(`${BEFORE_FIELDS}, tax_document`)
       .eq('id', id)
       .maybeSingle()
+    // Sin la migración del documento tributario: se lee lo demás igual.
+    if (beforeError && isMissingColumnError(beforeError)) {
+      ;({ data: before } = await supabaseAdmin
+        .from('bookings')
+        .select(BEFORE_FIELDS)
+        .eq('id', id)
+        .maybeSingle() as any)
+    }
 
     // Actualizar la reserva
     const { data: booking, error } = await supabaseAdmin
@@ -616,6 +646,15 @@ export async function PATCH(
 
     if (error) {
       console.error('Error updating booking:', error)
+      if (taxDocumentRequested && isMissingColumnError(error)) {
+        return NextResponse.json(
+          {
+            error:
+              'Todavía no se puede guardar el documento tributario: falta correr la migración add_booking_tax_document.sql. El resto de los cambios no se guardó; vuelve a intentar sin cambiar el documento.',
+          },
+          { status: 400 }
+        )
+      }
       return NextResponse.json(
         { error: 'Error al actualizar la reserva' },
         { status: 500 }

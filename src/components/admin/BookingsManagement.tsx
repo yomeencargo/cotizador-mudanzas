@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -27,12 +27,16 @@ import {
   UserX,
   Copy,
   Link2,
-  AlertTriangle
+  AlertTriangle,
+  CalendarClock
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { isValidEmail } from '@/lib/emailFormat'
+import QuickRescheduleModal from './QuickRescheduleModal'
+import { TaxDocumentBadge, TaxDocumentDetail, TaxDocumentSelect } from './TaxDocument'
+import { ivaBreakdown, taxDocumentLabel } from '@/lib/taxDocument'
 import {
   buildWhatsAppLink,
   bookingFollowUpMessage,
@@ -125,6 +129,8 @@ interface Booking extends AdminBookingQuoteSource {
   adjusted_price?: number | null
   amount_paid?: number | null
   adjustment_comment?: string | null
+  /** Boleta, factura o sin documento. null = sin definir (ver lib/taxDocument). */
+  tax_document?: string | null
   adjusted_at?: string | null
   adjusted_by?: string | null
   origin_address?: string
@@ -169,6 +175,7 @@ const EMPTY_NEW_BOOKING = {
   duration_hours: 4,
   status: 'pending',
   payment_type: '',
+  tax_document: '',
   payment_method: 'flow',
   payment_paid: false,
   total_price: '',
@@ -204,12 +211,15 @@ interface BookingsManagementProps {
   initialDateRange?: { desde: string; hasta: string } | null
   /** Permiso derivado del perfil firmado; el backend vuelve a validarlo al guardar. */
   canAdjustAmounts?: boolean
+  /** Reserva a abrir directo en «Editar» (el «Editar todo lo demás» del Dashboard). */
+  initialEditId?: string | null
 }
 
 export default function BookingsManagement({
   initialSearch = '',
   initialDateRange = null,
   canAdjustAmounts = false,
+  initialEditId = null,
 }: BookingsManagementProps) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
@@ -255,6 +265,20 @@ export default function BookingsManagement({
   // Choque de camión en el modal Editar. Editar NO valida (decisión de Tomás, 16-sep-2026:
   // el admin puede saber que un trabajo termina antes), pero avisa: si el camión elegido
   // ya tiene otro trabajo que se pisa con la fecha/hora de esta reserva, se muestra acá.
+  // Abre «Editar» de la reserva pedida por ?edit= apenas llega la lista, una sola vez.
+  const initialEditDone = useRef(false)
+  useEffect(() => {
+    if (!initialEditId || initialEditDone.current || bookings.length === 0) return
+    const target = bookings.find((b) => b.id === initialEditId)
+    if (target) {
+      initialEditDone.current = true
+      openEditBooking(target)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditId, bookings])
+
+  /** Reserva abierta en el pop-up de «Cambiar fecha y hora» (solo eso, sin el resto). */
+  const [quickReschedule, setQuickReschedule] = useState<Booking | null>(null)
   const [editTruckConflict, setEditTruckConflict] = useState<
     null | { vehicleName: string; ranges: string }
   >(null)
@@ -771,6 +795,11 @@ export default function BookingsManagement({
       // El camión solo se manda si realmente cambió. Si no, editar las notas de una
       // reserva que quedó apuntando a un camión en mantención fallaría con 409.
       const original = bookings.find((b) => b.id === booking.id)
+      // El documento tributario solo se manda si cambió: así editar cualquier otra cosa
+      // funciona aunque todavía no esté corrida add_booking_tax_document.sql.
+      if ((original?.tax_document ?? null) !== (booking.tax_document || null)) {
+        updateData.tax_document = booking.tax_document || null
+      }
       if ((original?.vehicle_id ?? null) !== (booking.vehicle_id ?? null)) {
         // null desasigna: el reparto automático la vuelve a tomar en la próxima lectura.
         updateData.vehicle_id = booking.vehicle_id ?? null
@@ -1116,6 +1145,8 @@ export default function BookingsManagement({
         customer_origin: newBooking.customer_origin,
         override_capacity: overrideCapacity,
         vehicle_id: newBooking.vehicle_choice === 'auto' ? 'auto' : Number(newBooking.vehicle_choice),
+        // Vacío = sin definir (no se manda, así funciona aunque falte la migración).
+        tax_document: newBooking.tax_document || undefined,
       }
 
       const response = await fetch('/api/admin/bookings', {
@@ -1275,6 +1306,11 @@ export default function BookingsManagement({
       { header: 'Precio final reajustado', value: (b) => servicePrice(b) },
       { header: 'Monto pagado real', value: (b) => actualPaidAmount(b) },
       { header: 'Saldo pendiente', value: (b) => pendingAmount(b) },
+      { header: 'Documento', value: (b) => taxDocumentLabel(b.tax_document) },
+      { header: 'Neto', value: (b) => ivaBreakdown(servicePrice(b), b.tax_document)?.neto ?? '' },
+      { header: 'IVA 19%', value: (b) => ivaBreakdown(servicePrice(b), b.tax_document)?.iva ?? '' },
+      { header: 'Pagado neto', value: (b) => ivaBreakdown(actualPaidAmount(b), b.tax_document)?.neto ?? '' },
+      { header: 'Pagado IVA', value: (b) => ivaBreakdown(actualPaidAmount(b), b.tax_document)?.iva ?? '' },
       { header: 'Motivo reajuste', value: (b) => b.adjustment_comment || '' },
       { header: 'Dirección origen', value: (b) => b.origin_address },
       { header: 'Dirección destino', value: (b) => b.destination_address },
@@ -1761,6 +1797,7 @@ export default function BookingsManagement({
                           <div className="text-sm font-semibold text-gray-900">
                             Total: ${servicePrice(booking).toLocaleString('es-CL')}
                           </div>
+                          <TaxDocumentBadge document={booking.tax_document} total={servicePrice(booking)} />
                           {booking.adjusted_price != null && (
                             <div className="text-[11px] font-medium text-purple-700">
                               Reajustado · antes ${Number(
@@ -1844,6 +1881,14 @@ export default function BookingsManagement({
                             title={booking.is_frequent ? 'Quitar de clientes frecuentes' : 'Marcar como cliente frecuente'}
                           >
                             <Star className={`w-4 h-4 ${booking.is_frequent ? 'fill-amber-400 text-amber-500' : ''}`} />
+                          </Button>
+                          <Button
+                            onClick={() => setQuickReschedule(booking)}
+                            variant="outline"
+                            size="sm"
+                            title="Cambiar fecha y hora"
+                          >
+                            <CalendarClock className="w-4 h-4" />
                           </Button>
                           <Button
                             onClick={() => openEditBooking(booking)}
@@ -2286,6 +2331,14 @@ export default function BookingsManagement({
           </div>
 
           {!blockOnly && (
+            <TaxDocumentSelect
+              value={newBooking.tax_document}
+              onChange={(value) => setNewBooking({ ...newBooking, tax_document: value })}
+              total={Number(newBooking.total_price) || 0}
+            />
+          )}
+
+          {!blockOnly && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Monto ya pagado{' '}
@@ -2565,6 +2618,13 @@ export default function BookingsManagement({
                 <p className={`text-lg font-bold ${pendingAmount(selectedBooking) > 0 ? 'text-orange-700' : 'text-green-700'}`}>
                   ${pendingAmount(selectedBooking).toLocaleString('es-CL')}
                 </p>
+              </div>
+              <div className="sm:col-span-2 border-t border-gray-200 pt-3">
+                <TaxDocumentDetail
+                  document={selectedBooking.tax_document}
+                  total={servicePrice(selectedBooking)}
+                  paid={actualPaidAmount(selectedBooking)}
+                />
               </div>
               {selectedBooking.adjustment_comment && (
                 <div className="sm:col-span-2 border-t border-gray-200 pt-3 text-sm text-gray-700">
@@ -2880,6 +2940,23 @@ export default function BookingsManagement({
         )}
       </Modal>
 
+      {/* Cambio rápido: solo fecha y hora. Para lo demás, «Editar todo lo demás». */}
+      <QuickRescheduleModal
+        booking={quickReschedule}
+        onClose={() => setQuickReschedule(null)}
+        onSaved={(id, changes) => {
+          setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, ...changes } : b)))
+          setQuickReschedule(null)
+          // Relee en silencio: el reparto de camiones puede haber cambiado con el horario.
+          fetchBookings({ silent: true })
+        }}
+        onOpenFullEdit={() => {
+          const booking = quickReschedule
+          setQuickReschedule(null)
+          if (booking) openEditBooking(booking)
+        }}
+      />
+
       {/* Edit Modal */}
       <Modal
         isOpen={showEditModal}
@@ -3160,6 +3237,12 @@ export default function BookingsManagement({
                 ]}
               />
             </div>
+
+            <TaxDocumentSelect
+              value={selectedBooking.tax_document}
+              onChange={(value) => setSelectedBooking({ ...selectedBooking, tax_document: value || null })}
+              total={servicePrice(selectedBooking)}
+            />
 
             {canAdjustAmounts && (
                 <div className="space-y-4 rounded-lg border-2 border-purple-200 bg-purple-50 p-4">

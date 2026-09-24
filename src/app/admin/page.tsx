@@ -4,22 +4,35 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import BookingsManagement from '@/components/admin/BookingsManagement'
-import CalendarView from '@/components/admin/CalendarView'
-import FleetManagement from '@/components/admin/FleetManagement'
-import ScheduleManagement from '@/components/admin/ScheduleManagement'
-import PricingConfiguration from '@/components/admin/PricingConfiguration'
-import ScheduleConfiguration from '@/components/admin/ScheduleConfiguration'
-import ItemsManagement from '@/components/admin/ItemsManagement'
-import ProspectsManagement from '@/components/admin/ProspectsManagement'
-import AdminQuoteBuilder from '@/components/admin/AdminQuoteBuilder'
-import DashboardCharts from '@/components/admin/DashboardCharts'
-import AttendedCustomers from '@/components/admin/AttendedCustomers'
-import DriverAccessCard from '@/components/admin/DriverAccessCard'
+import dynamic from 'next/dynamic'
 import { buildWhatsAppLink, bookingFollowUpMessage } from '@/lib/whatsapp'
-import ChangePasswordModal from '@/components/admin/ChangePasswordModal'
-import ActivityLog from '@/components/admin/ActivityLog'
-import UsersManagement from '@/components/admin/UsersManagement'
+import QuickRescheduleModal from '@/components/admin/QuickRescheduleModal'
+
+// Cada pestaña baja su código recién cuando se abre. Antes iban todas en un solo paquete
+// (460 kB de JavaScript en la primera carga, medido el 24-sep-2026) aunque se usara una:
+// el cotizador interno completo, los gráficos, Reservas con sus 3.000 líneas…
+function CargandoPestana() {
+  return (
+    <div className="flex items-center justify-center py-16">
+      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600" />
+    </div>
+  )
+}
+const BookingsManagement = dynamic(() => import('@/components/admin/BookingsManagement'), { loading: CargandoPestana, ssr: false })
+const CalendarView = dynamic(() => import('@/components/admin/CalendarView'), { loading: CargandoPestana, ssr: false })
+const FleetManagement = dynamic(() => import('@/components/admin/FleetManagement'), { loading: CargandoPestana, ssr: false })
+const ScheduleManagement = dynamic(() => import('@/components/admin/ScheduleManagement'), { loading: CargandoPestana, ssr: false })
+const PricingConfiguration = dynamic(() => import('@/components/admin/PricingConfiguration'), { loading: CargandoPestana, ssr: false })
+const ScheduleConfiguration = dynamic(() => import('@/components/admin/ScheduleConfiguration'), { loading: CargandoPestana, ssr: false })
+const ItemsManagement = dynamic(() => import('@/components/admin/ItemsManagement'), { loading: CargandoPestana, ssr: false })
+const ProspectsManagement = dynamic(() => import('@/components/admin/ProspectsManagement'), { loading: CargandoPestana, ssr: false })
+const AdminQuoteBuilder = dynamic(() => import('@/components/admin/AdminQuoteBuilder'), { loading: CargandoPestana, ssr: false })
+const DashboardCharts = dynamic(() => import('@/components/admin/DashboardCharts'), { loading: CargandoPestana, ssr: false })
+const AttendedCustomers = dynamic(() => import('@/components/admin/AttendedCustomers'), { loading: CargandoPestana, ssr: false })
+const DriverAccessCard = dynamic(() => import('@/components/admin/DriverAccessCard'), { loading: CargandoPestana, ssr: false })
+const ChangePasswordModal = dynamic(() => import('@/components/admin/ChangePasswordModal'), { ssr: false })
+const ActivityLog = dynamic(() => import('@/components/admin/ActivityLog'), { loading: CargandoPestana, ssr: false })
+const UsersManagement = dynamic(() => import('@/components/admin/UsersManagement'), { loading: CargandoPestana, ssr: false })
 import {
   Calendar,
   CalendarDays,
@@ -105,6 +118,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   // Búsqueda inicial para la pestaña Reservas (viene por ?q= al abrir desde el dashboard).
   const [bookingsSearch, setBookingsSearch] = useState('')
+  // Reserva que Reservas abre directo en «Editar» (viene por ?edit= desde el pop-up).
+  const [bookingsEditId, setBookingsEditId] = useState<string | null>(null)
+  // Reserva del Dashboard abierta en el pop-up de «Cambiar fecha y hora».
+  const [quickBooking, setQuickBooking] = useState<TodayBooking | null>(null)
   const [bookingsRange, setBookingsRange] = useState<{ desde: string; hasta: string } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     username: string
@@ -156,6 +173,8 @@ export default function AdminDashboard() {
     const hasta = params.get('hasta')
     if (tab && tabs.some((t) => t.id === tab)) setActiveTab(tab)
     if (q) setBookingsSearch(q)
+    const edit = params.get('edit')
+    if (edit) setBookingsEditId(edit)
     if (desde && hasta) setBookingsRange({ desde, hasta })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -178,16 +197,12 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (options: { silent?: boolean } = {}) => {
     try {
-      setLoading(true)
+      if (!options.silent) setLoading(true)
       
-      // Fetch stats
-      const statsResponse = await fetch('/api/admin/stats')
-      const statsData = await statsResponse.json()
-      setStats(statsData)
-
-      // Trae reservas de hoy hasta 6 días adelante y las separa en Hoy / Mañana / Esta semana
+      // Los tres pedidos salen a la vez: antes el de reservas esperaba a que terminara
+      // el resumen, y el Dashboard mostraba el cargando la suma de los dos.
       fetch('/api/admin/fleet-config')
         .then((r) => (r.ok ? r.json() : null))
         .then((cfg) => {
@@ -196,8 +211,12 @@ export default function AdminDashboard() {
         })
         .catch(() => setFleet([]))
 
-      const bookingsResponse = await fetch('/api/admin/today-bookings')
-      const bookingsData: TodayBooking[] = await bookingsResponse.json()
+      // Trae reservas de hoy hasta 6 días adelante y las separa en Hoy / Mañana / Esta semana
+      const [statsData, bookingsData] = await Promise.all([
+        fetch('/api/admin/stats').then((r) => r.json()),
+        fetch('/api/admin/today-bookings').then((r) => r.json()) as Promise<TodayBooking[]>,
+      ])
+      setStats(statsData)
 
       const todayStr = format(new Date(), 'yyyy-MM-dd')
       const tomorrowDate = new Date()
@@ -267,11 +286,12 @@ export default function AdminDashboard() {
     return format(new Date(y, m - 1, d), "EEEE d 'de' MMMM", { locale: es })
   }
 
-  // Abre la reserva en una pestaña nueva, ya filtrada en la pestaña Reservas, para tener
-  // ahí los botones de acción (editar, marcar pagado, completar, PDF, etc.).
+  // «Editar todo lo demás» del pop-up: abre la reserva en una pestaña nueva, ya filtrada
+  // en Reservas y con su edición completa abierta. La pestaña nueva es a propósito: el
+  // Dashboard queda donde estaba.
   const openBookingInNewTab = (booking: TodayBooking) => {
     const term = booking.quote_id || booking.client_name
-    const url = `/admin?tab=bookings&q=${encodeURIComponent(term)}`
+    const url = `/admin?tab=bookings&q=${encodeURIComponent(term)}&edit=${encodeURIComponent(booking.id)}`
     window.open(url, '_blank', 'noopener')
   }
 
@@ -337,16 +357,16 @@ export default function AdminDashboard() {
   const renderBookingRow = (booking: TodayBooking) => (
     <div
       key={booking.id}
-      onClick={() => openBookingInNewTab(booking)}
+      onClick={() => setQuickBooking(booking)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          openBookingInNewTab(booking)
+          setQuickBooking(booking)
         }
       }}
       role="button"
       tabIndex={0}
-      title="Abrir en Reservas (pestaña nueva) para ver acciones"
+      title="Cambiar fecha y hora (para lo demás, «Editar todo lo demás»)"
       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 hover:ring-1 hover:ring-secondary-300 focus:outline-none focus:ring-2 focus:ring-secondary-400"
     >
       <div className="flex items-center gap-4">
@@ -536,7 +556,7 @@ export default function AdminDashboard() {
                 </Button>
               )}
               <Button
-                onClick={fetchDashboardData}
+                onClick={() => fetchDashboardData()}
                 variant="secondary"
                 size="sm"
               >
@@ -860,6 +880,7 @@ export default function AdminDashboard() {
           <BookingsManagement
             initialSearch={bookingsSearch}
             initialDateRange={bookingsRange}
+            initialEditId={bookingsEditId}
             canAdjustAmounts={currentUser?.role === 'administrator'}
           />
         )}
@@ -943,6 +964,22 @@ export default function AdminDashboard() {
           </a>
         </p>
       </div>
+
+      {/* Cambio rápido de fecha y hora desde el Dashboard. */}
+      <QuickRescheduleModal
+        booking={quickBooking ? { ...quickBooking, vehicle_id: quickBooking.vehicle?.id ?? null } : null}
+        onClose={() => setQuickBooking(null)}
+        onSaved={() => {
+          setQuickBooking(null)
+          // La reserva puede haber cambiado de día (Hoy / Mañana / Esta semana) y de camión.
+          fetchDashboardData({ silent: true })
+        }}
+        onOpenFullEdit={() => {
+          const booking = quickBooking
+          setQuickBooking(null)
+          if (booking) openBookingInNewTab(booking)
+        }}
+      />
 
       <ChangePasswordModal
         isOpen={showChangePassword}

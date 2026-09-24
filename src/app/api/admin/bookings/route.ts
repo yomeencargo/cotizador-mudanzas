@@ -8,6 +8,7 @@ import { normalizeOrigin } from '@/lib/prospectSource'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 import { getVehicleAvailability } from '@/lib/vehicleAvailability'
 import { isValidEmail } from '@/lib/emailFormat'
+import { isMissingColumnError, normalizeTaxDocument } from '@/lib/taxDocument'
 import {
   chileTodayString,
   ensureVehicleAssignments,
@@ -139,10 +140,11 @@ export async function GET() {
     // alguna no existe, se reintenta sin ese grupo — así desplegar antes de correr un SQL
     // no deja el panel sin la lista de reservas. Se prueban por separado para que faltar
     // una migración no haga desaparecer también las columnas de la otra.
-    const selectColumns = (withPublicIds: boolean, withStops: boolean) => `
+    const selectColumns = (withPublicIds: boolean, withStops: boolean, withTaxDocument = false) => `
         id,
         ${withPublicIds ? 'code,\n        customer_id,' : ''}
         ${withStops ? 'stops,' : ''}
+        ${withTaxDocument ? 'tax_document,' : ''}
         quote_id,
         client_name,
         client_email,
@@ -186,16 +188,26 @@ export async function GET() {
         cancelled_at
       `
 
-    const fetchBookings = (withPublicIds: boolean, withStops: boolean) =>
+    const fetchBookings = (withPublicIds: boolean, withStops: boolean, withTaxDocument = false) =>
       supabaseAdmin
         .from('bookings')
-        .select(selectColumns(withPublicIds, withStops))
+        .select(selectColumns(withPublicIds, withStops, withTaxDocument))
         .neq('status', 'cancelled') // NO mostrar reservas canceladas (pagos rechazados)
         .order('created_at', { ascending: false }) // Más recientes primero
 
-    let { data: bookings, error } = await fetchBookings(true, true)
+    // La flota y los camiones ya asignados no dependen de la lista de reservas: se piden
+    // en paralelo con ella en vez de después (antes eran esperas en fila).
+    const vehiclesPromise = getFleetVehicleViews()
+    const assignmentsPromise = getAllVehicleAssignments()
 
-    // 42703 = undefined_column: falta alguna de las dos migraciones.
+    let { data: bookings, error } = await fetchBookings(true, true, true)
+
+    // 42703 = undefined_column: falta alguna migración. Se sueltan de la más nueva a la
+    // más vieja; la primera es add_booking_tax_document.sql (documento tributario).
+    if (error?.code === '42703') {
+      console.warn('[API] Falta alguna columna opcional. Reintentando sin documento tributario.')
+      ;({ data: bookings, error } = await fetchBookings(true, true, false))
+    }
     if (error?.code === '42703') {
       console.warn('[API] Falta alguna columna opcional. Reintentando sin paradas.')
       ;({ data: bookings, error } = await fetchBookings(true, false))
@@ -221,22 +233,20 @@ export async function GET() {
     // El `select` se arma como string dinámico (con o sin códigos), así que Supabase ya
     // no puede inferir el tipo de las filas: se declara acá.
     const bookingRows = (bookings || []) as unknown as AdminBookingQuoteSource[]
-    const prospects = await fetchProspectQuoteDetails(bookingRows)
-    const enrichedBookings = mergeBookingQuoteDetails(bookingRows, prospects)
 
-    // Camión de cada reserva. Las futuras que aún no tienen uno se reparten acá y quedan
-    // guardadas, así el admin y el link de choferes ven siempre lo mismo.
-    const vehicles = await getFleetVehicleViews()
-    const assignments = await ensureVehicleAssignments(
-      bookingRows as AssignableBooking[],
-      vehicles,
-      await getAllVehicleAssignments()
-    )
-    // Notas que escribieron los choferes desde su link. Una sola consulta para todas las
-    // reservas; si falta la migración devuelve vacío y el panel funciona igual.
-    const driverNotes = await getDriverNotesFor(
-      bookingRows.map((b) => b.id).filter((id): id is string => Boolean(id))
-    )
+    // Las tres cosas que faltan dependen solo de la lista, no una de otra: en paralelo.
+    const [prospects, assignments, driverNotes] = await Promise.all([
+      fetchProspectQuoteDetails(bookingRows),
+      // Camión de cada reserva. Las futuras que aún no tienen uno se reparten acá y
+      // quedan guardadas, así el admin y el link de choferes ven siempre lo mismo.
+      Promise.all([vehiclesPromise, assignmentsPromise]).then(([vehicles, current]) =>
+        ensureVehicleAssignments(bookingRows as AssignableBooking[], vehicles, current)
+      ),
+      // Notas que escribieron los choferes desde su link. Una sola consulta para todas
+      // las reservas; si falta la migración devuelve vacío y el panel funciona igual.
+      getDriverNotesFor(bookingRows.map((b) => b.id).filter((id): id is string => Boolean(id))),
+    ])
+    const enrichedBookings = mergeBookingQuoteDetails(bookingRows, prospects)
 
     const withVehicle = enrichedBookings.map((b: any) => ({
       ...b,
@@ -289,6 +299,8 @@ export async function POST(request: NextRequest) {
       override_capacity = false,
       // Camión: un id elige uno a mano; 'auto' (o nada) deja que decida el reparto.
       vehicle_id: vehicleChoice,
+      // Documento tributario (boleta/factura/sin_documento). Vacío = sin definir.
+      tax_document: taxDocumentInput,
     } = body
     const capacityOverrideApproved = override_capacity === true
 
@@ -480,6 +492,10 @@ export async function POST(request: NextRequest) {
       customerRecordId = customerRecord.id
     }
 
+    // Solo se manda si se eligió: así crear reservas sigue funcionando aunque todavía no
+    // esté corrida add_booking_tax_document.sql.
+    const taxDocument = normalizeTaxDocument(taxDocumentInput)
+
     // Crear la reserva
     const { data: booking, error: createError } = await supabaseAdmin
       .from('bookings')
@@ -512,12 +528,22 @@ export async function POST(request: NextRequest) {
         company_name: is_company ? company_name : null,
         company_rut: is_company ? company_rut : null,
         ...(vehicleIdToSave !== null ? { vehicle_id: vehicleIdToSave } : {}),
+        ...(taxDocument ? { tax_document: taxDocument } : {}),
       })
       .select()
       .single()
 
     if (createError) {
       console.error('[API] Error creating booking:', createError)
+      if (taxDocument && isMissingColumnError(createError)) {
+        return NextResponse.json(
+          {
+            error:
+              'Todavía no se puede guardar el documento tributario: falta correr la migración add_booking_tax_document.sql. Déjalo en «Sin definir» por ahora.',
+          },
+          { status: 400 }
+        )
+      }
       return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
     }
 

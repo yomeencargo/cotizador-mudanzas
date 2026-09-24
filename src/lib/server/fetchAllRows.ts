@@ -9,17 +9,30 @@
  * `page(from, to)` tiene que armar la consulta con un orden ESTABLE (con desempate por
  * `id`); si no, entre una página y la siguiente las filas pueden reordenarse y aparecer
  * repetidas o saltarse.
+ *
+ * Las páginas se piden de a `concurrency` a la vez: con 1.099 prospectos eran dos viajes
+ * seguidos a la base y ahora es uno. El costo es, a lo más, una consulta de más que vuelve
+ * vacía cuando las filas justo llenan las páginas.
  */
 export async function fetchAllRows<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
-  pageSize = 1000
+  pageSize = 1000,
+  concurrency = 2
 ): Promise<{ data: T[]; error: any }> {
   const rows: T[] = []
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await page(from, from + pageSize - 1)
-    if (error) return { data: rows, error }
-    const batch = data || []
-    rows.push(...batch)
-    if (batch.length < pageSize) return { data: rows, error: null }
+  for (let first = 0; ; first += concurrency) {
+    const wave = await Promise.all(
+      Array.from({ length: concurrency }, (_, i) => {
+        const from = (first + i) * pageSize
+        return page(from, from + pageSize - 1)
+      })
+    )
+    // En orden: la primera página corta (o con error) cierra la lectura.
+    for (const { data, error } of wave) {
+      if (error) return { data: rows, error }
+      const batch = data || []
+      rows.push(...batch)
+      if (batch.length < pageSize) return { data: rows, error: null }
+    }
   }
 }
