@@ -75,6 +75,11 @@ export const metadata: Metadata = {
   },
   verification: {
     google: '44L3bcsIFU2zQOJ7aqffCqSkWNfWiE-KlxCrL2xNdeo',
+    other: {
+      // Verificación del dominio en Meta (Business Manager), pedida el 24-sep-2026.
+      // Next.js la escribe como <meta name="facebook-domain-verification" content="…" />.
+      'facebook-domain-verification': 'v8myo93d8lxw4o9gesvv7tb32k1otp',
+    },
   },
 }
 
