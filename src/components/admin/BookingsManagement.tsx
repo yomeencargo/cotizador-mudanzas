@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -211,12 +211,15 @@ interface BookingsManagementProps {
   initialDateRange?: { desde: string; hasta: string } | null
   /** Permiso derivado del perfil firmado; el backend vuelve a validarlo al guardar. */
   canAdjustAmounts?: boolean
+  /** Reserva a abrir directo en «Editar» (el «Editar todo lo demás» del Dashboard). */
+  initialEditId?: string | null
 }
 
 export default function BookingsManagement({
   initialSearch = '',
   initialDateRange = null,
   canAdjustAmounts = false,
+  initialEditId = null,
 }: BookingsManagementProps) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([])
@@ -262,6 +265,18 @@ export default function BookingsManagement({
   // Choque de camión en el modal Editar. Editar NO valida (decisión de Tomás, 16-sep-2026:
   // el admin puede saber que un trabajo termina antes), pero avisa: si el camión elegido
   // ya tiene otro trabajo que se pisa con la fecha/hora de esta reserva, se muestra acá.
+  // Abre «Editar» de la reserva pedida por ?edit= apenas llega la lista, una sola vez.
+  const initialEditDone = useRef(false)
+  useEffect(() => {
+    if (!initialEditId || initialEditDone.current || bookings.length === 0) return
+    const target = bookings.find((b) => b.id === initialEditId)
+    if (target) {
+      initialEditDone.current = true
+      openEditBooking(target)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditId, bookings])
+
   /** Reserva abierta en el pop-up de «Cambiar fecha y hora» (solo eso, sin el resto). */
   const [quickReschedule, setQuickReschedule] = useState<Booking | null>(null)
   const [editTruckConflict, setEditTruckConflict] = useState<

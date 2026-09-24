@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import dynamic from 'next/dynamic'
 import { buildWhatsAppLink, bookingFollowUpMessage } from '@/lib/whatsapp'
+import QuickRescheduleModal from '@/components/admin/QuickRescheduleModal'
 
 // Cada pestaña baja su código recién cuando se abre. Antes iban todas en un solo paquete
 // (460 kB de JavaScript en la primera carga, medido el 24-sep-2026) aunque se usara una:
@@ -117,6 +118,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   // Búsqueda inicial para la pestaña Reservas (viene por ?q= al abrir desde el dashboard).
   const [bookingsSearch, setBookingsSearch] = useState('')
+  // Reserva que Reservas abre directo en «Editar» (viene por ?edit= desde el pop-up).
+  const [bookingsEditId, setBookingsEditId] = useState<string | null>(null)
+  // Reserva del Dashboard abierta en el pop-up de «Cambiar fecha y hora».
+  const [quickBooking, setQuickBooking] = useState<TodayBooking | null>(null)
   const [bookingsRange, setBookingsRange] = useState<{ desde: string; hasta: string } | null>(null)
   const [currentUser, setCurrentUser] = useState<{
     username: string
@@ -168,6 +173,8 @@ export default function AdminDashboard() {
     const hasta = params.get('hasta')
     if (tab && tabs.some((t) => t.id === tab)) setActiveTab(tab)
     if (q) setBookingsSearch(q)
+    const edit = params.get('edit')
+    if (edit) setBookingsEditId(edit)
     if (desde && hasta) setBookingsRange({ desde, hasta })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -190,9 +197,9 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (options: { silent?: boolean } = {}) => {
     try {
-      setLoading(true)
+      if (!options.silent) setLoading(true)
       
       // Los tres pedidos salen a la vez: antes el de reservas esperaba a que terminara
       // el resumen, y el Dashboard mostraba el cargando la suma de los dos.
@@ -279,11 +286,12 @@ export default function AdminDashboard() {
     return format(new Date(y, m - 1, d), "EEEE d 'de' MMMM", { locale: es })
   }
 
-  // Abre la reserva en una pestaña nueva, ya filtrada en la pestaña Reservas, para tener
-  // ahí los botones de acción (editar, marcar pagado, completar, PDF, etc.).
+  // «Editar todo lo demás» del pop-up: abre la reserva en una pestaña nueva, ya filtrada
+  // en Reservas y con su edición completa abierta. La pestaña nueva es a propósito: el
+  // Dashboard queda donde estaba.
   const openBookingInNewTab = (booking: TodayBooking) => {
     const term = booking.quote_id || booking.client_name
-    const url = `/admin?tab=bookings&q=${encodeURIComponent(term)}`
+    const url = `/admin?tab=bookings&q=${encodeURIComponent(term)}&edit=${encodeURIComponent(booking.id)}`
     window.open(url, '_blank', 'noopener')
   }
 
@@ -349,16 +357,16 @@ export default function AdminDashboard() {
   const renderBookingRow = (booking: TodayBooking) => (
     <div
       key={booking.id}
-      onClick={() => openBookingInNewTab(booking)}
+      onClick={() => setQuickBooking(booking)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          openBookingInNewTab(booking)
+          setQuickBooking(booking)
         }
       }}
       role="button"
       tabIndex={0}
-      title="Abrir en Reservas (pestaña nueva) para ver acciones"
+      title="Cambiar fecha y hora (para lo demás, «Editar todo lo demás»)"
       className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 hover:ring-1 hover:ring-secondary-300 focus:outline-none focus:ring-2 focus:ring-secondary-400"
     >
       <div className="flex items-center gap-4">
@@ -548,7 +556,7 @@ export default function AdminDashboard() {
                 </Button>
               )}
               <Button
-                onClick={fetchDashboardData}
+                onClick={() => fetchDashboardData()}
                 variant="secondary"
                 size="sm"
               >
@@ -872,6 +880,7 @@ export default function AdminDashboard() {
           <BookingsManagement
             initialSearch={bookingsSearch}
             initialDateRange={bookingsRange}
+            initialEditId={bookingsEditId}
             canAdjustAmounts={currentUser?.role === 'administrator'}
           />
         )}
@@ -955,6 +964,22 @@ export default function AdminDashboard() {
           </a>
         </p>
       </div>
+
+      {/* Cambio rápido de fecha y hora desde el Dashboard. */}
+      <QuickRescheduleModal
+        booking={quickBooking ? { ...quickBooking, vehicle_id: quickBooking.vehicle?.id ?? null } : null}
+        onClose={() => setQuickBooking(null)}
+        onSaved={() => {
+          setQuickBooking(null)
+          // La reserva puede haber cambiado de día (Hoy / Mañana / Esta semana) y de camión.
+          fetchDashboardData({ silent: true })
+        }}
+        onOpenFullEdit={() => {
+          const booking = quickBooking
+          setQuickBooking(null)
+          if (booking) openBookingInNewTab(booking)
+        }}
+      />
 
       <ChangePasswordModal
         isOpen={showChangePassword}
