@@ -3284,9 +3284,8 @@ export default function BookingsManagement({
                     <p className="font-semibold text-purple-900">Montos del servicio</p>
                     <p className="text-xs text-purple-700">
                       Sirve para reajustar el precio en terreno y para registrar lo que el
-                      cliente pagó por fuera (transferencia o efectivo). Solo el perfil
-                      Administrador puede cambiarlos. El motivo y el usuario quedan
-                      registrados en Actividad.
+                      cliente pagó por fuera (transferencia o efectivo). Cada cambio queda
+                      registrado en Actividad con el usuario, el monto anterior y el nuevo.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

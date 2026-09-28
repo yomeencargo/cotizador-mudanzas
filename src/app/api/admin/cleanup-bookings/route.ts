@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { flowService } from '@/lib/flowService'
 import { applyFlowPaymentByCommerceOrder } from '@/lib/paymentSync'
+import { logAdminAction } from '@/lib/activityLog'
 
 // Edad mínima (en horas) de una pre-reserva provisional para considerarla abandonada.
 const PROVISIONAL_MAX_AGE_HOURS = 24
@@ -72,7 +73,7 @@ async function runCleanup(): Promise<CleanupResult> {
 
   const { data: stale, error: fetchError } = await supabaseAdmin
     .from('bookings')
-    .select('id, quote_id, created_at')
+    .select('id, quote_id, client_name, created_at')
     .eq('is_provisional', true)
     .eq('payment_status', 'pending')
     .eq('status', 'pending')
@@ -137,6 +138,18 @@ async function runCleanup(): Promise<CleanupResult> {
     }
   }
 
+  // La limpieza la corre Vercel, no una persona, pero lo que borra o rescata también
+  // tiene que quedar en Actividad (pedido del 28-sep-2026: «todo debe quedar en los logs
+  // de movimientos»). Queda a nombre de «sistema».
+  if (rescued > 0) {
+    await logAdminAction({
+      actor: null,
+      action: 'booking.cleanup_rescued',
+      entityType: 'booking',
+      summary: `Rescató ${rescued} pre-reserva${rescued === 1 ? '' : 's'} con pago aprobado en Flow que no se había sincronizado (${toRescue.join(', ')})`,
+    })
+  }
+
   if (idsToDelete.length === 0) {
     console.log(`[CLEANUP] 0 borradas, ${rescued} rescatadas.`)
     return { deleted: 0, rescued }
@@ -153,6 +166,20 @@ async function runCleanup(): Promise<CleanupResult> {
   if (deleteError) {
     throw new Error(`Error al eliminar reservas: ${deleteError.message}`)
   }
+
+  const borradas = stale.filter((b) => idsToDelete.includes(b.id))
+  await logAdminAction({
+    actor: null,
+    action: 'booking.cleanup_deleted',
+    entityType: 'booking',
+    summary:
+      `Borró ${borradas.length} pre-reserva${borradas.length === 1 ? '' : 's'} abandonada${borradas.length === 1 ? '' : 's'} ` +
+      `(sin pago y con más de ${PROVISIONAL_MAX_AGE_HOURS} h): ` +
+      borradas.map((b) => [b.quote_id, b.client_name].filter(Boolean).join(' · ')).join(', '),
+    changes: {
+      deleted: { from: borradas.map((b) => ({ id: b.id, quote_id: b.quote_id, client_name: b.client_name })), to: null },
+    },
+  })
 
   console.log(`[CLEANUP] ${idsToDelete.length} pre-reservas abandonadas eliminadas, ${rescued} rescatadas.`)
   return { deleted: idsToDelete.length, rescued }

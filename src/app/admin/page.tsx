@@ -881,7 +881,8 @@ export default function AdminDashboard() {
             initialSearch={bookingsSearch}
             initialDateRange={bookingsRange}
             initialEditId={bookingsEditId}
-            canAdjustAmounts={currentUser?.role === 'administrator'}
+            // Todos los perfiles reajustan montos (28-sep-2026); queda en Actividad.
+            canAdjustAmounts
           />
         )}
 

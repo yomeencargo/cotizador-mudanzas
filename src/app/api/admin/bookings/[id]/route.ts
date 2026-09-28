@@ -9,7 +9,6 @@ import {
   statusLabel,
   type FieldChange,
 } from '@/lib/activityLog'
-import { isAdministrator } from '@/lib/adminPermissions'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 import { isMissingColumnError, normalizeTaxDocument, taxDocumentLabel } from '@/lib/taxDocument'
 
@@ -50,8 +49,13 @@ async function logBookingUpdate(args: {
   ]
   const dirCambios: Record<string, FieldChange> = {}
   const dirResumen: string[] = []
+  const mismoValor = (a: unknown, b: unknown) => {
+    const vacio = (v: unknown) => v === null || v === undefined || String(v).trim() === ''
+    if (vacio(a) && vacio(b)) return true
+    return String(a ?? '').trim() === String(b ?? '').trim()
+  }
   for (const [campo, etiqueta, formato] of CAMPOS_DIRECCION) {
-    if (campo in updateData && before?.[campo] !== after?.[campo]) {
+    if (campo in updateData && !mismoValor(before?.[campo], after?.[campo])) {
       dirCambios[campo] = { from: before?.[campo], to: after?.[campo] }
       const antes = formato ? formato(before?.[campo]) : before?.[campo] || '—'
       const ahora = formato ? formato(after?.[campo]) : after?.[campo] || '—'
@@ -293,15 +297,11 @@ export async function PATCH(
     if (service_completed_at !== undefined) updateData.service_completed_at = service_completed_at
     if (taxDocumentRequested) updateData.tax_document = taxDocument
 
-    // Reajustes posteriores al abono: doble barrera. La UI los oculta para Secretaría,
-    // pero el permiso real se valida acá para que no se pueda saltar llamando la API.
+    // Reajustes de monto. Eran solo del perfil Administrador; desde el 28-sep-2026 los
+    // puede hacer cualquier usuario del panel (pedido de Francisco: «hoy no deberían haber
+    // diferencias por usuarios, pero todo debe quedar en los logs»). El control pasa a ser
+    // el registro: cada reajuste queda en Actividad con quién lo hizo, el antes y el después.
     if (financialRequested) {
-      if (!(await isAdministrator(request))) {
-        return NextResponse.json(
-          { error: 'Solo el perfil Administrador puede reajustar montos' },
-          { status: 403 }
-        )
-      }
 
       const { data: currentFinancial, error: financialError } = await supabaseAdmin
         .from('bookings')
@@ -620,8 +620,13 @@ export async function PATCH(
     }
 
     // Estado previo para el log (antes → después). Se lee aquí, justo antes de mutar.
+    // Incluye las direcciones: el log las compara contra el después. Sin ellas el «antes»
+    // era siempre vacío y CADA guardado de Editar anotaba «Cambió las direcciones — Origen:
+    // "—" → "…"» aunque nadie las hubiera tocado (9 registros falsos en una sola reserva,
+    // visto el 28-sep-2026).
     const BEFORE_FIELDS =
-      'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id, original_price, total_price, adjusted_price, amount_paid, adjustment_comment'
+      'client_name, scheduled_date, scheduled_time, status, payment_type, payment_status, vehicle_id, original_price, total_price, adjusted_price, amount_paid, adjustment_comment, ' +
+      'origin_address, destination_address, visit_address, origin_floor, origin_has_elevator, destination_floor, destination_has_elevator'
     let { data: before, error: beforeError } = await supabaseAdmin
       .from('bookings')
       .select(`${BEFORE_FIELDS}, tax_document`)
