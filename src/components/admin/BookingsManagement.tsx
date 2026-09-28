@@ -35,6 +35,7 @@ import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { isValidEmail } from '@/lib/emailFormat'
 import QuickRescheduleModal from './QuickRescheduleModal'
+import RegisterPaymentModal from './RegisterPaymentModal'
 import { TaxDocumentBadge, TaxDocumentDetail, TaxDocumentSelect } from './TaxDocument'
 import { ivaBreakdown, taxDocumentLabel } from '@/lib/taxDocument'
 import {
@@ -277,6 +278,8 @@ export default function BookingsManagement({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEditId, bookings])
 
+  /** Reserva abierta en el pop-up de «Registrar pago» (suma al pagado, no toca el precio). */
+  const [payingBooking, setPayingBooking] = useState<Booking | null>(null)
   /** Reserva abierta en el pop-up de «Cambiar fecha y hora» (solo eso, sin el resto). */
   const [quickReschedule, setQuickReschedule] = useState<Booking | null>(null)
   const [editTruckConflict, setEditTruckConflict] = useState<
@@ -1809,8 +1812,21 @@ export default function BookingsManagement({
                             Pagado real: ${actualPaidAmount(booking).toLocaleString('es-CL')}
                           </div>
                           {pendingAmount(booking) > 0 ? (
-                            <div className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">
-                              Falta ${pendingAmount(booking).toLocaleString('es-CL')}
+                            <div className="flex flex-col items-start gap-1">
+                              <div className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">
+                                Falta ${pendingAmount(booking).toLocaleString('es-CL')}
+                              </div>
+                              {!String(booking.quote_id || '').startsWith('ADMIN-BLOQUEO-') && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPayingBooking(booking)}
+                                  className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-green-700 hover:bg-green-50"
+                                  title="Anotar un pago recibido por transferencia o efectivo"
+                                >
+                                  <DollarSign className="h-3 w-3" />
+                                  Registrar pago
+                                </button>
+                              )}
                             </div>
                           ) : actualPaidAmount(booking) > 0 ? (
                             <div className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -2939,6 +2955,24 @@ export default function BookingsManagement({
           </div>
         )}
       </Modal>
+
+      {/* Pago recibido fuera de Flow sobre el saldo. Ambos perfiles. */}
+      <RegisterPaymentModal
+        booking={payingBooking}
+        total={payingBooking ? servicePrice(payingBooking) : 0}
+        paid={payingBooking ? actualPaidAmount(payingBooking) : 0}
+        pending={payingBooking ? pendingAmount(payingBooking) : 0}
+        onClose={() => setPayingBooking(null)}
+        onSaved={(id, result) => {
+          setBookings((prev) =>
+            prev.map((b) =>
+              b.id === id ? { ...b, amount_paid: result.amount_paid, payment_status: 'approved' } : b
+            )
+          )
+          setPayingBooking(null)
+          fetchBookings({ silent: true })
+        }}
+      />
 
       {/* Cambio rápido: solo fecha y hora. Para lo demás, «Editar todo lo demás». */}
       <QuickRescheduleModal
