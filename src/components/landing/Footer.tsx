@@ -167,6 +167,9 @@ export default function Footer() {
             <Link href="/politica-de-privacidad" className="hover:text-white/70 transition-colors">
               Privacidad
             </Link>
+            <Link href="/politicas-de-garantia" className="hover:text-white/70 transition-colors">
+              Políticas de garantía
+            </Link>
             <span>
               Crafted by{' '}
               <a

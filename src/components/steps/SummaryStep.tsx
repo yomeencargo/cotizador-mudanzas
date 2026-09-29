@@ -705,13 +705,29 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                   'Comprobante de reserva inmediato',
                   'Precio fijo sin sorpresas',
                   'Carga protegida durante el traslado',
-                  'Devolución disponible sujeta a políticas de garantía',
                 ].map((g) => (
                   <li key={g} className="flex gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
                     <span>{g}</span>
                   </li>
                 ))}
+                {/* Antes decía «sujeta a políticas de garantía» sin que esas políticas
+                    existieran en el sitio: ahora lleva a ellas, en otra pestaña para no
+                    perder la cotización. */}
+                <li className="flex gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                  <span>
+                    Devolución disponible según nuestras{' '}
+                    <a
+                      href="/politicas-de-garantia"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary-600 underline hover:text-primary-700"
+                    >
+                      políticas de garantía
+                    </a>
+                  </span>
+                </li>
               </ul>
             </Card>
 
