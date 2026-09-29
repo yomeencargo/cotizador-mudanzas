@@ -107,36 +107,30 @@ export default function TermsPage() {
                 <li>Realizar el servicio en la fecha y horario acordados</li>
                 <li>Manejar la carga con el debido cuidado y profesionalismo</li>
                 <li>Contar con personal capacitado y vehículos en buen estado</li>
-                <li>Proporcionar seguro básico de transporte incluido en el servicio</li>
+                <li>Responder por los daños según nuestras Políticas de Garantía</li>
                 <li>Notificar cualquier inconveniente o retraso de manera oportuna</li>
               </ul>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Seguros y Limitación de Responsabilidad</h2>
+              {/* Hasta el 30-sep-2026 esto decía «seguro de hasta $500.000» y «reclamo en 48 horas».
+                  Tomás mandó las condiciones reales (30% del valor neto, 2 UF de deducible, 5 días),
+                  que ahora viven en /politicas-de-garantia: acá se resumen y se enlazan, para que
+                  las dos páginas no vuelvan a decir cosas distintas. */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Garantía y Responsabilidad por Daños</h2>
               <p className="text-gray-700 leading-relaxed mb-4">
-                Todos nuestros servicios incluyen un <strong>seguro básico de transporte</strong> que cubre daños 
-                ocasionados por negligencia comprobable de nuestra parte durante el traslado. La cobertura básica 
-                tiene los siguientes límites:
+                La garantía de Yo Me Encargo por daños en los artículos trasladados aplica únicamente cuando el
+                servicio contratado incluye embalaje realizado por nuestro equipo. Yo Me Encargo se responsabiliza
+                por los daños o deterioros que sufran los bienes trasladados por su culpa, hasta un máximo del 30%
+                del valor neto de la mudanza, con un deducible de 2 UF. Cualquier daño debe ser informado por
+                escrito, vía correo electrónico, dentro de los 5 días posteriores al servicio.
               </p>
-              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>Máximo $500.000 CLP por servicio para objetos comunes</li>
-                <li>Se requiere declaración previa para objetos de alto valor</li>
-                <li>Seguro extendido disponible por cobro adicional</li>
-              </ul>
-              <p className="text-gray-700 leading-relaxed mb-4">
-                <strong>No cubrimos:</strong>
-              </p>
-              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>Daños preexistentes no informados</li>
-                <li>Objetos mal embalados por el cliente</li>
-                <li>Daños causados por fuerza mayor (terremotos, inundaciones, etc.)</li>
-                <li>Artículos no declarados o declarados incorrectamente</li>
-                <li>Pérdidas por causas ajenas a nuestra operación directa</li>
-              </ul>
               <p className="text-gray-700 leading-relaxed">
-                Cualquier reclamo debe presentarse por escrito dentro de las 48 horas posteriores al servicio, 
-                acompañado de evidencia fotográfica y descripción detallada.
+                Las condiciones completas están en nuestras{' '}
+                <Link href="/politicas-de-garantia" className="font-semibold text-primary-600 hover:underline">
+                  Políticas de Garantía
+                </Link>
+                .
               </p>
             </section>
 

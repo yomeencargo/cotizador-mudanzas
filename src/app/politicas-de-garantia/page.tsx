@@ -5,16 +5,16 @@ import Footer from '@/components/landing/Footer'
 
 // Políticas de garantía, devoluciones y reclamos.
 //
-// OJO: se publicaron el 30-sep-2026 armadas SOLO con lo que ya decían los Términos y
-// Condiciones (seguro, exclusiones, plazo de reclamo, cancelaciones y reembolsos): no se
-// agregó ninguna condición nueva. Tomás quedó en mandar el texto definitivo; cuando
-// llegue, se reemplaza el contenido y se mantiene esta ruta, que es la que va enlazada en
-// el pie del sitio, en el resumen del cotizador y en los correos.
+// Texto de Tomás («Servicios, Términos y Garantías», recibido el 30-sep-2026): las
+// secciones de garantía van LITERALES, sin reescribirlas. Cancelaciones y devoluciones
+// siguen saliendo de los Términos y Condiciones, que el documento de Tomás no cubre.
+// Esta ruta es la que va enlazada en el pie del sitio, en el resumen del cotizador y
+// en el pie de todos los correos: si cambia el texto, se cambia acá y listo.
 
 export const metadata: Metadata = {
   title: 'Políticas de Garantía | Yo me Encargo',
   description:
-    'Qué cubre el seguro de tu mudanza o flete con Yo me Encargo, cómo hacer un reclamo y cómo funcionan las cancelaciones y devoluciones.',
+    'Alcance de la garantía de Yo me Encargo, responsabilidad por daños, cómo informar un daño, artículos de alto valor y cancelaciones y devoluciones.',
   alternates: {
     canonical: 'https://yomeencargo.cl/politicas-de-garantia',
   },
@@ -37,7 +37,7 @@ export default function WarrantyPage() {
               Políticas de Garantía
             </h1>
             <p className="mt-4 text-center text-gray-600">
-              Seguro, reclamos, cancelaciones y devoluciones
+              Yo Me Encargo SpA · RUT 77.437.426-4
             </p>
           </div>
         </div>
@@ -47,46 +47,54 @@ export default function WarrantyPage() {
           <div className="bg-white rounded-xl shadow-lg p-8 md:p-12">
             <div className="prose prose-lg max-w-none">
               <section className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Seguro incluido en el servicio</h2>
-                <p className="text-gray-700 leading-relaxed mb-4">
-                  Todos nuestros servicios incluyen un seguro básico de transporte que cubre daños ocasionados
-                  por negligencia comprobable de nuestra parte durante el traslado. La cobertura básica tiene
-                  los siguientes límites:
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Alcance de la garantía</h2>
+                <p className="text-gray-700 leading-relaxed">
+                  La garantía de Yo Me Encargo por daños en los artículos trasladados aplica únicamente cuando el
+                  servicio contratado incluye embalaje realizado por nuestro equipo. Si el cliente contrata el
+                  traslado sin este servicio, Yo Me Encargo no otorga garantía sobre los bienes embalados por el
+                  propio cliente o por terceros.
                 </p>
-                <ul className="list-disc pl-6 text-gray-700 space-y-2">
-                  <li>Máximo $500.000 CLP por servicio para objetos comunes</li>
-                  <li>Se requiere declaración previa para objetos de alto valor</li>
-                  <li>Seguro extendido disponible por cobro adicional</li>
-                </ul>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Qué no cubre</h2>
-                <ul className="list-disc pl-6 text-gray-700 space-y-2">
-                  <li>Daños preexistentes no informados</li>
-                  <li>Objetos mal embalados por el cliente</li>
-                  <li>Daños causados por fuerza mayor (terremotos, inundaciones, etc.)</li>
-                  <li>Artículos no declarados o declarados incorrectamente</li>
-                  <li>Pérdidas por causas ajenas a nuestra operación directa</li>
-                </ul>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Responsabilidad por daños</h2>
+                <p className="text-gray-700 leading-relaxed">
+                  Yo Me Encargo se responsabiliza por los daños o deterioros que sufran los bienes trasladados por
+                  su culpa, hasta un máximo del 30% del valor neto de la mudanza. El cliente será responsable de
+                  cualquier diferencia de precio que supere dicho monto, y en caso de solicitar compensación o
+                  restauración deberá pagar previamente un deducible de 2 UF. Yo Me Encargo no se hace responsable
+                  en ningún caso por daños o pérdidas de objetos o cajas embaladas por el cliente o por un tercero,
+                  así como tampoco por daños causados por caso fortuito, fuerza mayor o mal estado previo de los
+                  bienes a trasladar.
+                </p>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">3. Cómo hacer un reclamo</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">3. Cómo informar un daño</h2>
                 <p className="text-gray-700 leading-relaxed mb-4">
-                  Cualquier reclamo debe presentarse <strong>por escrito dentro de las 48 horas posteriores al
-                  servicio</strong>, acompañado de evidencia fotográfica y una descripción detallada. Puede
-                  enviarlo por cualquiera de estos canales:
+                  Cualquier daño debe ser informado <strong>por escrito, vía correo electrónico, dentro de los 5
+                  días posteriores al servicio</strong>.
                 </p>
                 <ul className="list-none text-gray-700 space-y-2">
-                  <li><strong>Email:</strong> contacto@yomeencargo.cl</li>
-                  <li><strong>WhatsApp:</strong> +56 9 5233 4799</li>
-                  <li><strong>Horario:</strong> Lunes a Domingo, 9:00 - 19:00 hrs</li>
+                  <li><strong>Correo:</strong> contacto@yomeencargo.cl</li>
+                  <li><strong>Reclamos y sugerencias:</strong> +56 9 5439 0267</li>
                 </ul>
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Cancelaciones y devoluciones</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Traslado de joyas y artículos de alto valor</h2>
+                <p className="text-gray-700 leading-relaxed">
+                  Es de exclusiva responsabilidad del cliente el traslado de artículos de alto valor, tales como
+                  joyas, relojes, perfumes, artículos electrónicos, dinero, obras de arte, objetos personales
+                  invaluables y otros. Yo Me Encargo no se hará responsable por la pérdida, daño o extravío de estos
+                  artículos durante la mudanza. Todo objeto valorizado en más de 25 UF que el cliente necesite
+                  trasladar debe ser declarado por correo electrónico a nuestra empresa con anticipación, con el fin
+                  de tomar los resguardos necesarios para su traslado.
+                </p>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Cancelaciones y devoluciones</h2>
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">Si cancela el cliente</h3>
                 <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-6">
                   <li>Con más de 48 horas de anticipación: sin cargo</li>
@@ -103,7 +111,7 @@ export default function WarrantyPage() {
               </section>
 
               <section className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Resolución de conflictos</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Resolución de conflictos</h2>
                 <p className="text-gray-700 leading-relaxed">
                   Cualquier disputa relacionada con nuestros servicios será resuelta inicialmente mediante
                   comunicación directa entre las partes. Si no se llega a un acuerdo, las partes se someterán a
