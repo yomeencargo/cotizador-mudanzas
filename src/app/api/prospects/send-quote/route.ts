@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
       paymentType: 'mitad',
       photoUrls,
       attribution,
+      // La casilla del envío por correo incluye las Políticas de Garantía: el cliente
+      // puede reservar pagando desde el enlace del correo sin volver a la página.
+      policiesAccepted: body?.policiesAccepted === true,
     })
 
     // 2) Link de pago de Flow (best-effort): el correo con el PDF NO debe depender

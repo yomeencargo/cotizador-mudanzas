@@ -49,6 +49,12 @@ export interface EnsureBookingInput {
   photoUrls?: string[]
   /** Atribucion de Google Ads resuelta (cliente o heredada del prospecto por quoteId). */
   attribution?: AttributionFields
+  /**
+   * El cliente marcó la casilla de las Políticas de Garantía justo antes de esta llamada
+   * (pagar en la página o pedir la cotización por correo). Se guarda la hora en
+   * `bookings.policies_accepted_at`.
+   */
+  policiesAccepted?: boolean
 }
 
 /** Error tipado para que las rutas devuelvan 409 cuando el horario ya no tiene cupo. */
@@ -87,6 +93,7 @@ export async function ensureProvisionalBooking(
     paymentType,
     photoUrls,
     attribution,
+    policiesAccepted,
   } = input
 
   if (!quoteId || !client?.name || !client?.email || !client?.phone) {
@@ -140,6 +147,10 @@ export async function ensureProvisionalBooking(
     // Backfill de atribucion SOLO donde falte: nunca sobrescribe un gclid ya guardado.
     if (attribution && hasAttribution(attribution)) {
       await backfillAttribution('bookings', existing.id, attribution, existing)
+    }
+    // Una reserva ya pagada no se toca: su aceptación es la que quedó antes del pago.
+    if (stillEditable && policiesAccepted) {
+      await stampPoliciesAccepted(existing.id)
     }
     return { quoteId, bookingRowId: existing.id, existed: true, locked: !stillEditable }
   }
@@ -216,7 +227,34 @@ export async function ensureProvisionalBooking(
     throw new Error('Error al crear la reserva')
   }
 
+  if (policiesAccepted) {
+    await stampPoliciesAccepted(booking.id)
+  }
+
   return { quoteId, bookingRowId: booking.id, existed: false, locked: false }
+}
+
+/**
+ * Anota en la reserva la hora en que el cliente aceptó las Políticas de Garantía.
+ *
+ * Va en una escritura aparte del insert/refresh a propósito: si la columna todavía no
+ * existe (la migración add_booking_policies_accepted.sql la corre Francisco a mano), la
+ * reserva se crea y se refresca igual, y lo único que se pierde es esta marca, con un
+ * aviso en el log. Nunca frena un pago.
+ */
+async function stampPoliciesAccepted(bookingId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('bookings')
+    .update({ policies_accepted_at: new Date().toISOString() })
+    .eq('id', bookingId)
+  if (!error) return
+  if (error.code === '42703' || error.code === 'PGRST204') {
+    console.warn(
+      '[quoteCheckout] Falta la columna bookings.policies_accepted_at: correr database/migrations/add_booking_policies_accepted.sql'
+    )
+  } else {
+    console.error('[quoteCheckout] Error guardando la aceptación de políticas:', error)
+  }
 }
 
 /**
