@@ -108,6 +108,11 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingQuote, setIsSendingQuote] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  // Casilla obligatoria para reservar (pagar 50% o 100%): el cliente declara estar de
+  // acuerdo con las políticas. Si intenta pagar sin marcarla, se resalta y se le lleva a ella.
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false)
+  const [policiesError, setPoliciesError] = useState(false)
+  const policiesRef = useRef<HTMLLabelElement>(null)
   const prospectSavedRef = useRef(false)
 
   useEffect(() => {
@@ -270,7 +275,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   // y dispara el webhook de n8n con el PDF + link. El cliente paga desde el correo.
   const handleSendQuote = async () => {
     if (!acceptedTerms) {
-      toast.error('Debes aceptar los Términos y Condiciones y la Política de Privacidad.')
+      toast.error('Debes aceptar los Términos y Condiciones, las Políticas de Garantía y la Política de Privacidad.')
       return
     }
     setIsSendingQuote(true)
@@ -406,6 +411,12 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   // Pago EN LA PÁGINA. Reutiliza el mismo quoteId (un solo booking) y delega en
   // /api/quote/checkout, que crea/reutiliza la pre-reserva y genera la orden Flow.
   const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
+    if (!acceptedPolicies) {
+      setPoliciesError(true)
+      toast.error('Para reservar debes aceptar nuestras Políticas de Garantía.')
+      policiesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setIsSubmitting(true)
     trackEvent(paymentType === 'completo' ? 'click_pagar_100' : 'click_abonar_50', {
       value: paymentType === 'completo'
@@ -578,6 +589,41 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             {/* 1. Precio */}
             {PriceBlock}
 
+            {/* Aceptación de políticas: obligatoria para los dos botones de pago */}
+            <label
+              ref={policiesRef}
+              className={`flex items-start gap-2.5 cursor-pointer select-none rounded-xl border bg-white px-4 py-3 ${
+                policiesError && !acceptedPolicies ? 'border-red-400 ring-2 ring-red-200' : 'border-gray-200'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={acceptedPolicies}
+                onChange={(e) => {
+                  setAcceptedPolicies(e.target.checked)
+                  if (e.target.checked) setPoliciesError(false)
+                }}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700 leading-relaxed">
+                Estoy de acuerdo con las{' '}
+                <a
+                  href="/politicas-de-garantia"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary-600 underline hover:text-primary-700"
+                >
+                  Políticas de Garantía
+                </a>{' '}
+                de Yo me Encargo.
+              </span>
+            </label>
+            {policiesError && !acceptedPolicies && (
+              <p className="-mt-2 px-1 text-xs font-medium text-red-600">
+                Marca la casilla para poder reservar.
+              </p>
+            )}
+
             {/* 2. Abonar 50% — CTA dominante */}
             <Card variant="elevated" className="rounded-2xl border-2 border-[#8CC63F] bg-[#F2FBE9] shadow-lg">
               <div className="text-center">
@@ -666,6 +712,15 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                     className="font-semibold text-primary-600 underline hover:text-primary-700"
                   >
                     Términos y Condiciones
+                  </a>
+                  , las{' '}
+                  <a
+                    href="/politicas-de-garantia"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-primary-600 underline hover:text-primary-700"
+                  >
+                    Políticas de Garantía
                   </a>{' '}
                   y la{' '}
                   <a
