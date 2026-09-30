@@ -307,6 +307,8 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           quoteId: getQuoteId(),
           prospectId: prospectId || prospectIdRef.current,
           pdfUrl: pdfUrlRef.current,
+          // Esta casilla incluye las Políticas de Garantía: queda guardada en la reserva.
+          policiesAccepted: acceptedTerms,
           details: {
             distanceKm: totalDistance,
             volumeM3: totalVolume,
@@ -442,6 +444,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
         body: JSON.stringify({
           quoteId,
           paymentType,
+          policiesAccepted: acceptedPolicies,
           ...buildQuotePayload(),
         }),
       })

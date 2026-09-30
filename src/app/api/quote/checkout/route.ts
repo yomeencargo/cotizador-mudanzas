@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
       paymentType,
       photoUrls,
       attribution,
+      // Casilla «Estoy de acuerdo con las Políticas de Garantía» del resumen.
+      policiesAccepted: body?.policiesAccepted === true,
     })
 
     // Si ya está pagada, no generamos otra orden de Flow: evita que el cliente pague dos
