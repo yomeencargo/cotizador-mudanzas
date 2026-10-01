@@ -107,9 +107,11 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingQuote, setIsSendingQuote] = useState(false)
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
-  // Casilla obligatoria para reservar (pagar 50% o 100%): el cliente declara estar de
-  // acuerdo con las políticas. Si intenta pagar sin marcarla, se resalta y se le lleva a ella.
+  // UNA casilla para todo: Términos y Condiciones, Políticas de Garantía y Política de
+  // Privacidad. Es obligatoria para pagar (50% o 100%) y para pedir la cotización por
+  // correo. Antes había dos casillas —una para pagar y otra para el correo— y el cliente
+  // aceptaba lo mismo dos veces (lo notó Francisco el 01-10-2026). Si intenta seguir sin
+  // marcarla, se resalta y se le lleva a ella.
   const [acceptedPolicies, setAcceptedPolicies] = useState(false)
   const [policiesError, setPoliciesError] = useState(false)
   const policiesRef = useRef<HTMLLabelElement>(null)
@@ -274,8 +276,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   // Envío REAL de la cotización por correo: genera el link de pago (abono 50%)
   // y dispara el webhook de n8n con el PDF + link. El cliente paga desde el correo.
   const handleSendQuote = async () => {
-    if (!acceptedTerms) {
+    if (!acceptedPolicies) {
+      setPoliciesError(true)
       toast.error('Debes aceptar los Términos y Condiciones, las Políticas de Garantía y la Política de Privacidad.')
+      policiesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
     setIsSendingQuote(true)
@@ -308,7 +312,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
           prospectId: prospectId || prospectIdRef.current,
           pdfUrl: pdfUrlRef.current,
           // Esta casilla incluye las Políticas de Garantía: queda guardada en la reserva.
-          policiesAccepted: acceptedTerms,
+          policiesAccepted: acceptedPolicies,
           details: {
             distanceKm: totalDistance,
             volumeM3: totalVolume,
@@ -415,7 +419,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
   const handleConfirmReservation = async (paymentType: 'completo' | 'mitad') => {
     if (!acceptedPolicies) {
       setPoliciesError(true)
-      toast.error('Para reservar debes aceptar nuestras Políticas de Garantía.')
+      toast.error('Para reservar debes aceptar los Términos y Condiciones, las Políticas de Garantía y la Política de Privacidad.')
       policiesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       return
     }
@@ -592,7 +596,7 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
             {/* 1. Precio */}
             {PriceBlock}
 
-            {/* Aceptación de políticas: obligatoria para los dos botones de pago */}
+            {/* Aceptación única: obligatoria para pagar y para recibir la cotización por correo */}
             <label
               ref={policiesRef}
               className={`flex items-start gap-2.5 cursor-pointer select-none rounded-xl border bg-white px-4 py-3 ${
@@ -609,7 +613,16 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
               />
               <span className="text-sm text-gray-700 leading-relaxed">
-                Estoy de acuerdo con las{' '}
+                Acepto los{' '}
+                <a
+                  href="/terminos-y-condiciones"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary-600 underline hover:text-primary-700"
+                >
+                  Términos y Condiciones
+                </a>
+                , las{' '}
                 <a
                   href="/politicas-de-garantia"
                   target="_blank"
@@ -618,12 +631,21 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 >
                   Políticas de Garantía
                 </a>{' '}
+                y la{' '}
+                <a
+                  href="/politica-de-privacidad"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-primary-600 underline hover:text-primary-700"
+                >
+                  Política de Privacidad
+                </a>{' '}
                 de Yo me Encargo.
               </span>
             </label>
             {policiesError && !acceptedPolicies && (
               <p className="-mt-2 px-1 text-xs font-medium text-red-600">
-                Marca la casilla para poder reservar.
+                Marca la casilla para reservar o recibir la cotización por correo.
               </p>
             )}
 
@@ -698,51 +720,10 @@ export default function SummaryStep({ onPrevious, onReset }: SummaryStepProps) {
                 Te enviamos la cotización detallada y el enlace de pago para revisarlo cuando quieras.
               </p>
 
-              {/* Aceptación de términos antes de enviar */}
-              <label className="flex items-start gap-2.5 mb-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                />
-                <span className="text-xs text-gray-600 leading-relaxed">
-                  Acepto los{' '}
-                  <a
-                    href="/terminos-y-condiciones"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-primary-600 underline hover:text-primary-700"
-                  >
-                    Términos y Condiciones
-                  </a>
-                  , las{' '}
-                  <a
-                    href="/politicas-de-garantia"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-primary-600 underline hover:text-primary-700"
-                  >
-                    Políticas de Garantía
-                  </a>{' '}
-                  y la{' '}
-                  <a
-                    href="/politica-de-privacidad"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-primary-600 underline hover:text-primary-700"
-                  >
-                    Política de Privacidad
-                  </a>
-                  .
-                </span>
-              </label>
-
               <Button
                 onPointerDown={() => pushDataLayerMonto(estimatedPrice)}
                 onClick={handleSendQuote}
                 isLoading={isSendingQuote}
-                disabled={!acceptedTerms}
                 variant="outline"
                 className="w-full border-2 border-blue-500 text-blue-700 hover:bg-blue-50"
                 size="lg"
