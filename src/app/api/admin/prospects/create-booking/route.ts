@@ -5,6 +5,7 @@ import { pickAttribution, hasAttribution, backfillAttribution } from '@/lib/attr
 import { normalizeStops } from '@/lib/stops'
 import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 import { FULL_RATIO } from '@/lib/revenueBreakdown'
+import { isPaymentLedgerAvailable, recordPayment } from '@/lib/bookingPayments'
 
 // Crea (o confirma) una RESERVA real a partir de un prospecto, sin pasar por pago online.
 // Útil cuando el admin cierra el trato por WhatsApp/teléfono. La reserva queda confirmada
@@ -21,16 +22,13 @@ export async function POST(request: NextRequest) {
     const alreadyPaid = body.paid === true
     const paymentMethod =
       typeof body.paymentMethod === 'string' && body.paymentMethod ? body.paymentMethod : 'manual'
-    // Cuánto entregó el cliente. `paymentType` sigue aceptándose por compatibilidad, pero
-    // el monto manda: antes se DEDUCÍA del tipo (50% o 100% exactos) y no había forma de
-    // registrar un abono de $30.000 — la secretaria tenía que elegir entre dos montos que
-    // no eran el real.
+    // Cuánto entregó el cliente. No se deduce dinero desde "mitad" o "completo":
+    // para declarar un pago hace falta el importe observado.
     const amountPaidInput = body.amountPaid
     const parsedAmountPaid =
       amountPaidInput === undefined || amountPaidInput === null || amountPaidInput === ''
         ? null
         : Math.max(0, Math.round(Number(amountPaidInput) || 0))
-    const legacyPaymentType = body.paymentType === 'mitad' ? 'mitad' : 'completo'
 
     if (!prospectId) {
       return NextResponse.json({ error: 'prospectId requerido' }, { status: 400 })
@@ -73,21 +71,20 @@ export async function POST(request: NextRequest) {
     // Monto realmente entregado y modalidad que se deriva de él: pagar el total (o más)
     // es «completo»; cualquier abono parcial queda como «mitad», que es como el resto del
     // panel lee «pagó algo y falta el saldo» (filtro «Por cobrar», link de saldo, correo).
-    const paidAmount =
-      parsedAmountPaid ??
-      (legacyPaymentType === 'mitad'
-        ? Math.round(Number(effectivePrice) * 0.5)
-        : Number(effectivePrice))
+    const paidAmount = parsedAmountPaid ?? 0
     // Umbral del pago completo: el 95% del precio, porque pagar todo por adelantado lleva
     // 5% de descuento. Quien transfiere ese monto pagó completo y no debe nada; cualquier
     // cosa por debajo es un abono y deja saldo.
     const paymentType =
       paidAmount >= Math.round(Number(effectivePrice) * FULL_RATIO) ? 'completo' : 'mitad'
-    if (alreadyPaid && paidAmount <= 0) {
+    if (alreadyPaid && (paidAmount <= 0 || paidAmount > Number(effectivePrice))) {
       return NextResponse.json(
-        { error: 'El monto pagado debe ser mayor que cero' },
+        { error: 'Indica el monto realmente recibido, mayor que cero y no superior al precio del servicio.' },
         { status: 400 }
       )
+    }
+    if (alreadyPaid && !(await isPaymentLedgerAvailable())) {
+      return NextResponse.json({ error: 'El libro de pagos no está disponible; no se creó una reserva con cobro.' }, { status: 503 })
     }
 
     const comment = commentInput !== undefined ? commentInput : prospect.adjustment_comment || ''
@@ -96,9 +93,12 @@ export async function POST(request: NextRequest) {
     // ¿Ya existe un booking para este quote_id? (p.ej. una pre-reserva provisional previa)
     const { data: existing } = await supabaseAdmin
       .from('bookings')
-      .select('id, gclid, gbraid, wbraid, utm_source, utm_campaign')
+      .select('id, amount_paid, gclid, gbraid, wbraid, utm_source, utm_campaign')
       .eq('quote_id', quoteId)
       .maybeSingle()
+    if (alreadyPaid && Number(existing?.amount_paid || 0) > 0) {
+      return NextResponse.json({ error: 'La reserva ya tiene un cobro registrado. Para sumar otro pago, usa «Registrar pago» en Reservas.' }, { status: 409 })
+    }
 
     // Reserva creada desde una cotizacion previa: hereda la atribucion del prospecto.
     const prospectAttribution = pickAttribution(prospect)
@@ -225,6 +225,13 @@ export async function POST(request: NextRequest) {
       bookingId = created.id
     }
 
+    const ledger = alreadyPaid
+      ? await recordPayment({ bookingId, quoteId, flowToken: null, amount: paidAmount, kind: 'manual' })
+      : null
+    if (ledger && !ledger.recorded) {
+      console.error('[admin/create-booking] Reserva con cobro sin movimiento en booking_payments:', bookingId)
+    }
+
     // Marcar prospecto como convertido + persistir ajuste/agenda/quote_id
     await supabaseAdmin
       .from('quote_prospects')
@@ -275,7 +282,7 @@ export async function POST(request: NextRequest) {
     // Idempotente: si esta reserva ya lo tenía (p.ej. una pre-reserva pagada), no se repite.
     await sendBookingConfirmedIfEligible(bookingId)
 
-    return NextResponse.json({ success: true, bookingId, quoteId, price: effectivePrice })
+    return NextResponse.json({ success: true, bookingId, quoteId, price: effectivePrice, paymentLedgerRecorded: ledger?.recorded ?? null })
   } catch (error) {
     console.error('[admin/create-booking] Error:', error)
     return NextResponse.json(

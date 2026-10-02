@@ -786,7 +786,7 @@ export default function ProspectsManagement() {
   const quotePaidPreview = !quoteAlreadyPaid
     ? null
     : String(quotePaidAmount).trim() === ''
-      ? quotePriceNumber
+      ? null
       : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
   const quotePendingPreview = Math.max(0, quotePriceNumber - (quotePaidPreview ?? 0))
 
@@ -801,8 +801,9 @@ export default function ProspectsManagement() {
       toast.error('Agrega fecha y hora para crear la reserva')
       return
     }
-    const montoPagado =
-      String(quotePaidAmount).trim() === '' ? price : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
+    const montoPagado = String(quotePaidAmount).trim() === ''
+      ? 0
+      : Math.max(0, Math.round(Number(quotePaidAmount) || 0))
     if (quoteAlreadyPaid && montoPagado <= 0) {
       toast.error('Ingresa cuánto pagó el cliente, o desmarca «Cliente ya pagó»')
       return
@@ -835,7 +836,11 @@ export default function ProspectsManagement() {
       if (!response.ok) {
         throw new Error(data?.error || 'No se pudo crear la reserva')
       }
-      toast.success('Reserva creada y prospecto convertido')
+      if (data.paymentLedgerRecorded === false) {
+        toast.error(`Reserva creada, pero el cobro no entró al libro de pagos. Revisa la reserva ${data.quoteId || ''} antes de registrar otro cobro.`)
+      } else {
+        toast.success('Reserva creada y prospecto convertido')
+      }
       setShowQuoteModal(false)
       // La fila queda visible y marcada como convertida hasta el próximo refresco
       // explícito/foco. Así el usuario no pierde el contexto de la lista al cerrar.
@@ -1955,7 +1960,7 @@ export default function ProspectsManagement() {
                       type="number"
                       min="0"
                       step="1"
-                      placeholder={quotePriceNumber ? String(quotePriceNumber) : 'Lo que ya entregó'}
+                      placeholder="Lo que ya entregó"
                       value={quotePaidAmount}
                       onChange={(e) => setQuotePaidAmount(e.target.value)}
                     />
