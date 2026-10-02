@@ -9,6 +9,7 @@ import { sendBookingConfirmedIfEligible } from '@/lib/transactionalEmails'
 import { getVehicleAvailability } from '@/lib/vehicleAvailability'
 import { isValidEmail } from '@/lib/emailFormat'
 import { isMissingColumnError, normalizeTaxDocument } from '@/lib/taxDocument'
+import { isPaymentLedgerAvailable, recordPayment } from '@/lib/bookingPayments'
 import {
   chileTodayString,
   ensureVehicleAssignments,
@@ -321,6 +322,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const servicePrice = Math.round(Number(total_price || original_price || 0))
+    const amountReceived = amount_paid !== undefined
+      ? Math.max(0, Math.round(Number(amount_paid) || 0))
+      : 0
+    if (!skip_customer_record && payment_status === 'approved') {
+      if (amount_paid === undefined || servicePrice <= 0 || amountReceived <= 0 || amountReceived > servicePrice) {
+        return NextResponse.json(
+          { error: 'Para marcar un pago aprobado, indica el precio del servicio y el monto efectivamente recibido (mayor que cero y no superior al precio).' },
+          { status: 400 }
+        )
+      }
+      if (!(await isPaymentLedgerAvailable())) {
+        return NextResponse.json({ error: 'El libro de pagos no está disponible; no se creó la reserva con cobro.' }, { status: 503 })
+      }
+    }
+    if (!skip_customer_record && payment_status !== 'approved' && amountReceived > 0) {
+      return NextResponse.json({ error: 'Si ya se recibió dinero, registra el monto y marca el pago como aprobado.' }, { status: 400 })
+    }
+
     // Obtener capacidad de flota (vehículos activos, no total)
     const { data: configData, error: configError } = await supabaseAdmin
       .from('fleet_config')
@@ -511,16 +531,11 @@ export async function POST(request: NextRequest) {
         payment_type,
         payment_method: payment_method || null,
         payment_status: payment_status || 'pending',
-        total_price,
-        original_price,
-        amount_paid:
-          amount_paid !== undefined
-            ? Math.max(0, Math.round(Number(amount_paid) || 0))
-            : payment_status === 'approved'
-              ? payment_type === 'mitad'
-                ? Math.round(Number(original_price || total_price || 0) * 0.5)
-                : Math.round(Number(total_price || original_price || 0))
-              : 0,
+        total_price: servicePrice || null,
+        original_price: original_price || servicePrice || null,
+        adjusted_price: original_price && servicePrice && Number(original_price) !== servicePrice ? servicePrice : null,
+        amount_paid: amountReceived,
+        payment_date: payment_status === 'approved' ? new Date().toISOString() : null,
         origin_address,
         destination_address,
         notes,
@@ -545,6 +560,22 @@ export async function POST(request: NextRequest) {
         )
       }
       return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
+    }
+
+    let paymentLedgerRecorded: boolean | null = null
+    if (!skip_customer_record && booking.payment_status === 'approved' && amountReceived > 0) {
+      const ledger = await recordPayment({
+        bookingId: booking.id,
+        quoteId: booking.quote_id,
+        flowToken: null,
+        amount: amountReceived,
+        kind: 'manual',
+        paidAt: booking.payment_date,
+      })
+      if (!ledger.recorded) {
+        console.error('[API] Reserva creada con cobro, pero falta su movimiento en booking_payments:', booking.id)
+      }
+      paymentLedgerRecorded = ledger.recorded
     }
 
     if (customerRecordId) {
@@ -608,6 +639,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         booking,
+        paymentLedgerRecorded,
         message: 'Reserva creada exitosamente',
       },
       { status: 201 }

@@ -1134,10 +1134,8 @@ export default function BookingsManagement({
         payment_status: method === 'flow' ? 'pending' : (newBooking.payment_paid ? 'approved' : 'pending'),
         total_price: newBooking.total_price ? Number(newBooking.total_price) : null,
         original_price: newBooking.original_price ? Number(newBooking.original_price) : null,
-        // Lo que el cliente ya pagó al crear la reserva. Sin esto el backend lo DEDUCE
-        // del tipo de pago (mitad = 50%, completo = 100%), que es justo lo que fallaba
-        // en las reservas custom: se cobraba un monto distinto y el sistema anotaba otro.
-        // Vacío = se deja deducir, como antes.
+        // El monto real es obligatorio cuando se marca «ya pagó»; el backend ya no
+        // inventa un cobro desde la modalidad mitad/completo.
         amount_paid:
           String(newBooking.amount_paid).trim() !== ''
             ? Math.max(0, Math.round(Number(newBooking.amount_paid) || 0))
@@ -1173,6 +1171,9 @@ export default function BookingsManagement({
 
       const created = await response.json().catch(() => ({}))
       const createdQuoteId: string = created?.booking?.quote_id || payload.quote_id
+      if (created.paymentLedgerRecorded === false) {
+        toast.error(`Reserva ${createdQuoteId} creada, pero el cobro no entró al libro de pagos. Revisa la reserva antes de registrar otro cobro.`)
+      }
 
       // Con link de pago: generamos la orden en Flow y mostramos el link para enviarlo.
       // IMPORTANTE: a Flow se le pasa el quote_id (no el id), porque el webhook de
@@ -1216,7 +1217,7 @@ export default function BookingsManagement({
         }
       } else {
         const label = method === 'transfer' ? 'transferencia' : 'efectivo'
-        toast.success(
+        if (created.paymentLedgerRecorded !== false) toast.success(
           newBooking.payment_paid
             ? `Reserva creada y marcada como pagada (${label})`
             : `Reserva creada, pago pendiente por ${label}`
@@ -2358,7 +2359,7 @@ export default function BookingsManagement({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Monto ya pagado{' '}
-                <span className="font-normal text-gray-500">(opcional)</span>
+                <span className="font-normal text-gray-500">{newBooking.payment_paid ? '(obligatorio si ya pagó)' : '(dejar vacío si no pagó)'}</span>
               </label>
               <Input
                 type="number"
